@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "feathers-scaffold",
+  "productName": "Feathers",
   "version": "0.1.0",
   "identifier": "dev.feathers.app",
   "build": {
@@ -12,9 +12,19 @@
   "app": {
     "windows": [
       {
-        "title": "feathers-scaffold",
-        "width": 800,
-        "height": 600
+        "title": "Feathers",
+        "label": "main",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 560,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "fullscreen": false,
+        "resizable": true,
+        "transparent": false,
+        "trafficLightPosition": { "x": 16, "y": 18 }
       }
     ],
     "security": {
