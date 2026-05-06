@@ -1,0 +1,12 @@
+:root, [data-theme="dark"] {
+  --bg:            #0e0f10;
+  --bg-elev-1:     #161819;
+  --bg-elev-2:     #1d1f22;
+  --border:        #26292d;
+  --border-strong: #34383d;
+  --fg:            #e6e7e9;
+  --fg-muted:      #9aa0a6;
+  --fg-subtle:     #6b7178;
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.4);
+}

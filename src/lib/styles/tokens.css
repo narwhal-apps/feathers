@@ -1,0 +1,44 @@
+:root {
+  /* ── color: accent (teal) ─────────────────────────────── */
+  --accent-50:  #effdfb;
+  --accent-100: #c8f7ef;
+  --accent-300: #5eead4;
+  --accent-500: #14b8a6;
+  --accent-600: #0d9488;
+  --accent-700: #0f766e;
+
+  /* ── color: diff ──────────────────────────────────────── */
+  --added:      #5eead4;
+  --removed:    #f87171;
+  --added-bg:   rgba(94, 234, 212, 0.08);
+  --removed-bg: rgba(248, 113, 113, 0.08);
+
+  /* ── type ─────────────────────────────────────────────── */
+  --font-sans: "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --fs-xs:  11px;
+  --fs-sm:  12px;
+  --fs-md:  13px;
+  --fs-lg:  15px;
+  --fs-xl:  18px;
+  --lh-tight: 1.35;
+  --lh-body:  1.55;
+
+  /* ── space (4px grid) ─────────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ── radius ───────────────────────────────────────────── */
+  --r-sm:  4px;
+  --r-md:  6px;
+  --r-lg: 10px;
+
+  /* ── motion ───────────────────────────────────────────── */
+  --t-fast: 80ms ease;
+  --t-med: 160ms ease;
+}
