@@ -7,12 +7,12 @@
   <section class="section">
     <header class="section-header">
       <span>Repos</span>
-      <Button label="Open" variant="ghost" size="sm" />
+      <Button label="Open" variant="ghost" size="sm" disabled />
     </header>
     <div class="empty">
       <Icon name="FolderOpen" size={18} />
       <p>No repositories yet</p>
-      <p class="hint">Open or clone one to get started.</p>
+      <p class="hint">Repository opening lands in milestone 2.</p>
     </div>
   </section>
 
