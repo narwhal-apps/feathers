@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+#[allow(dead_code)] // variants used by later milestones (M2+)
 #[derive(thiserror::Error, Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AppError {
@@ -36,6 +37,8 @@ pub enum AppError {
 
 impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
-        Self::Io { message: e.to_string() }
+        Self::Io {
+            message: e.to_string(),
+        }
     }
 }
