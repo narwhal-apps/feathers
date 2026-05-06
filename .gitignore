@@ -11,10 +11,18 @@ Thumbs.db
 *.swp
 *.swo
 
-# Tauri / Rust (will be needed once scaffolded)
+# Tauri / Rust
 src-tauri/target/
 
-# Node / Vite (will be needed once scaffolded)
+# Node / Vite
 node_modules/
 dist/
 .vite/
+/build
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
