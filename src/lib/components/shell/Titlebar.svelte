@@ -1,28 +1,31 @@
 <script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
   import Pill from '$lib/components/primitives/Pill.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import { repos } from '$lib/stores/repos.svelte';
+  import { createQuery } from '$lib/query/createQuery.svelte';
+  import { queryKeys } from '$lib/query/keys';
+  import type { BranchInfo } from '$lib/types';
 
-  let {
-    repoName = null,
-    branch = null,
-    ahead = 0,
-    behind = 0,
-  }: {
-    repoName?: string | null;
-    branch?: string | null;
-    ahead?: number;
-    behind?: number;
-  } = $props();
+  const active = $derived(repos.activeRepo);
+
+  const branches = createQuery<BranchInfo[] | null>(
+    () => active ? queryKeys.repoBranches(active.id) : ['noop'],
+    () => active ? invoke<BranchInfo[]>('branch_list', { id: active.id }) : Promise.resolve(null),
+  );
+
+  const headBranch = $derived(branches.data?.find((b) => b.is_head) ?? null);
+  const ahead = $derived(headBranch?.ahead ?? 0);
+  const behind = $derived(headBranch?.behind ?? 0);
 </script>
 
 <header class="titlebar" data-tauri-drag-region>
-  <!-- 80px reserved for the macOS traffic lights (inset) -->
   <div class="lights-spacer" data-tauri-drag-region></div>
 
-  {#if repoName}
-    <span class="repo" data-tauri-drag-region>{repoName}</span>
+  {#if active}
+    <span class="repo" data-tauri-drag-region>{active.name}</span>
     <span class="sep" data-tauri-drag-region>/</span>
-    {#if branch}<Pill label={branch} tone="accent" />{/if}
+    {#if headBranch}<Pill label={headBranch.name} tone="accent" />{/if}
     {#if ahead > 0 || behind > 0}
       <span class="counts" data-tauri-drag-region>↓ {behind}  ↑ {ahead}</span>
     {/if}
@@ -33,8 +36,8 @@
   <div class="spacer" data-tauri-drag-region></div>
 
   <div class="actions">
-    <Button label="Fetch" variant="ghost" size="sm" disabled={!repoName} />
-    <Button label="Push"  variant="primary" size="sm" disabled={!repoName} />
+    <Button label="Fetch" variant="ghost" size="sm" disabled />
+    <Button label="Push"  variant="primary" size="sm" disabled />
   </div>
 </header>
 
