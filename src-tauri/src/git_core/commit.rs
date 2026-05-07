@@ -108,3 +108,18 @@ pub fn create(repo: &Repository, message: &str, opts: CommitOpts) -> Result<Stri
     let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_refs)?;
     Ok(oid.to_string())
 }
+
+/// Undo the most recent commit by soft-resetting HEAD to its first parent.
+/// The tree and index keep the committed contents, so the changes reappear
+/// as staged work the user can re-commit.
+pub fn undo_last(repo: &Repository) -> Result<(), AppError> {
+    let head_commit = repo.head()?.peel_to_commit()?;
+    if head_commit.parent_count() == 0 {
+        return Err(AppError::Git {
+            message: "cannot undo: this is the first commit on the branch".into(),
+        });
+    }
+    let parent = head_commit.parent(0)?;
+    repo.reset(parent.as_object(), git2::ResetType::Soft, None)?;
+    Ok(())
+}

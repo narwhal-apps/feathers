@@ -3,6 +3,7 @@ use crate::git_core::types::StatusSnapshot;
 use crate::git_core::{self, repo as gc_repo};
 use crate::persistence::store::{AppConfig, ConfigStore};
 use crate::repo_registry::{RepoId, RepoRegistry, RepoSummary};
+use crate::watcher::WatcherRegistry;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -29,6 +30,7 @@ fn persist(registry: &RepoRegistry, store: &dyn ConfigStore) {
 pub async fn repo_open(
     path: String,
     registry: State<'_, RepoRegistry>,
+    watchers: State<'_, Arc<WatcherRegistry>>,
     store: State<'_, Arc<dyn ConfigStore>>,
 ) -> Result<RepoOpenResult, AppError> {
     let id = registry.add(PathBuf::from(path))?;
@@ -42,6 +44,9 @@ pub async fn repo_open(
         .into_iter()
         .find(|s| s.id == id)
         .ok_or(AppError::RepoNotFound { id: id.clone() })?;
+    if let Err(e) = watchers.watch(id.clone(), handle.path.clone()) {
+        tracing::warn!("watcher start failed for {id}: {e:?}");
+    }
     persist(&registry, store.inner().as_ref());
     Ok(RepoOpenResult { id, summary, head })
 }
@@ -50,8 +55,10 @@ pub async fn repo_open(
 pub async fn repo_close(
     id: String,
     registry: State<'_, RepoRegistry>,
+    watchers: State<'_, Arc<WatcherRegistry>>,
     store: State<'_, Arc<dyn ConfigStore>>,
 ) -> Result<(), AppError> {
+    watchers.unwatch(&id);
     registry.remove(&id)?;
     persist(&registry, store.inner().as_ref());
     Ok(())

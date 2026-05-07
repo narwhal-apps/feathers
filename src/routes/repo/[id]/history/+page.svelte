@@ -4,7 +4,8 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
-  import type { CommitPage, DiffPayload } from '$lib/types';
+  import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
+  import type { CommitPage, DiffFile, DiffPayload } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
 
@@ -22,6 +23,19 @@
         ? Promise.resolve({ files: [] })
         : invoke<DiffPayload>('diff_commit', { id, oid: selectedOid }),
   );
+
+  const remoteUrl = createQuery<string | null>(
+    () => queryKeys.repoRemoteUrl(id),
+    () => invoke<string | null>('repo_remote_url', { id }),
+  );
+  const webBase = $derived(gitUrlToWebUrl(remoteUrl.data ?? null));
+
+  function fileHref(file: DiffFile): string | null {
+    if (!webBase || !selectedOid) return null;
+    // Files deleted in this commit no longer exist at this sha.
+    if (file.status === 'deleted') return null;
+    return fileUrlOnRemote(webBase, selectedOid, file.path);
+  }
 
   function relTime(secs: number): string {
     const ms = Date.now() - secs * 1000;
@@ -73,7 +87,7 @@
     {:else if diff.error}
       <div class="err">{String(diff.error)}</div>
     {:else}
-      <DiffView payload={diff.data ?? null} />
+      <DiffView payload={diff.data ?? null} {fileHref} />
     {/if}
   </section>
 </div>
@@ -82,19 +96,16 @@
   .layout {
     display: grid;
     grid-template-columns: 360px 1fr;
-    align-items: start;
+    height: 100%;
+    min-height: 0;
   }
   .commits {
-    position: sticky;
-    top: 33px;
-    align-self: start;
     width: 360px;
-    height: calc(100vh - 56px - 33px);
+    height: 100%;
     border-right: 1px solid var(--border);
     overflow-y: auto;
     padding: var(--sp-2) 0;
     background: var(--bg-elev-1);
-    z-index: 1;
   }
   .commits ul { list-style: none; margin: 0; padding: 0; }
   .commits li { padding: 0; border-bottom: 1px solid var(--border); }
@@ -113,7 +124,7 @@
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row2 { display: flex; gap: var(--sp-2); padding-left: 16px; color: var(--fg-subtle); font-size: var(--fs-xs); }
   .sha { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  .diff { padding: var(--sp-3); min-width: 0; }
+  .diff { padding: var(--sp-3); min-width: 0; height: 100%; overflow-y: auto; }
   .hint { color: var(--fg-subtle); padding: var(--sp-3); font-size: var(--fs-sm); }
   .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
 </style>

@@ -13,6 +13,9 @@ pub enum AppError {
     #[error("merge conflict in {} path(s)", paths.len())]
     MergeConflict { paths: Vec<String> },
 
+    #[error("branch {name} is not merged into HEAD")]
+    Unmerged { name: String },
+
     #[error("authentication failed: {message}")]
     Auth { message: String },
 

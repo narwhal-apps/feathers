@@ -1,6 +1,10 @@
 <script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
   import { page } from '$app/stores';
   import { repos } from '$lib/stores/repos.svelte';
+  import { createQuery } from '$lib/query/createQuery.svelte';
+  import { queryKeys } from '$lib/query/keys';
+  import type { StatusSnapshot } from '$lib/types';
 
   let { children } = $props();
 
@@ -9,22 +13,45 @@
     repos.activeRepoId = $page.params.id ?? null;
   });
 
-  const tabs = [
-    { href: 'changes', label: 'Changes' },
-    { href: 'history', label: 'History' },
-  ];
   const id = $derived($page.params.id ?? '');
   const active = $derived($page.url.pathname.split('/')[3] ?? 'changes');
+
+  const status = createQuery<StatusSnapshot | null>(
+    () => id ? queryKeys.repoStatus(id) : ['noop'],
+    () => id ? invoke<StatusSnapshot>('repo_status', { id }) : Promise.resolve(null),
+  );
+
+  const changesCount = $derived.by(() => {
+    const s = status.data;
+    return s ? s.staged.length + s.unstaged.length + s.untracked.length + s.conflicted.length : 0;
+  });
 </script>
 
 <nav class="tabs">
-  {#each tabs as tab}
-    <a
-      class="tab"
-      class:active={active === tab.href}
-      href={`/repo/${id}/${tab.href}/`}
-    >{tab.label}</a>
-  {/each}
+  <a
+    class="tab"
+    class:active={active === 'changes'}
+    href={`/repo/${id}/changes/`}
+  >
+    <span>Changes</span>
+    {#if changesCount > 0}
+      <span class="badge">{changesCount}</span>
+    {/if}
+  </a>
+  <a
+    class="tab"
+    class:active={active === 'history'}
+    href={`/repo/${id}/history/`}
+  >
+    <span>History</span>
+  </a>
+  <a
+    class="tab"
+    class:active={active === 'pull-requests'}
+    href={`/repo/${id}/pull-requests/`}
+  >
+    <span>Pull Requests</span>
+  </a>
 </nav>
 
 <div class="content">
@@ -33,9 +60,7 @@
 
 <style>
   .tabs {
-    position: sticky;
-    top: 0;
-    z-index: 5;
+    flex-shrink: 0;
     display: flex;
     gap: var(--sp-1);
     padding: 0 var(--sp-3);
@@ -43,6 +68,9 @@
     background: var(--bg-elev-1);
   }
   .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     padding: var(--sp-2) var(--sp-3);
     color: var(--fg-muted);
     border-bottom: 2px solid transparent;
@@ -52,6 +80,21 @@
   }
   .tab:hover { color: var(--fg); }
   .tab.active { color: var(--accent-fg); border-bottom-color: var(--accent-500); }
-  /* No height/overflow — content flows; the parent <main class="page">
-     in routes/+layout.svelte owns the scroll. */
+  .badge {
+    background: var(--accent-bg-medium);
+    color: var(--accent-fg);
+    border-radius: var(--r-pill);
+    padding: 1px 8px;
+    font-size: var(--fs-2xs);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--weight-semibold);
+    line-height: 16px;
+  }
+  .content {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
+  }
 </style>

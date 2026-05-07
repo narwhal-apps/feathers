@@ -3,9 +3,11 @@ pub mod error;
 pub mod git_core;
 pub mod persistence;
 pub mod repo_registry;
+pub mod watcher;
 
 use crate::persistence::store::{ConfigStore, FileStore};
 use crate::repo_registry::RepoRegistry;
+use crate::watcher::WatcherRegistry;
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -25,6 +27,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             let registry = RepoRegistry::new();
+            let watchers = Arc::new(WatcherRegistry::new(app.handle().clone()));
 
             // Restore known repos from our JSON sidecar.
             let cfg_path = app
@@ -37,8 +40,17 @@ pub fn run() {
             match store.load() {
                 Ok(cfg) => {
                     for path in &cfg.known_repos {
-                        if let Err(e) = registry.add(std::path::PathBuf::from(path)) {
-                            tracing::warn!("failed to restore repo {path}: {e:?}");
+                        match registry.add(std::path::PathBuf::from(path)) {
+                            Ok(id) => {
+                                if let Ok(h) = registry.get(&id) {
+                                    if let Err(e) = watchers.watch(id, h.path.clone()) {
+                                        tracing::warn!(
+                                            "failed to watch restored repo {path}: {e:?}"
+                                        );
+                                    }
+                                }
+                            }
+                            Err(e) => tracing::warn!("failed to restore repo {path}: {e:?}"),
                         }
                     }
                 }
@@ -48,6 +60,7 @@ pub fn run() {
             }
 
             app.manage(registry);
+            app.manage(watchers);
             app.manage(store);
             Ok(())
         })
@@ -59,13 +72,23 @@ pub fn run() {
             commands::repo::repo_status,
             commands::branch::branch_list,
             commands::branch::branch_checkout,
+            commands::branch::branch_create,
+            commands::branch::branch_delete,
+            commands::branch::branch_rename,
             commands::commit::commit_log,
             commands::commit::commit_create,
+            commands::commit::commit_undo,
             commands::diff::diff_workdir,
             commands::diff::diff_index,
             commands::diff::diff_commit,
             commands::stage::stage_files,
             commands::stage::unstage_files,
+            commands::discard::discard_files,
+            commands::remote::repo_remote_url,
+            commands::remote::repo_fetch,
+            commands::remote::repo_push,
+            commands::remote::repo_publish,
+            commands::remote::repo_pull,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

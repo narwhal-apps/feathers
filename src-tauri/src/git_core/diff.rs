@@ -3,6 +3,10 @@ use crate::git_core::types::{DiffFile, DiffHunk, DiffLine, DiffLineKind, DiffPay
 use git2::{Diff, DiffOptions, Oid, Repository};
 use std::cell::RefCell;
 
+/// Combined working-tree diff: HEAD → workdir, considering the index. This
+/// shows ALL changes for a file regardless of whether they're staged, so the
+/// preview pane is the same for staged, unstaged, and partially-staged files.
+/// Untracked files (with content) and missing-in-workdir files are included.
 pub fn diff_workdir(
     repo: &Repository,
     paths: Option<Vec<String>>,
@@ -13,7 +17,8 @@ pub fn diff_workdir(
             opts.pathspec(p);
         }
     }
-    let diff = repo.diff_index_to_workdir(None, Some(&mut opts))?;
+    let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
+    let diff = repo.diff_tree_to_workdir_with_index(head_tree.as_ref(), Some(&mut opts))?;
     serialize(&diff)
 }
 
@@ -48,7 +53,9 @@ fn base_opts() -> DiffOptions {
     o.context_lines(3)
         .interhunk_lines(0)
         .ignore_submodules(true)
-        .include_untracked(false)
+        .include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .show_untracked_content(true)
         .show_binary(false);
     o
 }
@@ -80,11 +87,12 @@ fn serialize(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
             // Only emit old_path when it actually differs (rename).
             let old_path = old_path_raw.filter(|op| op != &new_path);
             let status = match delta.status() {
-                git2::Delta::Added => FileStatus::Added,
+                git2::Delta::Added | git2::Delta::Untracked => FileStatus::Added,
                 git2::Delta::Deleted => FileStatus::Deleted,
                 git2::Delta::Modified => FileStatus::Modified,
-                git2::Delta::Renamed => FileStatus::Renamed,
+                git2::Delta::Renamed | git2::Delta::Copied => FileStatus::Renamed,
                 git2::Delta::Typechange => FileStatus::Typechange,
+                git2::Delta::Conflicted => FileStatus::Conflicted,
                 _ => FileStatus::Modified,
             };
             *current_file.borrow_mut() = Some(DiffFile {

@@ -1,21 +1,29 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
+
   type Variant = 'primary' | 'ghost' | 'danger';
   type Size = 'sm' | 'md';
 
   let {
     label,
+    icon,
+    badge,
     variant = 'primary',
     size = 'md',
     disabled = false,
     onclick,
     type = 'button',
+    title,
   }: {
     label: string;
+    icon?: string;
+    badge?: string | number;
     variant?: Variant;
     size?: Size;
     disabled?: boolean;
     onclick?: (e: MouseEvent) => void;
     type?: 'button' | 'submit';
+    title?: string;
   } = $props();
 </script>
 
@@ -24,8 +32,15 @@
   {disabled}
   {type}
   {onclick}
+  {title}
 >
+  {#if icon}
+    <Icon name={icon} size={size === 'sm' ? 12 : 14} />
+  {/if}
   {label}
+  {#if badge != null && badge !== ''}
+    <span class="badge">{badge}</span>
+  {/if}
 </button>
 
 <style>
@@ -83,4 +98,25 @@
   }
   .btn-danger:not(:disabled):hover  { background: #fca5a5; }
   .btn-danger:not(:disabled):active { background: #ef4444; }
+
+  /* Inline count chip after the label. Tints itself against the parent
+     variant via currentColor so it works on both ghost and primary. */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    font-weight: var(--weight-bold);
+    line-height: 1;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+    color: inherit;
+    margin-left: 2px;
+  }
+  .btn-primary .badge {
+    background: color-mix(in srgb, var(--accent-on) 22%, transparent);
+  }
 </style>

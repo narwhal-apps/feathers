@@ -7,22 +7,18 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
-  import type { StatusSnapshot, DiffPayload, FileChange, FileStatus, AppError } from '$lib/types';
-
-  function shortStatus(s: FileStatus): string {
-    switch (s) {
-      case 'added': return 'A';
-      case 'modified': return 'M';
-      case 'deleted': return 'D';
-      case 'renamed': return 'R';
-      case 'typechange': return 'T';
-      case 'untracked': return 'U';
-      case 'conflicted': return 'C';
-    }
-  }
-  function isEmpty(s: StatusSnapshot): boolean {
-    return s.staged.length + s.unstaged.length + s.untracked.length + s.conflicted.length === 0;
-  }
+  import FileIcon from '$lib/components/file/FileIcon.svelte';
+  import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
+  import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
+  import type {
+    StatusSnapshot,
+    DiffPayload,
+    DiffFile,
+    FileStatus,
+    BranchInfo,
+    AppError,
+  } from '$lib/types';
+  import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
 
   const id = $derived($page.params.id ?? '');
 
@@ -31,27 +27,41 @@
     () => invoke<StatusSnapshot>('repo_status', { id }),
   );
 
+  // Branch + remote URL for the per-file "open on remote" link.
+  const branches = createQuery<BranchInfo[] | null>(
+    () => queryKeys.repoBranches(id),
+    () => invoke<BranchInfo[]>('branch_list', { id }),
+  );
+  const remoteUrl = createQuery<string | null>(
+    () => queryKeys.repoRemoteUrl(id),
+    () => invoke<string | null>('repo_remote_url', { id }),
+  );
+  const headBranch = $derived(branches.data?.find((b) => b.is_head) ?? null);
+  const webBase = $derived(gitUrlToWebUrl(remoteUrl.data ?? null));
+
+  function fileHref(file: DiffFile): string | null {
+    if (!webBase || !headBranch) return null;
+    // Files that don't exist on the remote at this branch:
+    if (file.status === 'added' || file.status === 'untracked') return null;
+    return fileUrlOnRemote(webBase, headBranch.name, file.path);
+  }
+
   let selected = $state<string | null>(null);
   let busy = $state(false);
+  let committing = $state(false);
   let message = $state('');
+  let commitsModalOpen = $state(false);
 
   const diff = createQuery<DiffPayload>(
-    () => selected != null && isStaged(selected)
-      ? queryKeys.repoDiffIndex(id, selected)
-      : queryKeys.repoDiffWorkdir(id, selected),
+    () => queryKeys.repoDiffWorkdir(id, selected ?? ''),
     () => {
       if (selected == null) return Promise.resolve({ files: [] });
-      const cmd = isStaged(selected) ? 'diff_index' : 'diff_workdir';
-      return invoke<DiffPayload>(cmd, { id, paths: [selected] });
+      return invoke<DiffPayload>('diff_workdir', { id, paths: [selected] });
     },
   );
 
   function isStaged(path: string): boolean {
     return status.data?.staged.some((f) => f.path === path) ?? false;
-  }
-
-  function pick(f: FileChange) {
-    selected = f.path;
   }
 
   async function refresh() {
@@ -87,170 +97,241 @@
       await refresh();
     });
   }
+  async function discardPaths(paths: string[], label: string) {
+    if (paths.length === 0) return;
+    const ok = confirm(
+      `Discard changes to ${label}? This cannot be undone.\n\n` +
+        paths.slice(0, 8).join('\n') +
+        (paths.length > 8 ? `\n…and ${paths.length - 8} more` : ''),
+    );
+    if (!ok) return;
+    await withBusy(async () => {
+      await invoke('discard_files', { id, paths });
+      if (paths.includes(selected ?? '')) selected = null;
+      await refresh();
+    });
+  }
 
   async function commit() {
     if (!message.trim()) return;
     if ((status.data?.staged.length ?? 0) === 0) return;
-    await withBusy(async () => {
-      await invoke('commit_create', { id, message: message.trim() });
-      message = '';
-      // Status, log, branches all change after a commit.
-      queryClient.invalidate(['repo', id]);
-    });
+    committing = true;
+    try {
+      await withBusy(async () => {
+        await invoke('commit_create', { id, message: message.trim() });
+        message = '';
+        queryClient.invalidate(['repo', id]);
+      });
+    } finally {
+      committing = false;
+    }
   }
 
+  // ---- Unified file list -----------------------------------------------
+
+  type ChangeRow = {
+    path: string;
+    status: FileStatus;
+    staged: boolean;
+  };
+
+  const allChanges = $derived.by((): ChangeRow[] => {
+    const s = status.data;
+    if (!s) return [];
+    const seen = new Set<string>();
+    const rows: ChangeRow[] = [];
+    for (const f of s.staged) {
+      seen.add(f.path);
+      rows.push({ path: f.path, status: f.status, staged: true });
+    }
+    for (const f of s.unstaged) {
+      if (seen.has(f.path)) continue;
+      seen.add(f.path);
+      rows.push({ path: f.path, status: f.status, staged: false });
+    }
+    for (const f of s.untracked) {
+      if (seen.has(f.path)) continue;
+      seen.add(f.path);
+      rows.push({ path: f.path, status: 'untracked', staged: false });
+    }
+    for (const f of s.conflicted) {
+      if (seen.has(f.path)) continue;
+      seen.add(f.path);
+      rows.push({ path: f.path, status: 'conflicted', staged: false });
+    }
+    rows.sort((a, b) => a.path.localeCompare(b.path));
+    return rows;
+  });
+
   const stagedCount = $derived(status.data?.staged.length ?? 0);
-  const unstagedCount = $derived((status.data?.unstaged.length ?? 0) + (status.data?.untracked.length ?? 0));
+  const allStaged = $derived(
+    allChanges.length > 0 && allChanges.every((r) => r.staged),
+  );
+  const someStaged = $derived(allChanges.some((r) => r.staged) && !allStaged);
+
+  // The header "select-all" checkbox needs the indeterminate property
+  // (only settable on the DOM node, not via an HTML attribute).
+  let selectAllEl = $state<HTMLInputElement | null>(null);
+  $effect(() => {
+    if (selectAllEl) selectAllEl.indeterminate = someStaged;
+  });
+
+  async function toggleStage(row: ChangeRow) {
+    if (row.staged) await unstagePaths([row.path]);
+    else await stagePaths([row.path]);
+  }
+  async function toggleAll() {
+    // Indeterminate (some staged) and fully checked both unstage everything,
+    // matching the convention that clicking the box only "checks all" when
+    // it starts empty.
+    const anyStaged = allChanges.some((r) => r.staged);
+    if (anyStaged)
+      await unstagePaths(allChanges.filter((r) => r.staged).map((r) => r.path));
+    else await stagePaths(allChanges.map((r) => r.path));
+  }
+  async function discardAll() {
+    await discardPaths(
+      allChanges.map((r) => r.path),
+      `${allChanges.length} file${allChanges.length === 1 ? '' : 's'}`,
+    );
+  }
+
+  // ---- Path / icon helpers ---------------------------------------------
+
+  function splitPath(p: string): { name: string; dir: string } {
+    const lastSlash = p.lastIndexOf('/');
+    return lastSlash < 0
+      ? { name: p, dir: '' }
+      : { name: p.slice(lastSlash + 1), dir: p.slice(0, lastSlash) };
+  }
+
+  type StatusTone = 'add' | 'mod' | 'del' | 'ren' | 'conflict';
+  function statusMeta(status: FileStatus): {
+    icon: string;
+    label: string;
+    tone: StatusTone;
+  } {
+    switch (status) {
+      case 'added':
+        return { icon: 'SquarePlus', label: 'Added', tone: 'add' };
+      case 'untracked':
+        return { icon: 'SquarePlus', label: 'New file', tone: 'add' };
+      case 'deleted':
+        return { icon: 'SquareMinus', label: 'Deleted', tone: 'del' };
+      case 'renamed':
+        return { icon: 'SquareArrowRight', label: 'Renamed', tone: 'ren' };
+      case 'modified':
+        return { icon: 'SquareDot', label: 'Modified', tone: 'mod' };
+      case 'typechange':
+        return { icon: 'RefreshCw', label: 'Type changed', tone: 'mod' };
+      case 'conflicted':
+        return { icon: 'AlertTriangle', label: 'Conflicted', tone: 'conflict' };
+    }
+  }
 </script>
 
 <div class="layout">
   <aside class="files">
     <div class="files-scroll">
-      {#if status.loading}
-        <p class="hint">Loading…</p>
-      {:else if status.error}
-        <p class="err">Failed: {String(status.error)}</p>
-      {:else if status.data}
-        {#if status.data.staged.length > 0}
-          <section class="group">
-            <header class="group-header">
-              <span class="group-label">Staged</span>
-              <span class="group-count">{status.data.staged.length}</span>
-              <button
-                class="bulk"
-                onclick={() => unstagePaths(status.data!.staged.map((f) => f.path))}
-                disabled={busy}
-                title="Unstage all"
-              >Unstage all</button>
-            </header>
-            <ul>
-              {#each status.data.staged as f}
-                <li class:selected={selected === f.path}>
-                  <button class="row" onclick={() => pick(f)}>
-                    <span class="status status-{f.status}">{shortStatus(f.status)}</span>
-                    <span class="path">{f.path}</span>
-                  </button>
-                  <button
-                    class="action"
-                    title="Unstage"
-                    onclick={() => unstagePaths([f.path])}
-                    disabled={busy}
-                  >
-                    <Icon name="Minus" size={12} />
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
-        {#if status.data.unstaged.length > 0}
-          <section class="group">
-            <header class="group-header">
-              <span class="group-label">Unstaged</span>
-              <span class="group-count">{status.data.unstaged.length}</span>
-              <button
-                class="bulk"
-                onclick={() => stagePaths(status.data!.unstaged.map((f) => f.path))}
-                disabled={busy}
-                title="Stage all"
-              >Stage all</button>
-            </header>
-            <ul>
-              {#each status.data.unstaged as f}
-                <li class:selected={selected === f.path}>
-                  <button class="row" onclick={() => pick(f)}>
-                    <span class="status status-{f.status}">{shortStatus(f.status)}</span>
-                    <span class="path">{f.path}</span>
-                  </button>
-                  <button
-                    class="action"
-                    title="Stage"
-                    onclick={() => stagePaths([f.path])}
-                    disabled={busy}
-                  >
-                    <Icon name="Plus" size={12} />
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
-        {#if status.data.untracked.length > 0}
-          <section class="group">
-            <header class="group-header">
-              <span class="group-label">Untracked</span>
-              <span class="group-count">{status.data.untracked.length}</span>
-              <button
-                class="bulk"
-                onclick={() => stagePaths(status.data!.untracked.map((f) => f.path))}
-                disabled={busy}
-                title="Stage all"
-              >Stage all</button>
-            </header>
-            <ul>
-              {#each status.data.untracked as f}
-                <li class:selected={selected === f.path}>
-                  <button class="row" onclick={() => pick(f)}>
-                    <span class="status status-untracked">U</span>
-                    <span class="path">{f.path}</span>
-                  </button>
-                  <button
-                    class="action"
-                    title="Stage"
-                    onclick={() => stagePaths([f.path])}
-                    disabled={busy}
-                  >
-                    <Icon name="Plus" size={12} />
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
-        {#if status.data.conflicted.length > 0}
-          <section class="group">
-            <header class="group-header">
-              <span class="group-label">Conflicted</span>
-              <span class="group-count">{status.data.conflicted.length}</span>
-            </header>
-            <ul>
-              {#each status.data.conflicted as f}
-                <li class:selected={selected === f.path}>
-                  <button class="row" onclick={() => pick(f)}>
-                    <span class="status status-conflicted">C</span>
-                    <span class="path">{f.path}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
-        {#if isEmpty(status.data)}
+      {#if status.data}
+        {#if allChanges.length === 0}
           <div class="empty-state">
             <Icon name="Sparkles" size={20} />
             <p>Working tree is clean.</p>
           </div>
+        {:else}
+          <header class="group-header">
+            <input
+              type="checkbox"
+              class="check check-all"
+              bind:this={selectAllEl}
+              checked={allStaged}
+              onclick={(e) => {
+                e.preventDefault();
+                toggleAll();
+              }}
+              aria-label={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
+              title={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
+            />
+            <span class="group-label">Changed files</span>
+            <span class="group-count">{allChanges.length}</span>
+            <button
+              class="bulk danger"
+              onclick={discardAll}
+              disabled={busy}
+              title="Discard all changes">Discard all</button
+            >
+          </header>
+          <ul>
+            {#each allChanges as row}
+              {@const meta = statusMeta(row.status)}
+              {@const parts = splitPath(row.path)}
+              <li class:selected={selected === row.path}>
+                <input
+                  type="checkbox"
+                  class="check"
+                  checked={row.staged}
+                  onclick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleStage(row);
+                  }}
+                  disabled={row.status === 'conflicted'}
+                  aria-label="{row.staged ? 'Unstage' : 'Stage'} {row.path}"
+                />
+                <button class="row" onclick={() => (selected = row.path)}>
+                  <FileIcon fileName={parts.name} size={14} />
+                  <span class="name">
+                    <span class="basename">{parts.name}</span>
+                    {#if parts.dir}
+                      <span class="dir">{parts.dir}</span>
+                    {/if}
+                  </span>
+                </button>
+                <button
+                  class="action danger"
+                  title="Discard"
+                  aria-label="Discard {row.path}"
+                  onclick={() => discardPaths([row.path], row.path)}
+                  disabled={busy}
+                >
+                  <Icon name="Undo2" size={12} />
+                </button>
+                <span
+                  class="status-pill tone-{meta.tone}"
+                  title={meta.label}
+                  aria-label={meta.label}
+                >
+                  <Icon name={meta.icon} size={14} />
+                </span>
+              </li>
+            {/each}
+          </ul>
         {/if}
+      {:else if status.error}
+        <p class="err">Failed: {String(status.error)}</p>
+      {:else if status.loading}
+        <p class="hint">Loading…</p>
       {/if}
     </div>
 
     <footer class="composer">
+      <RecentCommitsStack {id} onOpen={() => (commitsModalOpen = true)} />
+
       <textarea
         class="message"
         placeholder={stagedCount > 0
           ? `Commit ${stagedCount} staged file${stagedCount === 1 ? '' : 's'}…`
-          : unstagedCount > 0
+          : allChanges.length > 0
             ? 'Stage files first to commit.'
             : 'Nothing to commit.'}
         bind:value={message}
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
         rows="3"
-        disabled={busy}
+        disabled={committing}
         onkeydown={(e) => {
-          // ⌘/Ctrl + Enter commits
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault();
             commit();
@@ -268,10 +349,10 @@
           {/if}
         </span>
         <Button
-          label={busy ? 'Committing…' : 'Commit'}
+          label={committing ? 'Committing…' : 'Commit'}
           variant="primary"
           size="sm"
-          disabled={busy || stagedCount === 0 || !message.trim()}
+          disabled={committing || stagedCount === 0 || !message.trim()}
           onclick={commit}
         />
       </div>
@@ -281,47 +362,52 @@
   <section class="diff">
     {#if selected == null}
       <div class="hint">Select a file to view its diff.</div>
-    {:else if diff.loading}
-      <div class="hint">Loading diff…</div>
+    {:else if diff.data}
+      <DiffView payload={diff.data} {fileHref} />
     {:else if diff.error}
       <div class="err">{String(diff.error)}</div>
-    {:else}
-      <DiffView payload={diff.data ?? null} />
+    {:else if diff.loading}
+      <div class="hint">Loading diff…</div>
     {/if}
   </section>
 </div>
 
+{#if commitsModalOpen}
+  <CommitsModal {id} onClose={() => (commitsModalOpen = false)} />
+{/if}
+
 <style>
-  /* Grid: 340px sticky file pane + flexible diff pane.
-     The page (root <main class="page">) owns the vertical scroll;
-     no min-height here — the row sizes to its tallest item naturally. */
   .layout {
     display: grid;
     grid-template-columns: 340px 1fr;
-    align-items: start;
+    height: 100%;
+    min-height: 0;
   }
 
   .files {
-    position: sticky;
-    top: 33px;                                 /* below the sticky tabs */
-    align-self: start;
     width: 340px;
-    height: calc(100vh - 56px - 33px);          /* viewport - titlebar - tabs */
+    height: 100%;
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     background: var(--bg-elev-1);
-    z-index: 1;
+    min-height: 0;
   }
-  .files-scroll { flex: 1; overflow-y: auto; padding: var(--sp-2) 0; }
+  .files-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--sp-2) 0;
+  }
 
-  .group { padding: var(--sp-2) 0; }
   .group-header {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
-    padding: 0 var(--sp-3);
-    margin-bottom: var(--sp-1);
+    gap: 6px;
+    padding: 0 var(--sp-3) 0 10px;
+    margin-bottom: var(--sp-2);
+  }
+  .check-all {
+    margin-right: 2px;
   }
   .group-label {
     color: var(--fg-subtle);
@@ -337,70 +423,165 @@
     font-variant-numeric: tabular-nums;
   }
   .bulk {
-    margin-left: auto;
     color: var(--fg-subtle);
     font-size: var(--fs-2xs);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
     transition: color var(--t-fast);
   }
-  .bulk:hover:not(:disabled) { color: var(--accent-fg); }
-  .bulk:disabled { opacity: 0.5; cursor: not-allowed; }
+  .bulk:hover:not(:disabled) {
+    color: var(--accent-fg);
+  }
+  .bulk:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .bulk.danger {
+    margin-left: auto;
+  }
+  .bulk.danger:hover:not(:disabled) {
+    color: var(--removed);
+  }
 
-  .files ul { list-style: none; margin: 0; padding: 0; }
+  .files ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
   .files li {
     position: relative;
     display: flex;
-    align-items: stretch;
-    padding: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 0 var(--sp-3) 0 10px;
+    min-height: 28px;
   }
+  .files li:hover {
+    background: var(--bg-elev-2);
+  }
+  .files li.selected {
+    background: var(--accent-bg-medium);
+  }
+  .files li.selected .basename {
+    color: var(--accent-fg);
+  }
+
+  .check {
+    flex-shrink: 0;
+    margin: 0;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: var(--accent-500);
+  }
+  .check:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
   .files li button.row {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: 8px;
     text-align: left;
-    padding: 5px var(--sp-3);
+    padding: 4px 0;
     cursor: pointer;
-    font-size: var(--fs-xs);
-    font-family: var(--font-mono);
     color: inherit;
     overflow: hidden;
   }
-  .files li button.row:hover { background: var(--bg-elev-2); }
-  .files li.selected button.row { background: var(--accent-bg-medium); color: var(--accent-fg); }
-
-  .files li button.action {
-    flex-shrink: 0;
-    width: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .files li button.row :global(svg) {
     color: var(--fg-subtle);
-    opacity: 0;
-    transition: opacity var(--t-fast), color var(--t-fast), background var(--t-fast);
-  }
-  .files li:hover button.action { opacity: 1; }
-  .files li button.action:hover:not(:disabled) {
-    color: var(--accent-fg);
-    background: var(--accent-bg-medium);
-  }
-  .files li button.action:disabled { opacity: 0.5; }
-
-  .files .status {
-    width: 16px; text-align: center; color: var(--fg-subtle);
-    font-weight: 700;
     flex-shrink: 0;
   }
-  .files .status-added, .files .status-untracked { color: var(--added); }
-  .files .status-deleted { color: var(--removed); }
-  .files .status-modified { color: var(--accent-500); }
-  .files .status-conflicted { color: var(--removed); }
-  .files .path {
+  .files li.selected button.row :global(svg) {
+    color: var(--accent-fg);
+  }
+
+  .name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .basename {
     color: var(--fg);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 60%;
+  }
+  .dir {
+    color: var(--fg-subtle);
+    font-size: var(--fs-2xs);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl; /* truncate at the start, keep the leaf dir visible */
+    text-align: left;
+  }
+
+  .files li button.action {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-sm);
+    color: var(--fg-subtle);
+    background: transparent;
+    border: none;
+    opacity: 0;
+    transition:
+      opacity var(--t-fast),
+      color var(--t-fast),
+      background var(--t-fast);
+  }
+  .files li:hover button.action {
+    opacity: 1;
+  }
+  .files li button.action.danger:hover:not(:disabled) {
+    color: var(--removed);
+    background: color-mix(in srgb, var(--removed) 14%, transparent);
+  }
+  .files li button.action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .status-pill {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+  }
+  .status-pill :global(svg) {
+    display: block;
+  }
+  .tone-add :global(svg) {
+    color: var(--added);
+  }
+  .tone-del :global(svg) {
+    color: var(--removed);
+  }
+  .tone-mod :global(svg) {
+    color: #f59e0b;
+  }
+  .tone-ren :global(svg) {
+    color: var(--accent-500);
+  }
+  .tone-conflict :global(svg) {
+    color: var(--removed);
   }
 
   .empty-state {
@@ -412,7 +593,9 @@
     color: var(--fg-subtle);
     font-size: var(--fs-sm);
   }
-  .empty-state p { margin: 0; }
+  .empty-state p {
+    margin: 0;
+  }
 
   .composer {
     border-top: 1px solid var(--border);
@@ -438,9 +621,15 @@
     outline: none;
     transition: border-color var(--t-fast);
   }
-  .message::placeholder { color: var(--fg-subtle); }
-  .message:focus { border-color: var(--accent-500); }
-  .message:disabled { opacity: 0.6; }
+  .message::placeholder {
+    color: var(--fg-subtle);
+  }
+  .message:focus {
+    border-color: var(--accent-500);
+  }
+  .message:disabled {
+    opacity: 0.6;
+  }
 
   .commit-row {
     display: flex;
@@ -457,7 +646,8 @@
     font-family: var(--font-mono);
   }
   .dot {
-    width: 6px; height: 6px;
+    width: 6px;
+    height: 6px;
     border-radius: var(--r-pill);
     background: var(--fg-faint);
   }
@@ -466,8 +656,21 @@
     box-shadow: 0 0 8px var(--accent-bg-strong);
   }
 
-  /* No internal scroll — flows into the page's scroll container. */
-  .diff { padding: var(--sp-3); background: var(--bg); min-width: 0; }
-  .hint { color: var(--fg-subtle); padding: var(--sp-3); font-size: var(--fs-sm); }
-  .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
+  .diff {
+    padding: var(--sp-3);
+    background: var(--bg);
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+  }
+  .hint {
+    color: var(--fg-subtle);
+    padding: var(--sp-3);
+    font-size: var(--fs-sm);
+  }
+  .err {
+    color: var(--removed);
+    padding: var(--sp-3);
+    font-size: var(--fs-sm);
+  }
 </style>

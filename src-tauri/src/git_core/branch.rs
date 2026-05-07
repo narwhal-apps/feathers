@@ -106,3 +106,79 @@ pub fn checkout(repo: &Repository, branch_name: &str) -> Result<(), AppError> {
 
     Ok(())
 }
+
+/// Create a new local branch. If `from` is `Some(name)`, the new branch starts
+/// at that local branch's tip; otherwise it starts at HEAD. Optionally checkout
+/// the new branch (which uses the same dirty-tree refusal rules as `checkout`).
+pub fn create(
+    repo: &Repository,
+    name: &str,
+    from: Option<&str>,
+    checkout: bool,
+) -> Result<(), AppError> {
+    let start_commit = match from {
+        Some(from_name) => {
+            let b = repo
+                .find_branch(from_name, BranchType::Local)
+                .map_err(|_| AppError::Git {
+                    message: format!("local branch not found: {from_name}"),
+                })?;
+            b.get().peel_to_commit()?
+        }
+        None => repo.head()?.peel_to_commit()?,
+    };
+    repo.branch(name, &start_commit, false)?;
+    if checkout {
+        return self::checkout(repo, name);
+    }
+    Ok(())
+}
+
+/// Rename a local branch. Refuses to overwrite an existing branch.
+pub fn rename(repo: &Repository, old_name: &str, new_name: &str) -> Result<(), AppError> {
+    if old_name == new_name {
+        return Ok(());
+    }
+    let mut branch = repo
+        .find_branch(old_name, BranchType::Local)
+        .map_err(|_| AppError::Git {
+            message: format!("local branch not found: {old_name}"),
+        })?;
+    branch.rename(new_name, false)?;
+    Ok(())
+}
+
+/// Delete a local branch by name. Refuses to delete the current HEAD branch.
+/// If `force` is false, also refuses when the branch tip is not reachable
+/// from HEAD (i.e. would lose commits) and returns `AppError::Unmerged`.
+pub fn delete(repo: &Repository, name: &str, force: bool) -> Result<(), AppError> {
+    let head_ref = repo.head().ok();
+    if let Some(h) = head_ref.as_ref().and_then(|h| h.shorthand()) {
+        if h == name {
+            return Err(AppError::Git {
+                message: format!("cannot delete the current branch: {name}"),
+            });
+        }
+    }
+
+    let mut branch = repo.find_branch(name, BranchType::Local)?;
+    let branch_oid = branch.get().target().ok_or_else(|| AppError::Git {
+        message: format!("branch has no target: {name}"),
+    })?;
+
+    if !force {
+        let head_oid = repo.head()?.target().ok_or_else(|| AppError::Git {
+            message: "HEAD has no target".into(),
+        })?;
+        let merged =
+            head_oid == branch_oid || repo.graph_descendant_of(head_oid, branch_oid).unwrap_or(false);
+        if !merged {
+            return Err(AppError::Unmerged {
+                name: name.to_string(),
+            });
+        }
+    }
+
+    branch.delete()?;
+    Ok(())
+}

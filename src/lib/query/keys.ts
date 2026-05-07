@@ -12,4 +12,6 @@ export const queryKeys = {
     ['repo', id, 'diff', 'index', path ?? null] as const,
   repoDiffCommit: (id: RepoId, oid: string) =>
     ['repo', id, 'diff', 'commit', oid] as const,
+  repoRemoteUrl: (id: RepoId, remote = 'origin') =>
+    ['repo', id, 'remote-url', remote] as const,
 };

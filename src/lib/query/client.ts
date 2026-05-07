@@ -54,12 +54,13 @@ export class QueryClient {
   }
 
   /** Invalidate all entries whose key starts with `prefix`.
-   *  Active subscriptions trigger a refetch; orphaned entries do nothing. */
+   *  Active subscriptions trigger a refetch; orphaned entries do nothing.
+   *  Stale-while-revalidate: existing `data` is kept visible during the
+   *  refetch and only replaced on success. */
   invalidate(prefix: Key): void {
     const prefixHash = JSON.stringify(prefix).slice(0, -1); // drop trailing ']'
     for (const [k, entry] of this.cache.entries()) {
       if (!k.startsWith(prefixHash)) continue;
-      entry.data = undefined;
       entry.error = undefined;
       if (entry.subs.size > 0 && entry.fetcher) {
         this.fetch(k);

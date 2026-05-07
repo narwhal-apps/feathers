@@ -108,6 +108,7 @@ export type AppError =
   | { kind: 'repo_not_found'; id: string }
   | { kind: 'dirty'; paths: string[] }
   | { kind: 'merge_conflict'; paths: string[] }
+  | { kind: 'unmerged'; name: string }
   | { kind: 'auth'; message: string }
   | { kind: 'github_rate_limited'; retry_after: number }
   | { kind: 'not_a_github_repo' }

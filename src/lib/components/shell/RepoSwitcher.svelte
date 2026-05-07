@@ -52,7 +52,7 @@
 
 {#if list.length === 0}
   <button class="empty-trigger" onclick={add}>
-    <Icon name="FolderOpen" size={14} />
+    <Icon name="FolderOpen" size={12} />
     <span>Open repository</span>
   </button>
 {:else}
@@ -71,7 +71,7 @@
         <span class="avatar muted">·</span>
         <span class="name muted">Select repository</span>
       {/if}
-      <Icon name="ChevronsUpDown" size={14} />
+      <Icon name="ChevronsUpDown" size={12} />
     </button>
 
     {#if open}
@@ -110,14 +110,14 @@
   .empty-trigger {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-2);
-    height: 34px;
-    padding: 0 12px 0 6px;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px 0 4px;
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     color: var(--fg);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
     cursor: pointer;
@@ -129,19 +129,19 @@
     background: var(--bg-elev-3);
     border-color: var(--border-strong);
   }
-  .empty-trigger { padding: 0 12px; gap: var(--sp-2); }
+  .empty-trigger { padding: 0 10px; gap: 6px; }
 
   .avatar {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border-radius: var(--r-sm);
     background: linear-gradient(135deg, var(--accent-600), var(--accent-800));
     color: var(--accent-50);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: var(--weight-bold);
     letter-spacing: 0;
     flex-shrink: 0;

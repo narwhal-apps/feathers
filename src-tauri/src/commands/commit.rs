@@ -29,3 +29,13 @@ pub async fn commit_create(
     let r = handle.repo.lock();
     git_core::commit::create(&r, &message, opts.unwrap_or_default())
 }
+
+#[tauri::command]
+pub async fn commit_undo(
+    id: String,
+    registry: State<'_, RepoRegistry>,
+) -> Result<(), AppError> {
+    let handle = registry.get(&id)?;
+    let r = handle.repo.lock();
+    git_core::commit::undo_last(&r)
+}
