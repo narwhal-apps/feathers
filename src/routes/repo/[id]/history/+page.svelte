@@ -83,7 +83,6 @@
     display: grid;
     grid-template-columns: 360px 1fr;
     align-items: start;
-    min-height: 100%;
   }
   .commits {
     position: sticky;

@@ -17,6 +17,7 @@ html {
   text-rendering: optimizeLegibility;
 }
 
+html, body { overflow: hidden; }
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-md);

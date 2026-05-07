@@ -293,12 +293,12 @@
 
 <style>
   /* Grid: 340px sticky file pane + flexible diff pane.
-     The page (root <main class="page">) owns the vertical scroll. */
+     The page (root <main class="page">) owns the vertical scroll;
+     no min-height here — the row sizes to its tallest item naturally. */
   .layout {
     display: grid;
     grid-template-columns: 340px 1fr;
     align-items: start;
-    min-height: 100%;
   }
 
   .files {
