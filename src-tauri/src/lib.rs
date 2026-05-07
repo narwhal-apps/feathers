@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod error;
 pub mod git_core;
+pub mod repo_registry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
