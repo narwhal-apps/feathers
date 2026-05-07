@@ -1,14 +1,10 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import Icon from '$lib/components/primitives/Icon.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import Pill from '$lib/components/primitives/Pill.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
-  import { openRepoFlow } from '$lib/components/dialogs/openRepo';
   import type { StatusSnapshot, BranchInfo } from '$lib/types';
 
   onMount(() => { repos.refresh(); });
@@ -32,36 +28,9 @@
 
   const headBranch = $derived(branches.data?.find((b) => b.is_head) ?? null);
   const branchCount = $derived(branches.data?.length ?? 0);
-
-  function activate(id: string) {
-    repos.activeRepoId = id;
-    goto(`/repo/${id}/changes/`);
-  }
 </script>
 
 <aside class="sidebar">
-  <section class="section">
-    <header class="section-header">
-      <span>Repos</span>
-      <Button label="Open" variant="ghost" size="sm" onclick={openRepoFlow} />
-    </header>
-    {#if repos.knownRepos.length === 0}
-      <div class="empty">
-        <Icon name="FolderOpen" size={18} />
-        <p>No repositories yet</p>
-        <p class="hint">Click Open to add one.</p>
-      </div>
-    {:else}
-      <ul class="repos">
-        {#each repos.knownRepos as r}
-          <li class:active={r.id === activeId}>
-            <button onclick={() => activate(r.id)}>{r.name}</button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
-
   <section class="section">
     <header class="section-header">Branches{#if branchCount > 0}<span class="count">{branchCount}</span>{/if}</header>
     {#if !activeId}
@@ -113,20 +82,6 @@
   }
   .count { background: var(--bg-elev-2); border-radius: 999px; padding: 0 6px; color: var(--fg-muted); font-size: var(--fs-xs); }
 
-  .repos { list-style: none; margin: 0; padding: 0; }
-  .repos li { padding: 0; }
-  .repos li button {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 4px var(--sp-3);
-    cursor: pointer;
-    color: var(--fg);
-    font-size: var(--fs-sm);
-  }
-  .repos li button:hover { background: var(--bg-elev-2); }
-  .repos li.active button { color: var(--accent-300); background: rgba(20, 184, 166, 0.10); }
-
   .branch-row { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3); }
   .counts { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
@@ -140,7 +95,5 @@
     padding: var(--sp-3);
     text-align: center;
   }
-  .empty p { margin: 0; }
-  .empty .hint { color: var(--fg-subtle); font-size: var(--fs-xs); }
   .empty.subtle { color: var(--fg-subtle); padding: var(--sp-1) var(--sp-3); }
 </style>

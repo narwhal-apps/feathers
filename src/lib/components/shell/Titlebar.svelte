@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import Pill from '$lib/components/primitives/Pill.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import RepoSwitcher from '$lib/components/shell/RepoSwitcher.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
@@ -22,15 +23,14 @@
 <header class="titlebar" data-tauri-drag-region>
   <div class="lights-spacer" data-tauri-drag-region></div>
 
-  {#if active}
-    <span class="repo" data-tauri-drag-region>{active.name}</span>
+  <RepoSwitcher />
+
+  {#if active && headBranch}
     <span class="sep" data-tauri-drag-region>/</span>
-    {#if headBranch}<Pill label={headBranch.name} tone="accent" />{/if}
+    <Pill label={headBranch.name} tone="accent" />
     {#if ahead > 0 || behind > 0}
       <span class="counts" data-tauri-drag-region>↓ {behind}  ↑ {ahead}</span>
     {/if}
-  {:else}
-    <span class="placeholder" data-tauri-drag-region>No repository</span>
   {/if}
 
   <div class="spacer" data-tauri-drag-region></div>
@@ -53,10 +53,8 @@
     user-select: none;
   }
   .lights-spacer { width: 80px; height: 100%; flex-shrink: 0; }
-  .repo  { color: var(--fg);        font-weight: 600; }
   .sep   { color: var(--fg-subtle); }
   .counts { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-  .placeholder { color: var(--fg-subtle); font-style: italic; }
   .spacer { flex: 1; }
   .actions { display: flex; gap: var(--sp-2); }
 </style>
