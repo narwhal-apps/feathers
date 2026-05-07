@@ -14,4 +14,5 @@ export const queryKeys = {
     ['repo', id, 'diff', 'commit', oid] as const,
   repoRemoteUrl: (id: RepoId, remote = 'origin') =>
     ['repo', id, 'remote-url', remote] as const,
+  repoOpState: (id: RepoId) => ['repo', id, 'op-state'] as const,
 };

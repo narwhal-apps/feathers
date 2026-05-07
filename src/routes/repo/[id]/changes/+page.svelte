@@ -1,6 +1,8 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
+  import { openPath } from '@tauri-apps/plugin-opener';
   import { page } from '$app/stores';
+  import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
@@ -10,12 +12,14 @@
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
   import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
+  import ConflictModal from '$lib/components/changes/ConflictModal.svelte';
   import type {
     StatusSnapshot,
     DiffPayload,
     DiffFile,
     FileStatus,
     BranchInfo,
+    OpState,
     AppError,
   } from '$lib/types';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
@@ -44,6 +48,32 @@
     // Files that don't exist on the remote at this branch:
     if (file.status === 'added' || file.status === 'untracked') return null;
     return fileUrlOnRemote(webBase, headBranch.name, file.path);
+  }
+
+  // Conflict handling.
+  const opState = createQuery<OpState>(
+    () => queryKeys.repoOpState(id),
+    () => invoke<OpState>('repo_op_state', { id }),
+  );
+  const conflictedCount = $derived(status.data?.conflicted.length ?? 0);
+  const activeRepoPath = $derived(repos.activeRepo?.path ?? null);
+  const opInProgress = $derived(opState.data != null && opState.data.kind !== 'clean');
+
+  async function openInEditor(relPath: string) {
+    if (!activeRepoPath) return;
+    const sep = activeRepoPath.endsWith('/') ? '' : '/';
+    const abs = `${activeRepoPath}${sep}${relPath}`;
+    try {
+      await openPath(abs);
+    } catch (err) {
+      alert(`Failed to open ${relPath}: ${String(err)}`);
+    }
+  }
+
+  async function markResolved(paths: string[]) {
+    // Staging a conflicted file marks it resolved (the index entry collapses
+    // back to a single stage and it leaves the conflicted set).
+    await stagePaths(paths);
   }
 
   async function discardHunk(file: DiffFile, hunkIndex: number) {
@@ -245,6 +275,22 @@
   <aside class="files">
     <div class="files-scroll">
       {#if status.data}
+        {#if conflictedCount > 0 && !opInProgress}
+          <aside class="conflict-banner" role="alert">
+            <div class="conflict-head">
+              <Icon name="AlertTriangle" size={14} />
+              <span>{conflictedCount} conflicted file{conflictedCount === 1 ? '' : 's'}</span>
+            </div>
+            <p>Resolve each file in your editor, then mark it resolved.</p>
+            <div class="conflict-actions">
+              <button
+                class="conflict-bulk"
+                onclick={() => markResolved(status.data!.conflicted.map((f) => f.path))}
+                disabled={busy}
+              >Mark all resolved</button>
+            </div>
+          </aside>
+        {/if}
         {#if allChanges.length === 0}
           <div class="empty-state">
             <Icon name="Sparkles" size={20} />
@@ -299,15 +345,36 @@
                     {/if}
                   </span>
                 </button>
-                <button
-                  class="action danger"
-                  title="Discard"
-                  aria-label="Discard {row.path}"
-                  onclick={() => discardPaths([row.path], row.path)}
-                  disabled={busy}
-                >
-                  <Icon name="Undo2" size={12} />
-                </button>
+                {#if row.status === 'conflicted'}
+                  <button
+                    class="action"
+                    title="Open in editor"
+                    aria-label="Open {row.path} in editor"
+                    onclick={() => openInEditor(row.path)}
+                    disabled={busy}
+                  >
+                    <Icon name="ExternalLink" size={12} />
+                  </button>
+                  <button
+                    class="action ok"
+                    title="Mark resolved"
+                    aria-label="Mark {row.path} resolved"
+                    onclick={() => markResolved([row.path])}
+                    disabled={busy}
+                  >
+                    <Icon name="Check" size={12} />
+                  </button>
+                {:else}
+                  <button
+                    class="action danger"
+                    title="Discard"
+                    aria-label="Discard {row.path}"
+                    onclick={() => discardPaths([row.path], row.path)}
+                    disabled={busy}
+                  >
+                    <Icon name="Undo2" size={12} />
+                  </button>
+                {/if}
                 <span
                   class="status-pill tone-{meta.tone}"
                   title={meta.label}
@@ -387,6 +454,15 @@
   <CommitsModal {id} onClose={() => (commitsModalOpen = false)} />
 {/if}
 
+{#if opInProgress && opState.data}
+  <ConflictModal
+    {id}
+    kind={opState.data.kind}
+    conflicted={opState.data.conflicted}
+    repoPath={activeRepoPath}
+  />
+{/if}
+
 <style>
   .layout {
     display: grid;
@@ -409,6 +485,50 @@
     overflow-y: auto;
     padding: var(--sp-2) 0;
   }
+
+  .conflict-banner {
+    margin: 4px 10px 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--removed) 35%, transparent);
+    border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--removed) 10%, transparent);
+    color: var(--fg);
+  }
+  .conflict-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--removed);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-semibold);
+  }
+  .conflict-head :global(svg) { color: var(--removed); flex-shrink: 0; }
+  .conflict-banner p {
+    margin: 4px 0 8px;
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
+  }
+  .conflict-actions { display: flex; gap: 6px; }
+  .conflict-bulk {
+    height: 24px;
+    padding: 0 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--fg-muted);
+    font-size: var(--fs-2xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    cursor: pointer;
+    transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  }
+  .conflict-bulk:hover:not(:disabled) {
+    color: var(--added);
+    background: color-mix(in srgb, var(--added) 14%, transparent);
+    border-color: color-mix(in srgb, var(--added) 28%, transparent);
+  }
+  .conflict-bulk:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .group-header {
     display: flex;
@@ -563,6 +683,14 @@
     color: var(--removed);
     background: color-mix(in srgb, var(--removed) 14%, transparent);
   }
+  .files li button.action.ok:hover:not(:disabled) {
+    color: var(--added);
+    background: color-mix(in srgb, var(--added) 14%, transparent);
+  }
+  /* Conflicted-row actions stay visible (not hover-revealed) so they're
+     impossible to miss while resolving. */
+  .files li button.action[title="Open in editor"],
+  .files li button.action[title="Mark resolved"] { opacity: 1; }
   .files li button.action:disabled {
     opacity: 0.4;
     cursor: not-allowed;

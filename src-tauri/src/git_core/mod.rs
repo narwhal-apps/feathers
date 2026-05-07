@@ -2,6 +2,7 @@ pub mod branch;
 pub mod commit;
 pub mod diff;
 pub mod discard;
+pub mod op;
 pub mod remote;
 pub mod repo;
 pub mod stage;

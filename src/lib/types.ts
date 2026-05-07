@@ -103,6 +103,20 @@ export interface DiffPayload {
   files: DiffFile[];
 }
 
+export type OpKind =
+  | 'clean'
+  | 'merge'
+  | 'rebase'
+  | 'cherry_pick'
+  | 'revert'
+  | 'bisect'
+  | 'apply_mailbox';
+
+export interface OpState {
+  kind: OpKind;
+  conflicted: string[];
+}
+
 // Backend AppError as a tagged union (Rust serde tag = "kind", snake_case).
 export type AppError =
   | { kind: 'repo_not_found'; id: string }

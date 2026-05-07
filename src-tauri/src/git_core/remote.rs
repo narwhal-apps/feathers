@@ -192,13 +192,9 @@ fn rebase_onto_upstream(
         op?;
         let idx = repo.index()?;
         if idx.has_conflicts() {
-            let paths: Vec<String> = idx
-                .iter()
-                .filter(|e| (e.flags >> 12) & 0x3 != 0)
-                .map(|e| String::from_utf8_lossy(&e.path).into_owned())
-                .collect();
-            rb.abort()?;
-            return Err(AppError::MergeConflict { paths });
+            // Leave the rebase paused on disk; the FE detects the state and
+            // shows a "Resolve conflicts" panel with continue / abort.
+            return Ok(());
         }
         rb.commit(None, &sig, None)?;
     }
