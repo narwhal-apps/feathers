@@ -46,6 +46,17 @@
     return fileUrlOnRemote(webBase, headBranch.name, file.path);
   }
 
+  async function discardHunk(file: DiffFile, hunkIndex: number) {
+    const ok = confirm(
+      `Discard this hunk in ${file.path}? This cannot be undone.`,
+    );
+    if (!ok) return;
+    await withBusy(async () => {
+      await invoke('discard_hunk', { id, path: file.path, hunkIndex });
+      await refresh();
+    });
+  }
+
   let selected = $state<string | null>(null);
   let busy = $state(false);
   let committing = $state(false);
@@ -363,7 +374,7 @@
     {#if selected == null}
       <div class="hint">Select a file to view its diff.</div>
     {:else if diff.data}
-      <DiffView payload={diff.data} {fileHref} />
+      <DiffView payload={diff.data} {fileHref} onDiscardHunk={discardHunk} />
     {:else if diff.error}
       <div class="err">{String(diff.error)}</div>
     {:else if diff.loading}

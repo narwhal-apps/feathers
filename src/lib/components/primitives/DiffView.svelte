@@ -1,19 +1,70 @@
 <script lang="ts">
-  import type { DiffPayload, DiffFile, FileStatus } from '$lib/types';
+  import type { DiffPayload, DiffFile, DiffLine, FileStatus } from '$lib/types';
+  import { browser } from '$app/environment';
   import { detectLang, highlightLines } from '$lib/syntax/highlighter';
   import { theme } from '$lib/stores/theme.svelte';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
 
+  type ViewMode = 'unified' | 'split';
+  const VIEW_KEY = 'feathers:diff-view-mode';
+  let mode = $state<ViewMode>(
+    browser
+      ? ((localStorage.getItem(VIEW_KEY) as ViewMode | null) ?? 'unified')
+      : 'unified',
+  );
+  $effect(() => {
+    if (browser) localStorage.setItem(VIEW_KEY, mode);
+  });
+
+  // Pair consecutive del/add runs into rows for the split view. Context lines
+  // align on both sides; lone adds/dels leave the opposite cell empty. Each
+  // entry carries the line's original index so we can look up its highlighted
+  // HTML in `hl[file.path][hunkIdx][lineIdx]`.
+  type SplitRow = {
+    old: { line: DiffLine; idx: number } | null;
+    new: { line: DiffLine; idx: number } | null;
+  };
+  function pairLines(lines: DiffLine[]): SplitRow[] {
+    const rows: SplitRow[] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (l.kind === 'ctx') {
+        rows.push({ old: { line: l, idx: i }, new: { line: l, idx: i } });
+        i++;
+        continue;
+      }
+      const dels: { line: DiffLine; idx: number }[] = [];
+      const adds: { line: DiffLine; idx: number }[] = [];
+      while (i < lines.length && lines[i].kind === 'del') {
+        dels.push({ line: lines[i], idx: i });
+        i++;
+      }
+      while (i < lines.length && lines[i].kind === 'add') {
+        adds.push({ line: lines[i], idx: i });
+        i++;
+      }
+      const n = Math.max(dels.length, adds.length);
+      for (let k = 0; k < n; k++) {
+        rows.push({ old: dels[k] ?? null, new: adds[k] ?? null });
+      }
+    }
+    return rows;
+  }
+
   let {
     payload,
     fileHref,
+    onDiscardHunk,
   }: {
     payload: DiffPayload | null;
     /** Optional resolver returning a remote URL for the file, or null when
      *  the file shouldn't be linkable (e.g. newly added). */
     fileHref?: (file: DiffFile) => string | null;
+    /** When provided, each hunk gets a "discard hunk" button calling this. */
+    onDiscardHunk?: (file: DiffFile, hunkIndex: number) => void;
   } = $props();
 
   // hl[file.path][hunkIdx][lineIdx] = highlighted HTML for that line.
@@ -86,6 +137,28 @@
 {#if !payload || payload.files.length === 0}
   <div class="empty">No changes.</div>
 {:else}
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Diff view mode">
+      <button
+        type="button"
+        class:on={mode === 'unified'}
+        onclick={() => (mode = 'unified')}
+        aria-pressed={mode === 'unified'}
+        title="Unified diff"
+      >
+        <Icon name="AlignJustify" size={12} /> Unified
+      </button>
+      <button
+        type="button"
+        class:on={mode === 'split'}
+        onclick={() => (mode = 'split')}
+        aria-pressed={mode === 'split'}
+        title="Side-by-side diff"
+      >
+        <Icon name="Columns2" size={12} /> Split
+      </button>
+    </div>
+  </div>
   {#each payload.files as file}
     {@const counts = countLines(file)}
     {@const lbl = statusLabel(file.status)}
@@ -126,11 +199,24 @@
       </header>
       {#if file.binary}
         <div class="binary">Binary file — diff not shown.</div>
-      {:else}
+      {:else if mode === 'unified'}
         <div class="body">
           {#each file.hunks as hunk, hunkIdx}
             <div class="hunk">
-              <div class="hunk-header">{hunk.header}</div>
+              <div class="hunk-header">
+                <span class="hunk-header-text">{hunk.header}</span>
+                {#if onDiscardHunk}
+                  <button
+                    class="hunk-discard"
+                    type="button"
+                    title="Discard this hunk"
+                    aria-label="Discard hunk"
+                    onclick={() => onDiscardHunk?.(file, hunkIdx)}
+                  >
+                    <Icon name="Undo2" size={11} />
+                  </button>
+                {/if}
+              </div>
               <div class="lines">
                 {#each hunk.lines as line, lineIdx}
                   <div class="line line-{line.kind}">
@@ -142,6 +228,53 @@
                     {:else}
                       <span class="text">{line.text}</span>
                     {/if}
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <!-- Split (side-by-side) view -->
+        <div class="body split-body">
+          {#each file.hunks as hunk, hunkIdx}
+            {@const rows = pairLines(hunk.lines)}
+            <div class="hunk split-hunk">
+              <div class="hunk-header">
+                <span class="hunk-header-text">{hunk.header}</span>
+                {#if onDiscardHunk}
+                  <button
+                    class="hunk-discard"
+                    type="button"
+                    title="Discard this hunk"
+                    aria-label="Discard hunk"
+                    onclick={() => onDiscardHunk?.(file, hunkIdx)}
+                  >
+                    <Icon name="Undo2" size={11} />
+                  </button>
+                {/if}
+              </div>
+              <div class="split-rows">
+                {#each rows as row}
+                  <div class="split-row">
+                    <div class="split-side {row.old ? `line-${row.old.line.kind}` : 'line-empty'}">
+                      <span class="ln">{row.old?.line.old_no ?? ''}</span>
+                      <span class="prefix">{row.old?.line.kind === 'del' ? '−' : ' '}</span>
+                      {#if row.old && hl[file.path]?.[hunkIdx]?.[row.old.idx] != null}
+                        <span class="text">{@html hl[file.path][hunkIdx][row.old.idx]}</span>
+                      {:else}
+                        <span class="text">{row.old?.line.text ?? ''}</span>
+                      {/if}
+                    </div>
+                    <div class="split-side {row.new ? `line-${row.new.line.kind}` : 'line-empty'}">
+                      <span class="ln">{row.new?.line.new_no ?? ''}</span>
+                      <span class="prefix">{row.new?.line.kind === 'add' ? '+' : ' '}</span>
+                      {#if row.new && hl[file.path]?.[hunkIdx]?.[row.new.idx] != null}
+                        <span class="text">{@html hl[file.path][hunkIdx][row.new.idx]}</span>
+                      {:else}
+                        <span class="text">{row.new?.line.text ?? ''}</span>
+                      {/if}
+                    </div>
                   </div>
                 {/each}
               </div>
@@ -305,12 +438,37 @@
 
   .hunk { border-top: 1px solid var(--border); min-width: max-content; }
   .hunk-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: var(--sp-1) var(--sp-3);
     background: var(--hunk-bg);
     color: var(--accent-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
+  }
+  .hunk-header-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hunk-discard {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 18px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    color: var(--fg-subtle);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--t-fast), color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+  }
+  .hunk:hover .hunk-discard { opacity: 1; }
+  .hunk-discard:hover {
+    color: var(--removed);
+    background: color-mix(in srgb, var(--removed) 14%, transparent);
+    border-color: color-mix(in srgb, var(--removed) 28%, transparent);
   }
   .lines { font-family: var(--font-mono); font-size: var(--fs-xs); min-width: max-content; }
   .line {
@@ -329,4 +487,81 @@
   .line-add .prefix { color: var(--added); }
   .line-del .prefix { color: var(--removed); }
   .line .text { color: var(--fg); }
+
+  /* View-mode toggle */
+  .controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--sp-2);
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    background: var(--bg-elev-1);
+  }
+  .seg button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    font-size: var(--fs-2xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button:hover { color: var(--fg); }
+  .seg button.on {
+    background: var(--accent-bg-medium);
+    color: var(--accent-fg);
+  }
+  .seg button :global(svg) { color: inherit; }
+
+  /* Split view */
+  .split-body {
+    overflow-x: auto;
+    overflow-y: hidden;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+  }
+  .split-hunk { border-top: 1px solid var(--border); min-width: max-content; }
+  .split-rows { min-width: max-content; }
+  .split-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 0;
+    border-bottom: 0;
+  }
+  .split-side {
+    display: grid;
+    grid-template-columns: 40px 16px 1fr;
+    align-items: center;
+    line-height: 18px;
+    padding: 0 var(--sp-2);
+    white-space: pre;
+    min-width: max-content;
+    border-right: 1px solid var(--border);
+  }
+  .split-side:last-child { border-right: none; }
+  .split-side.line-add { background: var(--added-bg); }
+  .split-side.line-del { background: var(--removed-bg); }
+  .split-side.line-empty {
+    background: color-mix(in srgb, var(--fg-faint) 6%, transparent);
+  }
+  .split-side .ln {
+    color: var(--fg-subtle);
+    text-align: right;
+    padding-right: var(--sp-1);
+    font-variant-numeric: tabular-nums;
+  }
+  .split-side .prefix { color: var(--fg-subtle); text-align: center; }
+  .split-side.line-add .prefix { color: var(--added); }
+  .split-side.line-del .prefix { color: var(--removed); }
+  .split-side .text { color: var(--fg); }
 </style>

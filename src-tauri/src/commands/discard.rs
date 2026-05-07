@@ -13,3 +13,15 @@ pub async fn discard_files(
     let r = handle.repo.lock();
     git_core::discard::discard_paths(&r, &paths)
 }
+
+#[tauri::command]
+pub async fn discard_hunk(
+    id: String,
+    path: String,
+    hunk_index: usize,
+    registry: State<'_, RepoRegistry>,
+) -> Result<(), AppError> {
+    let handle = registry.get(&id)?;
+    let r = handle.repo.lock();
+    git_core::discard::discard_hunk(&r, &path, hunk_index)
+}

@@ -2,10 +2,13 @@
   import { invoke } from '@tauri-apps/api/core';
   import { page } from '$app/stores';
   import { createQuery } from '$lib/query/createQuery.svelte';
+  import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
+  import Icon from '$lib/components/primitives/Icon.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
-  import type { CommitPage, DiffFile, DiffPayload } from '$lib/types';
+  import { relTime } from '$lib/utils/time';
+  import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
 
@@ -32,34 +35,99 @@
 
   function fileHref(file: DiffFile): string | null {
     if (!webBase || !selectedOid) return null;
-    // Files deleted in this commit no longer exist at this sha.
     if (file.status === 'deleted') return null;
     return fileUrlOnRemote(webBase, selectedOid, file.path);
   }
 
-  function relTime(secs: number): string {
-    const ms = Date.now() - secs * 1000;
-    const m = Math.round(ms / 60000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m`;
-    const h = Math.round(m / 60);
-    if (h < 24) return `${h}h`;
-    const d = Math.round(h / 24);
-    return `${d}d`;
+  // Right-click context menu
+  let ctxMenu = $state<{ commit: CommitInfo; isHead: boolean; x: number; y: number } | null>(null);
+  function openCtxMenu(e: MouseEvent, commit: CommitInfo, isHead: boolean) {
+    e.preventDefault();
+    e.stopPropagation();
+    ctxMenu = { commit, isHead, x: e.clientX, y: e.clientY };
   }
+  function closeCtxMenu() { ctxMenu = null; }
+
+  // Amend modal
+  let amendTarget = $state<CommitInfo | null>(null);
+  let amendMessage = $state('');
+  let amendMessageEl = $state<HTMLTextAreaElement | null>(null);
+  let amending = $state(false);
+
+  function startAmend(commit: CommitInfo) {
+    closeCtxMenu();
+    amendTarget = commit;
+    amendMessage = commit.summary;
+  }
+  function closeAmend() {
+    amendTarget = null;
+    amendMessage = '';
+  }
+  async function submitAmend() {
+    if (!amendTarget) return;
+    const next = amendMessage.trim();
+    if (!next) return;
+    amending = true;
+    try {
+      await invoke('commit_create', {
+        id,
+        message: next,
+        opts: { amend: true },
+      });
+      queryClient.invalidate(['repo', id]);
+      closeAmend();
+    } catch (err) {
+      const e = err as AppError;
+      const msg =
+        typeof e === 'object' && e !== null && 'message' in e
+          ? (e as { message: string }).message
+          : JSON.stringify(err);
+      alert(`Failed to amend: ${msg}`);
+    } finally {
+      amending = false;
+    }
+  }
+
+  function onDocClick(e: MouseEvent) {
+    if (!ctxMenu) return;
+    const t = e.target as Node;
+    const cm = document.getElementById('history-ctx-menu');
+    if (cm && cm.contains(t)) return;
+    closeCtxMenu();
+  }
+  function onKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (amendTarget) closeAmend();
+      else if (ctxMenu) closeCtxMenu();
+    }
+  }
+  $effect(() => {
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  });
+  $effect(() => {
+    if (amendTarget && amendMessageEl) {
+      amendMessageEl.focus();
+      amendMessageEl.setSelectionRange(amendMessage.length, amendMessage.length);
+    }
+  });
 </script>
 
 <div class="layout">
   <aside class="commits">
-    {#if log.loading}
-      <p class="hint">Loading…</p>
-    {:else if log.error}
-      <p class="err">{String(log.error)}</p>
-    {:else if log.data}
+    {#if log.data}
       <ul>
-        {#each log.data.commits as c}
+        {#each log.data.commits as c, idx}
           <li class:selected={selectedOid === c.oid}>
-            <button class="row" onclick={() => (selectedOid = c.oid)}>
+            <button
+              class="row"
+              onclick={() => (selectedOid = c.oid)}
+              oncontextmenu={(e) => openCtxMenu(e, c, idx === 0)}
+            >
               <div class="row1">
                 <span class="dot"></span>
                 <span class="summary">{c.summary || '(no message)'}</span>
@@ -76,21 +144,97 @@
       {#if log.data.commits.length === 0}
         <p class="hint">No commits yet.</p>
       {/if}
+    {:else if log.error}
+      <p class="err">{String(log.error)}</p>
+    {:else if log.loading}
+      <p class="hint">Loading…</p>
     {/if}
   </aside>
 
   <section class="diff">
     {#if selectedOid == null}
       <div class="hint">Select a commit to view its diff.</div>
-    {:else if diff.loading}
-      <div class="hint">Loading diff…</div>
+    {:else if diff.data}
+      <DiffView payload={diff.data} {fileHref} />
     {:else if diff.error}
       <div class="err">{String(diff.error)}</div>
-    {:else}
-      <DiffView payload={diff.data ?? null} {fileHref} />
+    {:else if diff.loading}
+      <div class="hint">Loading diff…</div>
     {/if}
   </section>
 </div>
+
+{#if ctxMenu}
+  <div
+    id="history-ctx-menu"
+    class="ctx-menu"
+    role="menu"
+    style="left: {ctxMenu.x}px; top: {ctxMenu.y}px;"
+  >
+    <button
+      type="button"
+      class="ctx-item"
+      role="menuitem"
+      onclick={() => startAmend(ctxMenu!.commit)}
+      disabled={!ctxMenu.isHead}
+      title={ctxMenu.isHead ? '' : 'Only the most recent commit can be amended'}
+    >
+      <Icon name="Pencil" size={12} />
+      <span>Amend commit…</span>
+    </button>
+  </div>
+{/if}
+
+{#if amendTarget}
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    onclick={(e) => { if (e.target === e.currentTarget) closeAmend(); }}
+    onkeydown={() => {}}
+  >
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="amend-title">
+      <header class="modal-header">
+        <h2 id="amend-title">Amend commit</h2>
+        <button class="modal-close" onclick={closeAmend} aria-label="Close">
+          <Icon name="X" size={14} />
+        </button>
+      </header>
+      <form
+        class="modal-body"
+        onsubmit={(e) => { e.preventDefault(); submitAmend(); }}
+      >
+        <div class="meta">
+          <span class="sha">{amendTarget.short_sha}</span>
+          <span class="when">{relTime(amendTarget.author_when)}</span>
+        </div>
+        <label class="field">
+          <span class="label">Message</span>
+          <textarea
+            class="input message"
+            bind:value={amendMessage}
+            bind:this={amendMessageEl}
+            disabled={amending}
+            rows="4"
+            onkeydown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                submitAmend();
+              }
+            }}
+          ></textarea>
+        </label>
+        <footer class="modal-footer">
+          <button type="button" class="btn ghost" onclick={closeAmend} disabled={amending}>Cancel</button>
+          <button
+            type="submit"
+            class="btn primary"
+            disabled={amending || !amendMessage.trim() || amendMessage.trim() === amendTarget.summary}
+          >{amending ? 'Amending…' : 'Amend'}</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+{/if}
 
 <style>
   .layout {
@@ -127,4 +271,158 @@
   .diff { padding: var(--sp-3); min-width: 0; height: 100%; overflow-y: auto; }
   .hint { color: var(--fg-subtle); padding: var(--sp-3); font-size: var(--fs-sm); }
   .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
+
+  /* Right-click context menu */
+  .ctx-menu {
+    position: fixed;
+    min-width: 200px;
+    padding: 4px;
+    background: var(--bg-elev-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-3);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    color: var(--fg-muted);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .ctx-item :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
+  .ctx-item:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
+  .ctx-item:hover:not(:disabled) :global(svg) { color: var(--fg-muted); }
+  .ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Amend modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, #000 55%, transparent);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 14vh;
+    z-index: 100;
+  }
+  .modal {
+    width: min(520px, calc(100vw - 32px));
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    overflow: hidden;
+    position: relative;
+  }
+  .modal::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: var(--grain);
+    opacity: 0.35;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    position: relative; z-index: 1;
+  }
+  .modal-header h2 {
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg);
+  }
+  .modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    color: var(--fg-subtle);
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .modal-close:hover { background: var(--bg-elev-3); color: var(--fg); }
+  .modal-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative; z-index: 1;
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--fg-subtle);
+    font-size: var(--fs-xs);
+  }
+  .meta .sha { margin-left: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .label {
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--fg-subtle);
+    font-weight: var(--weight-semibold);
+  }
+  .input.message {
+    width: 100%;
+    resize: vertical;
+    min-height: 80px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: 1.4;
+    outline: none;
+    transition: border-color var(--t-fast);
+  }
+  .input.message:focus { border-color: var(--accent-500); }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .btn {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  }
+  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
+  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.ghost {
+    background: transparent;
+    color: var(--fg-muted);
+    border-color: var(--border);
+  }
+  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 </style>

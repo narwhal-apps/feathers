@@ -84,6 +84,7 @@ pub fn run() {
             commands::stage::stage_files,
             commands::stage::unstage_files,
             commands::discard::discard_files,
+            commands::discard::discard_hunk,
             commands::remote::repo_remote_url,
             commands::remote::repo_fetch,
             commands::remote::repo_push,
