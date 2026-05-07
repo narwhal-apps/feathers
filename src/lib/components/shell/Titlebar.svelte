@@ -29,6 +29,7 @@
 <style>
   .titlebar {
     position: relative;
+    z-index: 50;
     display: flex;
     align-items: center;
     gap: var(--sp-3);
