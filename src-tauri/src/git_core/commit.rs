@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use crate::git_core::types::{CommitInfo, CommitPage, LogOpts};
-use git2::{Oid, Repository, Sort};
+use git2::{Oid, Repository, Signature, Sort};
 
 pub fn log(repo: &Repository, opts: LogOpts) -> Result<CommitPage, AppError> {
     let mut walk = repo.revwalk()?;
@@ -54,4 +54,57 @@ pub fn log(repo: &Repository, opts: LogOpts) -> Result<CommitPage, AppError> {
         commits,
         next_cursor,
     })
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct CommitOpts {
+    /// Replace HEAD instead of creating a new commit on top of it.
+    #[serde(default)]
+    pub amend: bool,
+}
+
+/// Create a new commit from the current index. Falls back to a placeholder
+/// signature if `user.name` / `user.email` aren't configured.
+pub fn create(repo: &Repository, message: &str, opts: CommitOpts) -> Result<String, AppError> {
+    if message.trim().is_empty() {
+        return Err(AppError::Git {
+            message: "commit message cannot be empty".into(),
+        });
+    }
+
+    let sig = repo.signature().or_else(|_| {
+        Signature::now("Unknown", "unknown@local").map_err(AppError::from)
+    })?;
+
+    let mut index = repo.index()?;
+    let tree_oid = index.write_tree()?;
+    let tree = repo.find_tree(tree_oid)?;
+
+    if opts.amend {
+        let head_commit = repo.head()?.peel_to_commit()?;
+        let oid = head_commit.amend(
+            Some("HEAD"),
+            Some(&sig),
+            Some(&sig),
+            None,
+            Some(message),
+            Some(&tree),
+        )?;
+        return Ok(oid.to_string());
+    }
+
+    let parents: Vec<git2::Commit> = match repo.head() {
+        Ok(h) => vec![h.peel_to_commit()?],
+        Err(e)
+            if e.code() == git2::ErrorCode::UnbornBranch
+                || e.code() == git2::ErrorCode::NotFound =>
+        {
+            vec![]
+        }
+        Err(e) => return Err(e.into()),
+    };
+    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+
+    let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_refs)?;
+    Ok(oid.to_string())
 }

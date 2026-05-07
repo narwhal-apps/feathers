@@ -73,6 +73,10 @@ export interface CommitPage {
   next_cursor: string | null;
 }
 
+export interface CommitOpts {
+  amend: boolean;
+}
+
 export type DiffLineKind = 'add' | 'del' | 'ctx';
 
 export interface DiffLine {

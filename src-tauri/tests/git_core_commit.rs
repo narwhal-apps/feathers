@@ -1,6 +1,6 @@
 mod common;
 
-use feathers_app_lib::git_core::{commit, repo, types::LogOpts};
+use feathers_app_lib::git_core::{commit, commit::CommitOpts, repo, stage, types::LogOpts};
 
 #[test]
 fn log_returns_commits_in_reverse_chronological_order() {
@@ -56,4 +56,61 @@ fn log_pagination_emits_next_cursor() {
         .commits
         .iter()
         .all(|c| !page1.commits.iter().any(|p| p.oid == c.oid)));
+}
+
+#[test]
+fn create_commits_staged_changes() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let r = repo::open(dir.path()).unwrap();
+
+    common::fixtures::write_file(dir.path(), "b.txt", "beta\n");
+    stage::stage_files(&r, &["b.txt".to_string()]).unwrap();
+
+    let oid = commit::create(&r, "add b.txt", CommitOpts::default()).unwrap();
+    assert_eq!(oid.len(), 40);
+
+    let head_commit = r.head().unwrap().peel_to_commit().unwrap();
+    assert_eq!(head_commit.id().to_string(), oid);
+    assert_eq!(head_commit.summary(), Some("add b.txt"));
+
+    let log = commit::log(
+        &r,
+        LogOpts {
+            max: 10,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(log.commits.len(), 2);
+}
+
+#[test]
+fn create_rejects_empty_message() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "x")]);
+    let r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "b.txt", "y");
+    stage::stage_files(&r, &["b.txt".to_string()]).unwrap();
+
+    let err = commit::create(&r, "   ", CommitOpts::default()).unwrap_err();
+    assert!(matches!(
+        err,
+        feathers_app_lib::error::AppError::Git { .. }
+    ));
+}
+
+#[test]
+fn create_amend_replaces_head() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let r = repo::open(dir.path()).unwrap();
+    let original = r.head().unwrap().peel_to_commit().unwrap();
+
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha v2\n");
+    stage::stage_files(&r, &["a.txt".to_string()]).unwrap();
+
+    let new_oid = commit::create(&r, "amended", CommitOpts { amend: true }).unwrap();
+    let head_commit = r.head().unwrap().peel_to_commit().unwrap();
+    assert_eq!(head_commit.id().to_string(), new_oid);
+    assert_eq!(head_commit.summary(), Some("amended"));
+    // Same parents as the original (here, none — initial commit).
+    assert_eq!(head_commit.parent_count(), original.parent_count());
 }

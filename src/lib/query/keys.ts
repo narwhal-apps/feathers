@@ -8,6 +8,8 @@ export const queryKeys = {
     ['repo', id, 'log', before ?? null] as const,
   repoDiffWorkdir: (id: RepoId, path: string | null) =>
     ['repo', id, 'diff', 'workdir', path ?? null] as const,
+  repoDiffIndex: (id: RepoId, path: string | null) =>
+    ['repo', id, 'diff', 'index', path ?? null] as const,
   repoDiffCommit: (id: RepoId, oid: string) =>
     ['repo', id, 'diff', 'commit', oid] as const,
 };
