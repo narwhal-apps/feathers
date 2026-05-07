@@ -1,30 +1,59 @@
 :root {
-  /* ── color: accent (teal) ─────────────────────────────── */
-  --accent-50:  #effdfb;
-  --accent-100: #c8f7ef;
-  --accent-300: #5eead4;
-  --accent-500: #14b8a6;
-  --accent-600: #0d9488;
-  --accent-700: #0f766e;
+  /* ── color: accent (teal — refined ladder, contrast-tested) ─── */
+  --accent-50:  #ecfdfa;
+  --accent-100: #cdf7ef;
+  --accent-200: #9eecdf;
+  --accent-300: #5eead4;   /* foreground on dark — passes AA on --bg */
+  --accent-400: #2dd4bf;
+  --accent-500: #14b8a6;   /* mid — focus rings, markers */
+  --accent-600: #0d9488;   /* hover bg */
+  --accent-700: #0f766e;   /* active bg */
+  --accent-800: #115e59;   /* deep — used in solid-on-dark contexts */
 
-  /* ── color: diff ──────────────────────────────────────── */
+  --accent-bg-soft:    color-mix(in srgb, var(--accent-500) 10%, transparent);
+  --accent-bg-medium:  color-mix(in srgb, var(--accent-500) 18%, transparent);
+  --accent-bg-strong:  color-mix(in srgb, var(--accent-500) 26%, transparent);
+
+  /* ── color: diff (sophisticated; no neon) ───────────────────── */
   --added:      #5eead4;
-  --removed:    #f87171;
-  --added-bg:   rgba(94, 234, 212, 0.08);
-  --removed-bg: rgba(248, 113, 113, 0.08);
+  --added-text: #b9fbeb;
+  --added-bg:   color-mix(in srgb, #34d399 12%, transparent);
 
-  /* ── type ─────────────────────────────────────────────── */
-  --font-sans: "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  --fs-xs:  11px;
-  --fs-sm:  12px;
-  --fs-md:  13px;
-  --fs-lg:  15px;
+  --removed:      #fca5a5;
+  --removed-text: #fecaca;
+  --removed-bg:   color-mix(in srgb, #f87171 12%, transparent);
+
+  --hunk-bg:    color-mix(in srgb, var(--accent-500) 6%, transparent);
+
+  /* ── type — Geist Sans (UI) + Geist Mono (code/sha) ─────────── */
+  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-display: "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  --fs-2xs: 10.5px;
+  --fs-xs:  11.5px;
+  --fs-sm:  12.5px;
+  --fs-md:  13.5px;
+  --fs-lg:  15.5px;
   --fs-xl:  18px;
-  --lh-tight: 1.35;
+  --fs-2xl: 22px;
+
+  --lh-tight: 1.3;
+  --lh-snug:  1.45;
   --lh-body:  1.55;
 
-  /* ── space (4px grid) ─────────────────────────────────── */
+  --tracking-tight:  -0.005em;
+  --tracking-normal: 0;
+  --tracking-loose:  0.04em;
+  --tracking-wider:  0.08em;
+
+  --weight-regular:  420;
+  --weight-medium:   520;
+  --weight-semibold: 600;
+  --weight-bold:     680;
+
+  /* ── space (4px grid + half-step for tight UI) ──────────────── */
+  --sp-0:  2px;
   --sp-1:  4px;
   --sp-2:  8px;
   --sp-3: 12px;
@@ -32,13 +61,26 @@
   --sp-5: 20px;
   --sp-6: 24px;
   --sp-8: 32px;
+  --sp-10: 40px;
 
-  /* ── radius ───────────────────────────────────────────── */
-  --r-sm:  4px;
-  --r-md:  6px;
+  /* ── radius — slightly softer ───────────────────────────────── */
+  --r-xs:  3px;
+  --r-sm:  5px;
+  --r-md:  7px;
   --r-lg: 10px;
+  --r-xl: 14px;
+  --r-pill: 999px;
 
-  /* ── motion ───────────────────────────────────────────── */
-  --t-fast: 80ms ease;
-  --t-med: 160ms ease;
+  /* ── motion ─────────────────────────────────────────────────── */
+  --t-fast: 90ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-med:  180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-slow: 260ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── ring (focus) — set per-theme ───────────────────────────── */
+  --ring-color: var(--accent-500);
+  --ring-offset: 0;
+  --ring-width: 2px;
+
+  /* ── grain texture (theme-tinted) ───────────────────────────── */
+  --grain: none;
 }

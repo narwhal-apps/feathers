@@ -1,12 +1,37 @@
 [data-theme="light"] {
-  --bg:            #f7f8fa;
-  --bg-elev-1:     #ffffff;
-  --bg-elev-2:     #f0f1f4;
-  --border:        #e2e4e8;
-  --border-strong: #c7cad0;
-  --fg:            #0f1115;
-  --fg-muted:      #4d525a;
-  --fg-subtle:     #707680;
-  --shadow-1: 0 1px 0 rgba(15, 17, 21, 0.04), 0 1px 2px rgba(15, 17, 21, 0.06);
-  --shadow-2: 0 6px 16px rgba(15, 17, 21, 0.10);
+  /* Surfaces — warm paper, not cold steel */
+  --bg:            #f5f3ef;
+  --bg-elev-1:     #fbfaf7;
+  --bg-elev-2:     #efedea;
+  --bg-elev-3:     #ffffff;
+  --bg-overlay:    rgba(245, 243, 239, 0.78);
+
+  --border:        #d8d3cb;
+  --border-strong: #b9b2a6;
+  --border-faint:  #e6e2db;
+
+  --fg:            #1a1d1f;
+  --fg-strong:     #000000;
+  --fg-muted:      #4f5460;
+  --fg-subtle:     #757b85;
+  --fg-faint:      #9ea3ac;
+
+  --accent-on:     #ffffff;
+  --accent-fg:     #0f766e;
+
+  --shadow-1: 0 1px 0 rgba(15, 17, 21, 0.04),
+              0 1px 2px rgba(15, 17, 21, 0.06);
+  --shadow-2: 0 6px 16px rgba(15, 17, 21, 0.10),
+              0 2px 6px rgba(15, 17, 21, 0.05);
+  --shadow-3: 0 18px 44px rgba(15, 17, 21, 0.14),
+              0 4px 12px rgba(15, 17, 21, 0.08);
+
+  --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+
+  --selection-bg: color-mix(in srgb, var(--accent-500) 25%, transparent);
+  --selection-fg: var(--fg-strong);
+
+  color-scheme: light;
 }

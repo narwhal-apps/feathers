@@ -111,55 +111,74 @@
     display: inline-flex;
     align-items: center;
     gap: var(--sp-2);
-    height: 32px;
-    padding: 0 10px;
+    height: 34px;
+    padding: 0 12px 0 6px;
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     color: var(--fg);
     font-size: var(--fs-sm);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
     cursor: pointer;
     transition: background var(--t-fast), border-color var(--t-fast);
+    box-shadow: var(--inset-top);
   }
   .trigger:hover,
   .empty-trigger:hover {
-    background: var(--bg-elev-1);
+    background: var(--bg-elev-3);
     border-color: var(--border-strong);
   }
+  .empty-trigger { padding: 0 12px; gap: var(--sp-2); }
 
   .avatar {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    background: var(--accent-700);
-    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, var(--accent-600), var(--accent-800));
+    color: var(--accent-50);
     font-family: var(--font-mono);
     font-size: 11px;
-    font-weight: 700;
+    font-weight: var(--weight-bold);
+    letter-spacing: 0;
     flex-shrink: 0;
+    box-shadow: var(--inset-top), 0 1px 2px rgba(0, 0, 0, 0.3);
   }
-  .avatar.muted { background: var(--bg-elev-1); color: var(--fg-subtle); }
-  .name { color: var(--fg); }
-  .name.muted { color: var(--fg-subtle); font-weight: 500; }
+  .avatar.muted {
+    background: var(--bg-elev-1);
+    color: var(--fg-subtle);
+    box-shadow: none;
+  }
+  .name { color: var(--fg); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .name.muted { color: var(--fg-subtle); font-weight: var(--weight-medium); }
+  .trigger :global(svg:last-of-type) { color: var(--fg-subtle); margin-left: 2px; }
 
   .menu {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 8px);
     left: 0;
-    min-width: 240px;
-    max-width: 360px;
-    background: var(--bg-elev-1);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-2);
-    padding: 4px;
+    min-width: 280px;
+    max-width: 380px;
+    background: var(--bg-elev-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    padding: 6px;
     z-index: 10;
   }
-  .menu ul { list-style: none; margin: 0; padding: 0; }
+  .menu::before {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: var(--r-lg);
+    background-image: var(--grain);
+    opacity: 0.4;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+  .menu ul { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; }
   .menu li { padding: 0; }
 
   .item {
@@ -167,21 +186,31 @@
     align-items: center;
     width: 100%;
     gap: var(--sp-2);
-    padding: 6px 10px;
+    padding: 8px 10px;
     background: transparent;
     border: none;
     border-radius: var(--r-sm);
-    color: var(--fg);
+    color: var(--fg-muted);
     font-size: var(--fs-sm);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     cursor: pointer;
     text-align: left;
+    transition: background var(--t-fast), color var(--t-fast);
   }
-  .item:hover { background: var(--bg-elev-2); }
-  .item.active { background: rgba(20, 184, 166, 0.10); color: var(--accent-300); font-weight: 600; }
+  .item:hover { background: var(--bg-elev-2); color: var(--fg); }
+  .item.active {
+    background: var(--accent-bg-medium);
+    color: var(--accent-300);
+    font-weight: var(--weight-semibold);
+  }
   .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 4px;
+    position: relative; z-index: 1;
+  }
 
   .add {
     display: flex;
@@ -189,16 +218,16 @@
     justify-content: space-between;
     gap: var(--sp-2);
     width: 100%;
-    padding: 6px 10px;
+    padding: 8px 10px;
     background: transparent;
     border: none;
     border-radius: var(--r-sm);
     color: var(--fg);
     font-size: var(--fs-sm);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     cursor: pointer;
+    transition: background var(--t-fast);
+    position: relative; z-index: 1;
   }
-  .add:hover { background: var(--bg-elev-2); }
-
-  .empty-trigger { font-weight: 600; }
+  .add:hover { background: var(--accent-bg-soft); color: var(--accent-300); }
 </style>

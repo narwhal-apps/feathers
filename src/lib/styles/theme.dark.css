@@ -1,12 +1,44 @@
 :root, [data-theme="dark"] {
-  --bg:            #0e0f10;
-  --bg-elev-1:     #161819;
-  --bg-elev-2:     #1d1f22;
-  --border:        #26292d;
-  --border-strong: #34383d;
-  --fg:            #e6e7e9;
-  --fg-muted:      #9aa0a6;
-  --fg-subtle:     #6b7178;
-  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.4);
+  /* Surfaces — clear hierarchy with warm-leaning neutrals */
+  --bg:            #0a0c0d;       /* canvas */
+  --bg-elev-1:     #14171a;       /* titlebar, sidebar */
+  --bg-elev-2:     #1c2024;       /* cards, raised */
+  --bg-elev-3:     #252a30;       /* dropdowns, modals */
+  --bg-overlay:    rgba(10, 12, 13, 0.72);
+
+  /* Borders — actually visible */
+  --border:        #2a2f36;
+  --border-strong: #3a414a;
+  --border-faint:  #1f2329;
+
+  /* Foreground — passes WCAG AA on --bg and --bg-elev-* */
+  --fg:            #ecedef;
+  --fg-strong:     #ffffff;
+  --fg-muted:      #a8aeb8;
+  --fg-subtle:     #6e7682;
+  --fg-faint:      #4a5057;
+
+  /* Solid accent surface — text on this surface is dark, not white */
+  --accent-on:     #051815;       /* near-black-teal — high contrast */
+  --accent-fg:     var(--accent-300);
+
+  /* Shadows — layered */
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.5),
+              0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.45),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 18px 44px rgba(0, 0, 0, 0.55),
+              0 4px 12px rgba(0, 0, 0, 0.40);
+
+  /* Inset highlight (top edge of cards) */
+  --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* Subtle grain texture (data-uri SVG noise) */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.025 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+
+  /* Selection */
+  --selection-bg: color-mix(in srgb, var(--accent-500) 35%, transparent);
+  --selection-fg: var(--fg-strong);
+
+  color-scheme: dark;
 }
