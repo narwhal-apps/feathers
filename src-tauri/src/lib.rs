@@ -58,6 +58,7 @@ pub fn run() {
             commands::repo::repo_list_known,
             commands::repo::repo_status,
             commands::branch::branch_list,
+            commands::branch::branch_checkout,
             commands::commit::commit_log,
             commands::diff::diff_workdir,
             commands::diff::diff_index,

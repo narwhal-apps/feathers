@@ -12,3 +12,14 @@ pub async fn branch_list(
     let r = handle.repo.lock();
     git_core::branch::list_branches(&r)
 }
+
+#[tauri::command]
+pub async fn branch_checkout(
+    id: String,
+    name: String,
+    registry: State<'_, RepoRegistry>,
+) -> Result<(), AppError> {
+    let handle = registry.get(&id)?;
+    let r = handle.repo.lock();
+    git_core::branch::checkout(&r, &name)
+}

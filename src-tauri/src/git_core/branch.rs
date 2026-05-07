@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::git_core::status;
 use crate::git_core::types::BranchInfo;
 use git2::{BranchType, Repository};
 
@@ -59,4 +60,49 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
     }
 
     Ok(out)
+}
+
+/// Checkout a local branch by name. Errors with `AppError::Dirty { paths }` if
+/// there are staged or unstaged changes (untracked files are allowed).
+/// Errors with `AppError::Git { ... }` if the branch is not found or libgit2
+/// refuses the checkout for any other reason.
+pub fn checkout(repo: &Repository, branch_name: &str) -> Result<(), AppError> {
+    // Refuse if working tree has tracked modifications.
+    let snap = status::status(repo)?;
+    if !snap.staged.is_empty() || !snap.unstaged.is_empty() || !snap.conflicted.is_empty() {
+        let mut paths: Vec<String> = snap
+            .staged
+            .iter()
+            .chain(snap.unstaged.iter())
+            .chain(snap.conflicted.iter())
+            .map(|f| f.path.clone())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        return Err(AppError::Dirty { paths });
+    }
+
+    // Resolve the branch (local only — remotes need a tracking branch first).
+    let branch = repo
+        .find_branch(branch_name, BranchType::Local)
+        .map_err(|_| AppError::Git {
+            message: format!("local branch not found: {branch_name}"),
+        })?;
+    let refname = branch
+        .get()
+        .name()
+        .ok_or_else(|| AppError::Git {
+            message: "branch has no ref name".into(),
+        })?
+        .to_string();
+
+    // Move HEAD's working tree to the branch tip, then point HEAD at the ref.
+    let target = branch.get().peel_to_commit()?;
+    let tree = target.tree()?;
+    let mut opts = git2::build::CheckoutBuilder::new();
+    opts.safe();
+    repo.checkout_tree(tree.as_object(), Some(&mut opts))?;
+    repo.set_head(&refname)?;
+
+    Ok(())
 }
