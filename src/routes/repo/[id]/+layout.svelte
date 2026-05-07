@@ -33,6 +33,9 @@
 
 <style>
   .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 5;
     display: flex;
     gap: var(--sp-1);
     padding: 0 var(--sp-3);
@@ -49,5 +52,6 @@
   }
   .tab:hover { color: var(--fg); }
   .tab.active { color: var(--accent-fg); border-bottom-color: var(--accent-500); }
-  .content { height: calc(100% - 33px); overflow: hidden; }
+  /* No height/overflow — content flows; the parent <main class="page">
+     in routes/+layout.svelte owns the scroll. */
 </style>

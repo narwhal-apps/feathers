@@ -79,13 +79,23 @@
 </div>
 
 <style>
-  .layout { display: flex; height: 100%; }
+  .layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    align-items: start;
+    min-height: 100%;
+  }
   .commits {
+    position: sticky;
+    top: 33px;
+    align-self: start;
     width: 360px;
-    flex-shrink: 0;
+    height: calc(100vh - 56px - 33px);
     border-right: 1px solid var(--border);
     overflow-y: auto;
     padding: var(--sp-2) 0;
+    background: var(--bg-elev-1);
+    z-index: 1;
   }
   .commits ul { list-style: none; margin: 0; padding: 0; }
   .commits li { padding: 0; border-bottom: 1px solid var(--border); }
@@ -104,7 +114,7 @@
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row2 { display: flex; gap: var(--sp-2); padding-left: 16px; color: var(--fg-subtle); font-size: var(--fs-xs); }
   .sha { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  .diff { flex: 1; overflow: auto; padding: var(--sp-3); }
+  .diff { padding: var(--sp-3); min-width: 0; }
   .hint { color: var(--fg-subtle); padding: var(--sp-3); font-size: var(--fs-sm); }
   .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
 </style>

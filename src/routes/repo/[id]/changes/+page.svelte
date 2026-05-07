@@ -292,15 +292,26 @@
 </div>
 
 <style>
-  .layout { display: flex; height: 100%; }
+  /* Grid: 340px sticky file pane + flexible diff pane.
+     The page (root <main class="page">) owns the vertical scroll. */
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    align-items: start;
+    min-height: 100%;
+  }
 
   .files {
+    position: sticky;
+    top: 33px;                                 /* below the sticky tabs */
+    align-self: start;
     width: 340px;
-    flex-shrink: 0;
+    height: calc(100vh - 56px - 33px);          /* viewport - titlebar - tabs */
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     background: var(--bg-elev-1);
+    z-index: 1;
   }
   .files-scroll { flex: 1; overflow-y: auto; padding: var(--sp-2) 0; }
 
@@ -455,7 +466,8 @@
     box-shadow: 0 0 8px var(--accent-bg-strong);
   }
 
-  .diff { flex: 1; overflow: auto; padding: var(--sp-3); background: var(--bg); }
+  /* No internal scroll — flows into the page's scroll container. */
+  .diff { padding: var(--sp-3); background: var(--bg); min-width: 0; }
   .hint { color: var(--fg-subtle); padding: var(--sp-3); font-size: var(--fs-sm); }
   .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
 </style>
