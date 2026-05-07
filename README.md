@@ -2,7 +2,7 @@
 
 A Tauri 2 + SvelteKit desktop Git client. macOS-only for now.
 
-> Status: Milestone 1 — app skeleton. No git operations yet.
+> Status: Milestone 2 — read-only repo browsing. Open local repos, view status/history/diff. No mutations yet.
 
 ## Prerequisites
 
