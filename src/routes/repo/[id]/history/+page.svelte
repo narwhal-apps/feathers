@@ -6,7 +6,7 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import type { CommitPage, DiffPayload } from '$lib/types';
 
-  const id = $derived($page.params.id);
+  const id = $derived($page.params.id ?? '');
 
   const log = createQuery<CommitPage>(
     () => queryKeys.repoLog(id),
@@ -44,16 +44,18 @@
     {:else if log.data}
       <ul>
         {#each log.data.commits as c}
-          <li class:selected={selectedOid === c.oid} onclick={() => (selectedOid = c.oid)}>
-            <div class="row1">
-              <span class="dot"></span>
-              <span class="summary">{c.summary || '(no message)'}</span>
-            </div>
-            <div class="row2">
-              <span class="who">{c.author_name}</span>
-              <span class="when">· {relTime(c.author_when)}</span>
-              <span class="sha">{c.short_sha}</span>
-            </div>
+          <li class:selected={selectedOid === c.oid}>
+            <button class="row" onclick={() => (selectedOid = c.oid)}>
+              <div class="row1">
+                <span class="dot"></span>
+                <span class="summary">{c.summary || '(no message)'}</span>
+              </div>
+              <div class="row2">
+                <span class="who">{c.author_name}</span>
+                <span class="when">· {relTime(c.author_when)}</span>
+                <span class="sha">{c.short_sha}</span>
+              </div>
+            </button>
           </li>
         {/each}
       </ul>
@@ -86,13 +88,17 @@
     padding: var(--sp-2) 0;
   }
   .commits ul { list-style: none; margin: 0; padding: 0; }
-  .commits li {
+  .commits li { padding: 0; border-bottom: 1px solid var(--border); }
+  .commits li button.row {
+    display: block;
+    width: 100%;
+    text-align: left;
     padding: var(--sp-2) var(--sp-3);
     cursor: pointer;
-    border-bottom: 1px solid var(--border);
+    color: inherit;
   }
-  .commits li:hover { background: var(--bg-elev-2); }
-  .commits li.selected { background: rgba(20, 184, 166, 0.10); }
+  .commits li button.row:hover { background: var(--bg-elev-2); }
+  .commits li.selected button.row { background: rgba(20, 184, 166, 0.10); }
   .row1 { display: flex; align-items: center; gap: var(--sp-2); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-500); flex-shrink: 0; }
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

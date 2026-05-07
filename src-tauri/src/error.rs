@@ -45,6 +45,8 @@ impl From<std::io::Error> for AppError {
 
 impl From<git2::Error> for AppError {
     fn from(e: git2::Error) -> Self {
-        Self::Git { message: e.message().to_string() }
+        Self::Git {
+            message: e.message().to_string(),
+        }
     }
 }

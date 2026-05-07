@@ -3,10 +3,15 @@ use crate::git_core::types::{DiffFile, DiffHunk, DiffLine, DiffLineKind, DiffPay
 use git2::{Diff, DiffOptions, Oid, Repository};
 use std::cell::RefCell;
 
-pub fn diff_workdir(repo: &Repository, paths: Option<Vec<String>>) -> Result<DiffPayload, AppError> {
+pub fn diff_workdir(
+    repo: &Repository,
+    paths: Option<Vec<String>>,
+) -> Result<DiffPayload, AppError> {
     let mut opts = base_opts();
     if let Some(ps) = paths {
-        for p in ps { opts.pathspec(p); }
+        for p in ps {
+            opts.pathspec(p);
+        }
     }
     let diff = repo.diff_index_to_workdir(None, Some(&mut opts))?;
     serialize(&diff)
@@ -15,11 +20,11 @@ pub fn diff_workdir(repo: &Repository, paths: Option<Vec<String>>) -> Result<Dif
 pub fn diff_index(repo: &Repository, paths: Option<Vec<String>>) -> Result<DiffPayload, AppError> {
     let mut opts = base_opts();
     if let Some(ps) = paths {
-        for p in ps { opts.pathspec(p); }
+        for p in ps {
+            opts.pathspec(p);
+        }
     }
-    let head_tree = repo.head()
-        .and_then(|h| h.peel_to_tree())
-        .ok();
+    let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
     let diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))?;
     serialize(&diff)
 }
@@ -58,13 +63,19 @@ fn serialize(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
         &mut |delta, _| {
             // Flush previous file.
             if let Some(mut f) = current_file.borrow_mut().take() {
-                if let Some(h) = current_hunk.borrow_mut().take() { f.hunks.push(h); }
+                if let Some(h) = current_hunk.borrow_mut().take() {
+                    f.hunks.push(h);
+                }
                 files.borrow_mut().push(f);
             }
-            let new_path = delta.new_file().path()
+            let new_path = delta
+                .new_file()
+                .path()
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_default();
-            let old_path_raw = delta.old_file().path()
+            let old_path_raw = delta
+                .old_file()
+                .path()
                 .map(|p| p.to_string_lossy().into_owned());
             // Only emit old_path when it actually differs (rename).
             let old_path = old_path_raw.filter(|op| op != &new_path);
@@ -94,7 +105,9 @@ fn serialize(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
                 }
             }
             *current_hunk.borrow_mut() = Some(DiffHunk {
-                header: String::from_utf8_lossy(hunk.header()).trim_end().to_string(),
+                header: String::from_utf8_lossy(hunk.header())
+                    .trim_end()
+                    .to_string(),
                 lines: vec![],
             });
             true
@@ -106,7 +119,9 @@ fn serialize(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
                 '-' => DiffLineKind::Del,
                 _ => DiffLineKind::Ctx,
             };
-            let text = String::from_utf8_lossy(line.content()).trim_end_matches('\n').to_string();
+            let text = String::from_utf8_lossy(line.content())
+                .trim_end_matches('\n')
+                .to_string();
             let dl = DiffLine {
                 kind,
                 old_no: line.old_lineno(),
@@ -122,9 +137,13 @@ fn serialize(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
 
     // Flush remaining hunk + file.
     if let Some(mut f) = current_file.borrow_mut().take() {
-        if let Some(h) = current_hunk.borrow_mut().take() { f.hunks.push(h); }
+        if let Some(h) = current_hunk.borrow_mut().take() {
+            f.hunks.push(h);
+        }
         files.borrow_mut().push(f);
     }
 
-    Ok(DiffPayload { files: files.into_inner() })
+    Ok(DiffPayload {
+        files: files.into_inner(),
+    })
 }

@@ -10,7 +10,9 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
     for b in iter {
         let (branch, btype) = b?;
         let name = branch.name()?.unwrap_or("").to_string();
-        if name.is_empty() { continue; }
+        if name.is_empty() {
+            continue;
+        }
 
         let target = branch.get().target();
         let short_sha = target
@@ -20,7 +22,8 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
             .unwrap_or_default();
 
         let is_head = !matches!(btype, BranchType::Remote)
-            && head_ref.as_ref()
+            && head_ref
+                .as_ref()
                 .and_then(|h| h.name())
                 .map(|hn| hn == branch.get().name().unwrap_or(""))
                 .unwrap_or(false);

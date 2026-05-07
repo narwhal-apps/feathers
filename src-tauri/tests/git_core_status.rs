@@ -19,9 +19,18 @@ fn status_finds_untracked_modified_and_staged_files() {
 
     let snap = status::status(&r).unwrap();
 
-    assert!(snap.staged.iter().any(|f| f.path == "b.txt" && f.status == FileStatus::Modified));
-    assert!(snap.unstaged.iter().any(|f| f.path == "a.txt" && f.status == FileStatus::Modified));
-    assert!(snap.untracked.iter().any(|f| f.path == "c.txt" && f.status == FileStatus::Untracked));
+    assert!(snap
+        .staged
+        .iter()
+        .any(|f| f.path == "b.txt" && f.status == FileStatus::Modified));
+    assert!(snap
+        .unstaged
+        .iter()
+        .any(|f| f.path == "a.txt" && f.status == FileStatus::Modified));
+    assert!(snap
+        .untracked
+        .iter()
+        .any(|f| f.path == "c.txt" && f.status == FileStatus::Untracked));
 }
 
 #[test]

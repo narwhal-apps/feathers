@@ -22,11 +22,22 @@ pub fn head_info(repo: &Repository) -> Result<HeadInfo, AppError> {
                 .and_then(|obj| obj.short_id().ok())
                 .and_then(|buf| buf.as_str().map(str::to_string))
                 .unwrap_or_default();
-            Ok(HeadInfo { branch, detached, short_sha })
+            Ok(HeadInfo {
+                branch,
+                detached,
+                short_sha,
+            })
         }
-        Err(e) if e.code() == git2::ErrorCode::UnbornBranch || e.code() == git2::ErrorCode::NotFound => {
+        Err(e)
+            if e.code() == git2::ErrorCode::UnbornBranch
+                || e.code() == git2::ErrorCode::NotFound =>
+        {
             // Empty repo with no commits.
-            Ok(HeadInfo { branch: "HEAD".to_string(), detached: false, short_sha: String::new() })
+            Ok(HeadInfo {
+                branch: "HEAD".to_string(),
+                detached: false,
+                short_sha: String::new(),
+            })
         }
         Err(e) => Err(e.into()),
     }

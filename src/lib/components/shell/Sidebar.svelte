@@ -54,10 +54,9 @@
     {:else}
       <ul class="repos">
         {#each repos.knownRepos as r}
-          <li
-            class:active={r.id === activeId}
-            onclick={() => activate(r.id)}
-          >{r.name}</li>
+          <li class:active={r.id === activeId}>
+            <button onclick={() => activate(r.id)}>{r.name}</button>
+          </li>
         {/each}
       </ul>
     {/if}
@@ -115,14 +114,18 @@
   .count { background: var(--bg-elev-2); border-radius: 999px; padding: 0 6px; color: var(--fg-muted); font-size: var(--fs-xs); }
 
   .repos { list-style: none; margin: 0; padding: 0; }
-  .repos li {
+  .repos li { padding: 0; }
+  .repos li button {
+    display: block;
+    width: 100%;
+    text-align: left;
     padding: 4px var(--sp-3);
     cursor: pointer;
     color: var(--fg);
     font-size: var(--fs-sm);
   }
-  .repos li:hover { background: var(--bg-elev-2); }
-  .repos li.active { color: var(--accent-300); background: rgba(20, 184, 166, 0.10); }
+  .repos li button:hover { background: var(--bg-elev-2); }
+  .repos li.active button { color: var(--accent-300); background: rgba(20, 184, 166, 0.10); }
 
   .branch-row { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3); }
   .counts { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }

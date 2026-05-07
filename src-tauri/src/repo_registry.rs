@@ -12,14 +12,14 @@ pub type RepoId = String;
 
 pub struct RepoHandle {
     pub id: RepoId,
-    pub path: PathBuf,                  // canonicalized
+    pub path: PathBuf, // canonicalized
     pub repo: Mutex<Repository>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepoSummary {
     pub id: RepoId,
-    pub name: String,                   // basename of path
+    pub name: String, // basename of path
     pub path: String,
 }
 
@@ -29,11 +29,15 @@ pub struct RepoRegistry {
 
 impl RepoRegistry {
     pub fn new() -> Self {
-        Self { inner: RwLock::new(HashMap::new()) }
+        Self {
+            inner: RwLock::new(HashMap::new()),
+        }
     }
 
     pub fn add(&self, path: PathBuf) -> Result<RepoId, AppError> {
-        let canonical = path.canonicalize().map_err(|e| AppError::Io { message: e.to_string() })?;
+        let canonical = path.canonicalize().map_err(|e| AppError::Io {
+            message: e.to_string(),
+        })?;
 
         // Reuse if already present (compare by canonicalized path).
         {
@@ -79,7 +83,12 @@ impl RepoRegistry {
             .values()
             .map(|h| RepoSummary {
                 id: h.id.clone(),
-                name: h.path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string(),
+                name: h
+                    .path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string(),
                 path: h.path.to_string_lossy().to_string(),
             })
             .collect()
@@ -96,10 +105,15 @@ impl RepoRegistry {
 }
 
 impl Default for RepoRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[allow(dead_code)]
 pub fn short_name(path: &Path) -> String {
-    path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string()
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string()
 }

@@ -18,7 +18,9 @@ pub fn seeded_repo(commits: &[(&str, &str)]) -> TempDir {
 
     for (path, contents) in commits {
         let abs = dir.path().join(path);
-        if let Some(parent) = abs.parent() { fs::create_dir_all(parent).ok(); }
+        if let Some(parent) = abs.parent() {
+            fs::create_dir_all(parent).ok();
+        }
         fs::write(&abs, contents).expect("write file");
 
         let mut index = repo.index().expect("index");
@@ -27,13 +29,21 @@ pub fn seeded_repo(commits: &[(&str, &str)]) -> TempDir {
         index.write().expect("write index");
         let tree = repo.find_tree(tree_oid).expect("find_tree");
 
-        let parent_commits: Vec<_> = parents.iter()
+        let parent_commits: Vec<_> = parents
+            .iter()
             .map(|oid| repo.find_commit(*oid).expect("find_commit"))
             .collect();
         let parent_refs: Vec<&git2::Commit> = parent_commits.iter().collect();
 
         let oid = repo
-            .commit(Some("HEAD"), &sig, &sig, &format!("commit: {path}"), &tree, &parent_refs)
+            .commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                &format!("commit: {path}"),
+                &tree,
+                &parent_refs,
+            )
             .expect("commit");
         parents = vec![oid];
     }
@@ -45,7 +55,9 @@ pub fn seeded_repo(commits: &[(&str, &str)]) -> TempDir {
 #[allow(dead_code)]
 pub fn write_file(repo_dir: &Path, rel: &str, contents: &str) {
     let abs = repo_dir.join(rel);
-    if let Some(parent) = abs.parent() { fs::create_dir_all(parent).ok(); }
+    if let Some(parent) = abs.parent() {
+        fs::create_dir_all(parent).ok();
+    }
     fs::write(&abs, contents).expect("write file");
 }
 

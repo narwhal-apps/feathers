@@ -13,7 +13,10 @@ pub fn log(repo: &Repository, opts: LogOpts) -> Result<CommitPage, AppError> {
 
     // Skip past the cursor commit if pagination requested.
     let mut skipping = opts.before_oid.is_some();
-    let cursor_oid = opts.before_oid.as_deref().and_then(|s| Oid::from_str(s).ok());
+    let cursor_oid = opts
+        .before_oid
+        .as_deref()
+        .and_then(|s| Oid::from_str(s).ok());
 
     let mut commits = Vec::with_capacity(opts.max);
     let mut next_cursor: Option<String> = None;
@@ -33,8 +36,7 @@ pub fn log(repo: &Repository, opts: LogOpts) -> Result<CommitPage, AppError> {
             break;
         }
         let c = repo.find_commit(oid)?;
-        let short_sha = c.as_object().short_id()?
-            .as_str().unwrap_or("").to_string();
+        let short_sha = c.as_object().short_id()?.as_str().unwrap_or("").to_string();
         commits.push(CommitInfo {
             oid: oid.to_string(),
             short_sha,
@@ -48,5 +50,8 @@ pub fn log(repo: &Repository, opts: LogOpts) -> Result<CommitPage, AppError> {
         });
     }
 
-    Ok(CommitPage { commits, next_cursor })
+    Ok(CommitPage {
+        commits,
+        next_cursor,
+    })
 }

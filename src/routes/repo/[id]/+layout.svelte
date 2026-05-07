@@ -6,15 +6,14 @@
 
   // Sync URL → active repo.
   $effect(() => {
-    const id = $page.params.id;
-    repos.activeRepoId = id;
+    repos.activeRepoId = $page.params.id ?? null;
   });
 
   const tabs = [
     { href: 'changes', label: 'Changes' },
     { href: 'history', label: 'History' },
   ];
-  const id = $derived($page.params.id);
+  const id = $derived($page.params.id ?? '');
   const active = $derived($page.url.pathname.split('/')[3] ?? 'changes');
 </script>
 

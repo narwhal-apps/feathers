@@ -1,6 +1,12 @@
-<script lang="ts" module>
-  import type { FileStatus, StatusSnapshot } from '$lib/types';
-  export function shortStatus(s: FileStatus): string {
+<script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
+  import { page } from '$app/stores';
+  import { createQuery } from '$lib/query/createQuery.svelte';
+  import { queryKeys } from '$lib/query/keys';
+  import DiffView from '$lib/components/primitives/DiffView.svelte';
+  import type { StatusSnapshot, DiffPayload, FileChange, FileStatus } from '$lib/types';
+
+  function shortStatus(s: FileStatus): string {
     switch (s) {
       case 'added': return 'A';
       case 'modified': return 'M';
@@ -11,20 +17,11 @@
       case 'conflicted': return 'C';
     }
   }
-  export function isEmpty(s: StatusSnapshot): boolean {
+  function isEmpty(s: StatusSnapshot): boolean {
     return s.staged.length + s.unstaged.length + s.untracked.length + s.conflicted.length === 0;
   }
-</script>
 
-<script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import { page } from '$app/stores';
-  import { createQuery } from '$lib/query/createQuery.svelte';
-  import { queryKeys } from '$lib/query/keys';
-  import DiffView from '$lib/components/primitives/DiffView.svelte';
-  import type { StatusSnapshot, DiffPayload, FileChange } from '$lib/types';
-
-  const id = $derived($page.params.id);
+  const id = $derived($page.params.id ?? '');
 
   const status = createQuery<StatusSnapshot>(
     () => queryKeys.repoStatus(id),
@@ -57,9 +54,11 @@
         <h3>Staged</h3>
         <ul>
           {#each status.data.staged as f}
-            <li class:selected={selected === f.path} onclick={() => pick(f)}>
+            <li class:selected={selected === f.path}>
+              <button class="row" onclick={() => pick(f)}>
               <span class="status status-{f.status}">{shortStatus(f.status)}</span>
               <span class="path">{f.path}</span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -68,9 +67,11 @@
         <h3>Unstaged</h3>
         <ul>
           {#each status.data.unstaged as f}
-            <li class:selected={selected === f.path} onclick={() => pick(f)}>
+            <li class:selected={selected === f.path}>
+              <button class="row" onclick={() => pick(f)}>
               <span class="status status-{f.status}">{shortStatus(f.status)}</span>
               <span class="path">{f.path}</span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -79,9 +80,11 @@
         <h3>Untracked</h3>
         <ul>
           {#each status.data.untracked as f}
-            <li class:selected={selected === f.path} onclick={() => pick(f)}>
+            <li class:selected={selected === f.path}>
+              <button class="row" onclick={() => pick(f)}>
               <span class="status status-untracked">U</span>
               <span class="path">{f.path}</span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -90,9 +93,11 @@
         <h3>Conflicted</h3>
         <ul>
           {#each status.data.conflicted as f}
-            <li class:selected={selected === f.path} onclick={() => pick(f)}>
+            <li class:selected={selected === f.path}>
+              <button class="row" onclick={() => pick(f)}>
               <span class="status status-conflicted">C</span>
               <span class="path">{f.path}</span>
+              </button>
             </li>
           {/each}
         </ul>
@@ -133,17 +138,21 @@
     margin: var(--sp-3) var(--sp-3) var(--sp-1);
   }
   .files ul { list-style: none; margin: 0; padding: 0; }
-  .files li {
+  .files li { padding: 0; }
+  .files li button.row {
     display: flex;
     align-items: center;
     gap: var(--sp-2);
+    width: 100%;
+    text-align: left;
     padding: 4px var(--sp-3);
     cursor: pointer;
     font-size: var(--fs-xs);
     font-family: var(--font-mono);
+    color: inherit;
   }
-  .files li:hover { background: var(--bg-elev-2); }
-  .files li.selected { background: rgba(20, 184, 166, 0.1); color: var(--accent-300); }
+  .files li button.row:hover { background: var(--bg-elev-2); }
+  .files li.selected button.row { background: rgba(20, 184, 166, 0.1); color: var(--accent-300); }
   .files .status {
     width: 16px; text-align: center; color: var(--fg-subtle);
     font-weight: 700;

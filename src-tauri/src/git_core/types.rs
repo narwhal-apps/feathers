@@ -57,7 +57,7 @@ pub struct CommitInfo {
     pub summary: String,
     pub author_name: String,
     pub author_email: String,
-    pub author_when: i64,        // seconds since unix epoch
+    pub author_when: i64, // seconds since unix epoch
     pub parent_oids: Vec<String>,
 }
 
@@ -72,7 +72,11 @@ pub struct LogOpts {
 
 impl Default for LogOpts {
     fn default() -> Self {
-        Self { start_ref: None, max: 50, before_oid: None }
+        Self {
+            start_ref: None,
+            max: 50,
+            before_oid: None,
+        }
     }
 }
 

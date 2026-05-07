@@ -9,7 +9,9 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn current_schema() -> u32 { 1 }
+    pub fn current_schema() -> u32 {
+        1
+    }
 }
 
 /// Trait so commands can call this without a Tauri runtime in tests.
@@ -28,17 +30,23 @@ pub struct FileStore {
 }
 
 impl FileStore {
-    pub fn new(path: PathBuf) -> Self { Self { path } }
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
 }
 
 impl ConfigStore for FileStore {
     fn load(&self) -> Result<AppConfig, AppError> {
         if !self.path.exists() {
-            return Ok(AppConfig { schema: AppConfig::current_schema(), known_repos: vec![] });
+            return Ok(AppConfig {
+                schema: AppConfig::current_schema(),
+                known_repos: vec![],
+            });
         }
         let raw = std::fs::read_to_string(&self.path)?;
-        let cfg: AppConfig = serde_json::from_str(&raw)
-            .map_err(|e| AppError::Io { message: format!("config parse: {e}") })?;
+        let cfg: AppConfig = serde_json::from_str(&raw).map_err(|e| AppError::Io {
+            message: format!("config parse: {e}"),
+        })?;
         Ok(cfg)
     }
 
@@ -46,8 +54,9 @@ impl ConfigStore for FileStore {
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let raw = serde_json::to_string_pretty(cfg)
-            .map_err(|e| AppError::Io { message: format!("config encode: {e}") })?;
+        let raw = serde_json::to_string_pretty(cfg).map_err(|e| AppError::Io {
+            message: format!("config encode: {e}"),
+        })?;
         std::fs::write(&self.path, raw)?;
         Ok(())
     }

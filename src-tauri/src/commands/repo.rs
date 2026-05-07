@@ -58,7 +58,9 @@ pub async fn repo_close(
 }
 
 #[tauri::command]
-pub async fn repo_list_known(registry: State<'_, RepoRegistry>) -> Result<Vec<RepoSummary>, AppError> {
+pub async fn repo_list_known(
+    registry: State<'_, RepoRegistry>,
+) -> Result<Vec<RepoSummary>, AppError> {
     Ok(registry.list())
 }
 

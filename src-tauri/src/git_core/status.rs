@@ -20,7 +20,9 @@ pub fn status(repo: &Repository) -> Result<StatusSnapshot, AppError> {
     for entry in statuses.iter() {
         let s = entry.status();
         let path = entry.path().unwrap_or("").to_string();
-        if path.is_empty() { continue; }
+        if path.is_empty() {
+            continue;
+        }
 
         if s.contains(Status::CONFLICTED) {
             snap.conflicted.push(FileChange {
@@ -61,18 +63,31 @@ pub fn status(repo: &Repository) -> Result<StatusSnapshot, AppError> {
 }
 
 fn staged_kind(s: Status) -> Option<FileStatus> {
-    if s.contains(Status::INDEX_NEW)        { Some(FileStatus::Added) }
-    else if s.contains(Status::INDEX_MODIFIED) { Some(FileStatus::Modified) }
-    else if s.contains(Status::INDEX_DELETED)  { Some(FileStatus::Deleted) }
-    else if s.contains(Status::INDEX_RENAMED)  { Some(FileStatus::Renamed) }
-    else if s.contains(Status::INDEX_TYPECHANGE){ Some(FileStatus::Typechange) }
-    else { None }
+    if s.contains(Status::INDEX_NEW) {
+        Some(FileStatus::Added)
+    } else if s.contains(Status::INDEX_MODIFIED) {
+        Some(FileStatus::Modified)
+    } else if s.contains(Status::INDEX_DELETED) {
+        Some(FileStatus::Deleted)
+    } else if s.contains(Status::INDEX_RENAMED) {
+        Some(FileStatus::Renamed)
+    } else if s.contains(Status::INDEX_TYPECHANGE) {
+        Some(FileStatus::Typechange)
+    } else {
+        None
+    }
 }
 
 fn unstaged_kind(s: Status) -> Option<FileStatus> {
-    if s.contains(Status::WT_MODIFIED)      { Some(FileStatus::Modified) }
-    else if s.contains(Status::WT_DELETED)  { Some(FileStatus::Deleted) }
-    else if s.contains(Status::WT_RENAMED)  { Some(FileStatus::Renamed) }
-    else if s.contains(Status::WT_TYPECHANGE) { Some(FileStatus::Typechange) }
-    else { None }
+    if s.contains(Status::WT_MODIFIED) {
+        Some(FileStatus::Modified)
+    } else if s.contains(Status::WT_DELETED) {
+        Some(FileStatus::Deleted)
+    } else if s.contains(Status::WT_RENAMED) {
+        Some(FileStatus::Renamed)
+    } else if s.contains(Status::WT_TYPECHANGE) {
+        Some(FileStatus::Typechange)
+    } else {
+        None
+    }
 }
