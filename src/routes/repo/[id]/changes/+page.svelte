@@ -152,7 +152,7 @@
     color: inherit;
   }
   .files li button.row:hover { background: var(--bg-elev-2); }
-  .files li.selected button.row { background: rgba(20, 184, 166, 0.1); color: var(--accent-300); }
+  .files li.selected button.row { background: var(--accent-bg-medium); color: var(--accent-fg); }
   .files .status {
     width: 16px; text-align: center; color: var(--fg-subtle);
     font-weight: 700;

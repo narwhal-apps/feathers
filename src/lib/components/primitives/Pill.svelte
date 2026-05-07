@@ -24,7 +24,7 @@
   }
   .pill-accent  {
     background: var(--accent-bg-medium);
-    color: var(--accent-300);
+    color: var(--accent-fg);
     border-color: var(--accent-bg-strong);
   }
   .pill-neutral {

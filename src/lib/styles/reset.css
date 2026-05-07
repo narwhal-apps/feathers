@@ -48,7 +48,7 @@ button {
   color: inherit;
 }
 
-a { color: var(--accent-300); text-decoration: none; }
+a { color: var(--accent-fg); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 :focus { outline: none; }

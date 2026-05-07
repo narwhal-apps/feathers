@@ -98,7 +98,7 @@
     color: inherit;
   }
   .commits li button.row:hover { background: var(--bg-elev-2); }
-  .commits li.selected button.row { background: rgba(20, 184, 166, 0.10); }
+  .commits li.selected button.row { background: var(--accent-bg-medium); color: var(--accent-fg); }
   .row1 { display: flex; align-items: center; gap: var(--sp-2); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-500); flex-shrink: 0; }
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

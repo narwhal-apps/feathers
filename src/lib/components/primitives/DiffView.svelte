@@ -73,10 +73,11 @@
   .hunk { border-top: 1px solid var(--border); }
   .hunk-header {
     padding: var(--sp-1) var(--sp-3);
-    background: rgba(20, 184, 166, 0.06);
-    color: var(--accent-300);
+    background: var(--hunk-bg);
+    color: var(--accent-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
+    font-weight: var(--weight-semibold);
   }
   .lines { font-family: var(--font-mono); font-size: var(--fs-xs); }
   .line {

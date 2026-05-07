@@ -200,7 +200,7 @@
   .item:hover { background: var(--bg-elev-2); color: var(--fg); }
   .item.active {
     background: var(--accent-bg-medium);
-    color: var(--accent-300);
+    color: var(--accent-fg);
     font-weight: var(--weight-semibold);
   }
   .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -229,5 +229,5 @@
     transition: background var(--t-fast);
     position: relative; z-index: 1;
   }
-  .add:hover { background: var(--accent-bg-soft); color: var(--accent-300); }
+  .add:hover { background: var(--accent-bg-soft); color: var(--accent-fg); }
 </style>

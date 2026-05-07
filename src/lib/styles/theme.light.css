@@ -19,6 +19,18 @@
   --accent-on:     #ffffff;
   --accent-fg:     #0f766e;
 
+  /* Override diff base colors so they read on cream bg.
+     These also shift the color-mix bg tints to be more visible. */
+  --added:        #047857;
+  --added-text:   #064e3b;
+  --added-bg:     color-mix(in srgb, #10b981 14%, transparent);
+
+  --removed:      #b91c1c;
+  --removed-text: #7f1d1d;
+  --removed-bg:   color-mix(in srgb, #ef4444 12%, transparent);
+
+  --hunk-bg:      color-mix(in srgb, var(--accent-500) 10%, transparent);
+
   --shadow-1: 0 1px 0 rgba(15, 17, 21, 0.04),
               0 1px 2px rgba(15, 17, 21, 0.06);
   --shadow-2: 0 6px 16px rgba(15, 17, 21, 0.10),

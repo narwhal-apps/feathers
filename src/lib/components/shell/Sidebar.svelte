@@ -84,7 +84,7 @@
   }
   .count {
     background: var(--accent-bg-medium);
-    color: var(--accent-300);
+    color: var(--accent-fg);
     border-radius: var(--r-pill);
     padding: 1px 8px;
     font-size: var(--fs-2xs);

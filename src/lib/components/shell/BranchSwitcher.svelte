@@ -157,7 +157,7 @@
     background: var(--accent-bg-soft);
     border: 1px solid var(--accent-bg-medium);
     border-radius: var(--r-pill);
-    color: var(--accent-300);
+    color: var(--accent-fg);
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
@@ -176,7 +176,7 @@
   }
   .total {
     background: var(--accent-bg-strong);
-    color: var(--accent-300);
+    color: var(--accent-fg);
     border-radius: var(--r-pill);
     padding: 1px 7px;
     font-size: 10px;
@@ -192,7 +192,7 @@
     font-variant-numeric: tabular-nums;
     margin-left: 2px;
   }
-  .trigger :global(svg:last-of-type) { color: var(--accent-300); opacity: 0.7; }
+  .trigger :global(svg:last-of-type) { color: var(--accent-fg); opacity: 0.7; }
 
   .menu {
     position: absolute;
@@ -268,9 +268,9 @@
   .item:hover:not(:disabled) :global(svg) { color: var(--fg-muted); }
   .item.current {
     background: var(--accent-bg-medium);
-    color: var(--accent-300);
+    color: var(--accent-fg);
     font-weight: var(--weight-semibold);
   }
-  .item.current :global(svg) { color: var(--accent-300); }
+  .item.current :global(svg) { color: var(--accent-fg); }
   .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

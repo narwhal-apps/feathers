@@ -48,6 +48,6 @@
     text-decoration: none;
   }
   .tab:hover { color: var(--fg); }
-  .tab.active { color: var(--accent-300); border-bottom-color: var(--accent-500); }
+  .tab.active { color: var(--accent-fg); border-bottom-color: var(--accent-500); }
   .content { height: calc(100% - 33px); overflow: hidden; }
 </style>
