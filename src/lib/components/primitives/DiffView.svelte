@@ -19,21 +19,23 @@
       {#if file.binary}
         <div class="binary">Binary file — diff not shown.</div>
       {:else}
-        {#each file.hunks as hunk}
-          <div class="hunk">
-            <div class="hunk-header">{hunk.header}</div>
-            <div class="lines">
-              {#each hunk.lines as line}
-                <div class="line line-{line.kind}">
-                  <span class="ln ln-old">{line.old_no ?? ''}</span>
-                  <span class="ln ln-new">{line.new_no ?? ''}</span>
-                  <span class="prefix">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span>
-                  <span class="text">{line.text}</span>
-                </div>
-              {/each}
+        <div class="body">
+          {#each file.hunks as hunk}
+            <div class="hunk">
+              <div class="hunk-header">{hunk.header}</div>
+              <div class="lines">
+                {#each hunk.lines as line}
+                  <div class="line line-{line.kind}">
+                    <span class="ln ln-old">{line.old_no ?? ''}</span>
+                    <span class="ln ln-new">{line.new_no ?? ''}</span>
+                    <span class="prefix">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span>
+                    <span class="text">{line.text}</span>
+                  </div>
+                {/each}
+              </div>
             </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       {/if}
     </article>
   {/each}
@@ -70,7 +72,14 @@
 
   .binary { padding: var(--sp-3); color: var(--fg-subtle); font-size: var(--fs-sm); }
 
-  .hunk { border-top: 1px solid var(--border); }
+  /* Per-file horizontal scroll: long lines reveal a single scrollbar
+     under all hunks of this file. The header stays fixed (not in body). */
+  .body {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .hunk { border-top: 1px solid var(--border); min-width: max-content; }
   .hunk-header {
     padding: var(--sp-1) var(--sp-3);
     background: var(--hunk-bg);
@@ -79,7 +88,7 @@
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
   }
-  .lines { font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .lines { font-family: var(--font-mono); font-size: var(--fs-xs); min-width: max-content; }
   .line {
     display: grid;
     grid-template-columns: 40px 40px 16px 1fr;
@@ -87,6 +96,7 @@
     line-height: 18px;
     padding: 0 var(--sp-2);
     white-space: pre;
+    min-width: max-content;
   }
   .line-add { background: var(--added-bg); }
   .line-del { background: var(--removed-bg); }
