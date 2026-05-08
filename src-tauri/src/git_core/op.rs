@@ -81,6 +81,12 @@ pub fn op_continue(repo: &Repository) -> Result<(), AppError> {
         | RepositoryState::RebaseInteractive
         | RepositoryState::RebaseMerge => continue_rebase(repo),
         RepositoryState::Merge => continue_merge(repo),
+        RepositoryState::CherryPick | RepositoryState::CherryPickSequence => {
+            continue_cherrypick(repo)
+        }
+        RepositoryState::Revert | RepositoryState::RevertSequence => {
+            continue_revert(repo)
+        }
         RepositoryState::Clean => Ok(()),
         other => Err(AppError::Git {
             message: format!("continue not supported for state {other:?}"),
@@ -137,6 +143,40 @@ fn continue_merge(repo: &Repository) -> Result<(), AppError> {
     )?;
     repo.cleanup_state()?;
     Ok(())
+}
+
+fn continue_cherrypick(repo: &Repository) -> Result<(), AppError> {
+    let source_oid = read_cherrypick_head(repo)?;
+    let source = repo.find_commit(source_oid)?;
+    crate::git_core::history::finalize_cherrypick(repo, &source)
+}
+
+fn continue_revert(repo: &Repository) -> Result<(), AppError> {
+    let source_oid = read_revert_head(repo)?;
+    let source = repo.find_commit(source_oid)?;
+    crate::git_core::history::finalize_revert(repo, &source)
+}
+
+fn read_cherrypick_head(repo: &Repository) -> Result<git2::Oid, AppError> {
+    let path = repo.path().join("CHERRY_PICK_HEAD");
+    let raw = std::fs::read_to_string(&path).map_err(|e| AppError::Io {
+        message: format!("CHERRY_PICK_HEAD: {e}"),
+    })?;
+    let line = raw.lines().next().ok_or_else(|| AppError::Git {
+        message: "CHERRY_PICK_HEAD is empty".into(),
+    })?;
+    git2::Oid::from_str(line.trim()).map_err(|e| AppError::Git { message: e.to_string() })
+}
+
+fn read_revert_head(repo: &Repository) -> Result<git2::Oid, AppError> {
+    let path = repo.path().join("REVERT_HEAD");
+    let raw = std::fs::read_to_string(&path).map_err(|e| AppError::Io {
+        message: format!("REVERT_HEAD: {e}"),
+    })?;
+    let line = raw.lines().next().ok_or_else(|| AppError::Git {
+        message: "REVERT_HEAD is empty".into(),
+    })?;
+    git2::Oid::from_str(line.trim()).map_err(|e| AppError::Git { message: e.to_string() })
 }
 
 /// Abort whatever's in progress. For rebase: hands off to libgit2's abort
