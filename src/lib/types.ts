@@ -177,3 +177,5 @@ export interface GitIdentity {
   name: string | null;
   email: string | null;
 }
+
+export type ResetMode = 'soft' | 'mixed' | 'hard';
