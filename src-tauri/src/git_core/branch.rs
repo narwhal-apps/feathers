@@ -165,6 +165,20 @@ pub fn create(
     Ok(())
 }
 
+/// Create a new local branch at an arbitrary commit and check it out.
+/// Refuses to overwrite an existing branch. Refuses on dirty tree because
+/// the checkout step would clobber working changes.
+pub fn create_at(repo: &Repository, name: &str, oid: git2::Oid) -> Result<(), AppError> {
+    if repo.find_branch(name, BranchType::Local).is_ok() {
+        return Err(AppError::Git {
+            message: format!("branch '{name}' already exists"),
+        });
+    }
+    let target = repo.find_commit(oid)?;
+    repo.branch(name, &target, false)?;
+    self::checkout(repo, name)
+}
+
 /// Rename a local branch. Refuses to overwrite an existing branch.
 pub fn rename(repo: &Repository, old_name: &str, new_name: &str) -> Result<(), AppError> {
     if old_name == new_name {
