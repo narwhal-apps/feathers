@@ -105,6 +105,8 @@ pub fn run() {
             commands::remote::repo_pull,
             commands::settings::settings_get,
             commands::settings::settings_set_theme,
+            commands::settings::settings_get_git_identity,
+            commands::settings::settings_set_git_identity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
