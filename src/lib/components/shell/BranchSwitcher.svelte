@@ -6,6 +6,7 @@
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { portal } from '$lib/utils/portal';
+  import { ui } from '$lib/stores/ui.svelte';
   import type { BranchInfo, AppError } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -255,6 +256,19 @@
     if (open && filterEl) filterEl.focus();
   });
 
+  // External request (⌘B): toggle the dropdown ONLY when the request
+  // counter actually advances. Without the lastReq guard, any unrelated
+  // reactive change to `active` (e.g. the repo list refetching) would
+  // re-run this effect and re-toggle, making the dropdown feel stuck.
+  let lastBranchReq: number | null = null;
+  $effect(() => {
+    const req = ui.branchSwitcherRequest;
+    if (req != null && req !== lastBranchReq) {
+      lastBranchReq = req;
+      if (active) open = !open;
+    }
+  });
+
   $effect(() => {
     if (modalOpen && modalNameEl) modalNameEl.focus();
   });
@@ -276,7 +290,7 @@
       disabled={busy}
       aria-haspopup="menu"
       aria-expanded={open}
-      title="Switch branch"
+      title="Switch branch (⌘B)"
     >
       <Icon name="GitBranch" size={12} />
       <span class="name">{head.name}</span>

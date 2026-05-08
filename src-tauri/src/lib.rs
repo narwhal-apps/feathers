@@ -91,6 +91,7 @@ pub fn run() {
             commands::op::repo_op_state,
             commands::op::repo_op_continue,
             commands::op::repo_op_abort,
+            commands::editor::repo_open_in_editor,
             commands::github::github_start_device_flow,
             commands::github::github_complete_device_flow,
             commands::github::github_signout,

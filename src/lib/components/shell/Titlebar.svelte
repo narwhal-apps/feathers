@@ -7,6 +7,7 @@
   import BranchSwitcher from '$lib/components/shell/BranchSwitcher.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { github } from '$lib/stores/github.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   import { queryClient } from '$lib/query/client';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
@@ -99,6 +100,25 @@
   const doPull    = () => run('pull',    () => invoke('repo_pull',    { id: active!.id, rebase: false }));
   const doPush    = () => run('push',    () => invoke('repo_push',    { id: active!.id }));
   const doPublish = () => run('publish', () => invoke('repo_publish', { id: active!.id }));
+
+  // ⌘P / ⌘R signal handlers — same lastReq guard the switchers use.
+  let lastPushReq: number | null = null;
+  $effect(() => {
+    const req = ui.pushRequest;
+    if (req != null && req !== lastPushReq) {
+      lastPushReq = req;
+      // Push is meaningful only when there's something to push.
+      if (active && hasUpstream && ahead > 0 && busy == null) doPush();
+    }
+  });
+  let lastCreatePrReq: number | null = null;
+  $effect(() => {
+    const req = ui.createPrRequest;
+    if (req != null && req !== lastCreatePrReq) {
+      lastCreatePrReq = req;
+      if (canCreatePr) startCreatePr();
+    }
+  });
 </script>
 
 <header class="titlebar" data-tauri-drag-region>
@@ -152,7 +172,7 @@
         size="sm"
         disabled={!active || busy !== null || ahead === 0}
         onclick={doPush}
-        title={ahead === 0 ? 'Nothing to push' : `${ahead} commit${ahead === 1 ? '' : 's'} ahead`}
+        title={ahead === 0 ? 'Nothing to push' : `Push ${ahead} commit${ahead === 1 ? '' : 's'} (⌘P)`}
       />
     {:else if active && head}
       <Button
@@ -174,8 +194,8 @@
         disabled={busy !== null}
         onclick={startCreatePr}
         title={github.user
-          ? `Open a pull request from ${head.name}`
-          : `Open ${head.name} on github.com to create a pull request`}
+          ? `Open a pull request from ${head.name} (⌘R)`
+          : `Open ${head.name} on github.com to create a pull request (⌘R)`}
       />
     {/if}
   </div>

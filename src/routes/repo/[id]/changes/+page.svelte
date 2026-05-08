@@ -13,6 +13,7 @@
   import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
   import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
   import ConflictModal from '$lib/components/changes/ConflictModal.svelte';
+  import EmptyDiffHints from '$lib/components/changes/EmptyDiffHints.svelte';
   import type {
     StatusSnapshot,
     DiffPayload,
@@ -439,7 +440,7 @@
 
   <section class="diff">
     {#if selected == null}
-      <div class="hint">Select a file to view its diff.</div>
+      <EmptyDiffHints {id} />
     {:else if diff.data}
       <DiffView payload={diff.data} {fileHref} onDiscardHunk={discardHunk} />
     {:else if diff.error}

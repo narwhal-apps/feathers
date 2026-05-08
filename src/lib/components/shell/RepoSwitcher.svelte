@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { repos } from '$lib/stores/repos.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   import { openRepoFlow } from '$lib/components/dialogs/openRepo';
   import CloneModal from '$lib/components/dialogs/CloneModal.svelte';
   import { goto } from '$app/navigation';
@@ -49,6 +50,18 @@
       document.removeEventListener('click', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
+  });
+
+  // External request (⌘O): toggle the dropdown ONLY when the request
+  // counter actually advances — otherwise any unrelated reactive change
+  // tracked by this effect would re-toggle the open state.
+  let lastRepoReq: number | null = null;
+  $effect(() => {
+    const req = ui.repoSwitcherRequest;
+    if (req != null && req !== lastRepoReq) {
+      lastRepoReq = req;
+      open = !open;
+    }
   });
 
   function avatarLetter(name: string): string {

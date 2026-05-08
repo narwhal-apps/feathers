@@ -6,13 +6,29 @@
   import '$lib/styles/theme.dark.css';
   import '$lib/styles/theme.light.css';
 
+  import { goto } from '$app/navigation';
+  import { invoke } from '@tauri-apps/api/core';
+  import { openUrl } from '@tauri-apps/plugin-opener';
   import Titlebar from '$lib/components/shell/Titlebar.svelte';
   import { queryClient } from '$lib/query/client';
+  import { createQuery } from '$lib/query/createQuery.svelte';
+  import { queryKeys } from '$lib/query/keys';
   import { theme } from '$lib/stores/theme.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { github } from '$lib/stores/github.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
+  import { gitUrlToWebUrl } from '$lib/utils/git-url';
 
   let { children } = $props();
+
+  // Same cache key as Titlebar / Pull Requests tab — single fetch shared.
+  const remoteUrl = createQuery<string | null>(
+    () => repos.activeRepoId ? queryKeys.repoRemoteUrl(repos.activeRepoId) : ['noop'],
+    () => repos.activeRepoId
+      ? invoke<string | null>('repo_remote_url', { id: repos.activeRepoId })
+      : Promise.resolve(null),
+  );
+  const webBase = $derived(gitUrlToWebUrl(remoteUrl.data ?? null));
 
   // Mirror the reactive theme store to <html data-theme="...">.
   $effect(() => {
@@ -37,6 +53,62 @@
       queryClient.invalidate(['repo', e.payload.id]);
     });
     return () => { stop.then((unlisten) => unlisten()); };
+  });
+
+  // Window title follows the active repo so macOS Mission Control / Dock
+  // tooltips show something useful when several Feathers windows are open.
+  $effect(() => {
+    if (!browser) return;
+    const r = repos.activeRepo;
+    document.title = r ? `Feathers — ${r.name}` : 'Feathers';
+  });
+
+  // Global keyboard shortcuts. Shortcuts that take focus into a text field
+  // (none yet) would need extra "ignore when typing" guards.
+  $effect(() => {
+    if (!browser) return;
+    function isTyping(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+    }
+    function onKey(e: KeyboardEvent) {
+      // ⌘ required, alt/ctrl never. Shift modifies a few combos. Ignore repeats.
+      if (e.repeat || !e.metaKey || e.altKey || e.ctrlKey) return;
+      // Don't hijack typing in inputs (e.g. ⌘B = bold in some text fields).
+      if (isTyping(e.target)) return;
+
+      const repoId = repos.activeRepoId;
+      const k = e.key.toLowerCase();
+
+      // ⌘⇧X — repo-level "open" actions.
+      if (e.shiftKey) {
+        if (k === 'a' && repoId) {
+          e.preventDefault();
+          invoke('repo_open_in_editor', { id: repoId }).catch((err) =>
+            alert(`Failed to open editor: ${String(err)}`),
+          );
+          return;
+        }
+        if (k === 'g' && webBase) {
+          e.preventDefault();
+          openUrl(webBase).catch(() => {});
+          return;
+        }
+        return;
+      }
+
+      // Plain ⌘.
+      if (k === '1' && repoId) { e.preventDefault(); goto(`/repo/${repoId}/changes/`); return; }
+      if (k === '2' && repoId) { e.preventDefault(); goto(`/repo/${repoId}/history/`); return; }
+      if (k === '3' && repoId) { e.preventDefault(); goto(`/repo/${repoId}/pull-requests/`); return; }
+      if (k === 'b' && repoId) { e.preventDefault(); ui.openBranchSwitcher(); return; }
+      if (k === 'o') { e.preventDefault(); ui.openRepoSwitcher(); return; }
+      if (k === 'p' && repoId) { e.preventDefault(); ui.push(); return; }
+      if (k === 'r' && repoId) { e.preventDefault(); ui.createPr(); return; }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   });
 </script>
 
