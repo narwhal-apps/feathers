@@ -92,8 +92,9 @@
     border-bottom: 1px solid var(--border);
     user-select: none;
   }
-  /* Reserve space for the macOS traffic lights (positioned at x=16). */
-  .lights { width: 72px; height: 100%; flex-shrink: 0; }
+  /* Reserve space for the macOS traffic lights (positioned at x=16) plus
+     a comfortable gap before the brand glyph. */
+  .lights { width: 88px; height: 100%; flex-shrink: 0; }
   .brand {
     display: inline-flex;
     align-items: center;
