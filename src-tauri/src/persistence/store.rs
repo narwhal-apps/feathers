@@ -2,29 +2,46 @@ use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeName {
+    Dark,
+    Light,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AppSettings {
+    /// `None` means "follow OS preference". `Some(name)` pins the theme.
+    pub theme_override: Option<ThemeName>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
     pub schema: u32,
     pub known_repos: Vec<String>,
+    #[serde(default)]
+    pub settings: AppSettings,
 }
 
 impl AppConfig {
     pub fn current_schema() -> u32 {
-        1
+        2
+    }
+
+    fn fresh() -> Self {
+        Self {
+            schema: Self::current_schema(),
+            known_repos: vec![],
+            settings: AppSettings::default(),
+        }
     }
 }
 
-/// Trait so commands can call this without a Tauri runtime in tests.
 pub trait ConfigStore: Send + Sync {
     fn load(&self) -> Result<AppConfig, AppError>;
     fn save(&self, cfg: &AppConfig) -> Result<(), AppError>;
 }
 
-/// File-backed implementation; used at runtime via `tauri-plugin-store`'s
-/// resolved app data directory. We bypass the plugin and write JSON ourselves
-/// because `tauri-plugin-store`'s API is async and requires a Runtime —
-/// fine for FE access, awkward for backend startup. Both writers can coexist
-/// since they target the same file.
 pub struct FileStore {
     pub path: PathBuf,
 }
@@ -38,15 +55,16 @@ impl FileStore {
 impl ConfigStore for FileStore {
     fn load(&self) -> Result<AppConfig, AppError> {
         if !self.path.exists() {
-            return Ok(AppConfig {
-                schema: AppConfig::current_schema(),
-                known_repos: vec![],
-            });
+            return Ok(AppConfig::fresh());
         }
         let raw = std::fs::read_to_string(&self.path)?;
-        let cfg: AppConfig = serde_json::from_str(&raw).map_err(|e| AppError::Io {
+        let mut cfg: AppConfig = serde_json::from_str(&raw).map_err(|e| AppError::Io {
             message: format!("config parse: {e}"),
         })?;
+        if cfg.schema < AppConfig::current_schema() {
+            cfg = migrate(cfg)?;
+            self.save(&cfg)?;
+        }
         Ok(cfg)
     }
 
@@ -60,4 +78,20 @@ impl ConfigStore for FileStore {
         std::fs::write(&self.path, raw)?;
         Ok(())
     }
+}
+
+fn migrate(mut cfg: AppConfig) -> Result<AppConfig, AppError> {
+    while cfg.schema < AppConfig::current_schema() {
+        match cfg.schema {
+            0 | 1 => {
+                cfg.schema = 2;
+            }
+            other => {
+                return Err(AppError::Io {
+                    message: format!("unknown config schema {other}"),
+                });
+            }
+        }
+    }
+    Ok(cfg)
 }

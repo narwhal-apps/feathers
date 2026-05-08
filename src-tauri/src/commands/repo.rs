@@ -17,10 +17,15 @@ pub struct RepoOpenResult {
 }
 
 fn persist(registry: &RepoRegistry, store: &dyn ConfigStore) {
-    let cfg = AppConfig {
-        schema: AppConfig::current_schema(),
-        known_repos: registry.list().into_iter().map(|s| s.path).collect(),
-    };
+    let mut cfg = store.load().unwrap_or_else(|e| {
+        tracing::warn!("failed to load config before persist: {e:?}");
+        AppConfig {
+            schema: AppConfig::current_schema(),
+            known_repos: vec![],
+            settings: Default::default(),
+        }
+    });
+    cfg.known_repos = registry.list().into_iter().map(|s| s.path).collect();
     if let Err(e) = store.save(&cfg) {
         tracing::warn!("failed to persist known_repos: {e:?}");
     }

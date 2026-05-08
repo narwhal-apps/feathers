@@ -16,6 +16,7 @@ fn save_then_load_roundtrips() {
     let cfg = AppConfig {
         schema: AppConfig::current_schema(),
         known_repos: vec!["/foo/bar".into(), "/baz".into()],
+        settings: Default::default(),
     };
     store.save(&cfg).unwrap();
     let loaded = store.load().unwrap();
