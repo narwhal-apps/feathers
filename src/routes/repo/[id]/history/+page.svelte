@@ -10,6 +10,12 @@
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
+  import { openUrl } from '@tauri-apps/plugin-opener';
+  import BranchFromCommitModal from '$lib/components/history/BranchFromCommitModal.svelte';
+  import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
+  import ResetModal from '$lib/components/history/ResetModal.svelte';
+  import Toast from '$lib/components/history/Toast.svelte';
+  import type { BranchInfo, StatusSnapshot, OpKind, OpState } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
 
@@ -19,6 +25,48 @@
   );
 
   let selectedOid = $state<string | null>(null);
+
+  // Used by Open-on-GitHub disabled state and ResetModal's lossy-count.
+  const branches = createQuery<BranchInfo[]>(
+    () => queryKeys.repoBranches(id),
+    () => invoke<BranchInfo[]>('branch_list', { id }),
+  );
+  const status = createQuery<StatusSnapshot>(
+    () => queryKeys.repoStatus(id),
+    () => invoke<StatusSnapshot>('repo_status', { id }),
+  );
+  const opState = createQuery<OpState>(
+    () => queryKeys.repoOpState(id),
+    () => invoke<OpState>('repo_op_state', { id }),
+  );
+
+  const currentBranch = $derived(branches.data?.find((b) => b.is_head)?.name ?? 'HEAD');
+  const opKind = $derived<OpKind>(opState.data?.kind ?? 'clean');
+
+  // Modal mounts.
+  let branchTarget = $state<CommitInfo | null>(null);
+  let confirmTarget = $state<{ commit: CommitInfo; kind: 'cherrypick' | 'revert' } | null>(null);
+  let resetTarget = $state<CommitInfo | null>(null);
+
+  // Inline feedback at the top of the tab.
+  let actionError = $state<string | null>(null);
+  let toastMsg = $state<string | null>(null);
+
+  function formatError(err: unknown): string {
+    if (typeof err === 'string') return err;
+    const ae = err as AppError;
+    if ('message' in ae) return ae.message;
+    return String(err);
+  }
+
+  function flashError(msg: string): void {
+    actionError = msg;
+    setTimeout(() => { if (actionError === msg) actionError = null; }, 5000);
+  }
+
+  function flashToast(msg: string): void {
+    toastMsg = msg;
+  }
 
   const diff = createQuery<DiffPayload>(
     () => queryKeys.repoDiffCommit(id, selectedOid ?? ''),
@@ -89,6 +137,54 @@
     }
   }
 
+  // ── Action handlers ────────────────────────────────────────────────────
+
+  async function copySha(commit: CommitInfo): Promise<void> {
+    closeCtxMenu();
+    try {
+      await navigator.clipboard.writeText(commit.oid);
+      flashToast(`Copied ${commit.short_sha}`);
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = commit.oid;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        flashToast(`Copied ${commit.short_sha}`);
+      } catch {
+        flashError("Couldn't copy to clipboard");
+      }
+    }
+  }
+
+  function openOnGitHub(commit: CommitInfo): void {
+    closeCtxMenu();
+    if (!webBase) return;
+    openUrl(`${webBase}/commit/${commit.oid}`).catch(() => {});
+  }
+
+  function startBranchFrom(commit: CommitInfo): void {
+    closeCtxMenu();
+    branchTarget = commit;
+  }
+
+  function startCherrypick(commit: CommitInfo): void {
+    closeCtxMenu();
+    confirmTarget = { commit, kind: 'cherrypick' };
+  }
+
+  function startRevert(commit: CommitInfo): void {
+    closeCtxMenu();
+    confirmTarget = { commit, kind: 'revert' };
+  }
+
+  function startReset(commit: CommitInfo): void {
+    closeCtxMenu();
+    resetTarget = commit;
+  }
+
   function onDocClick(e: MouseEvent) {
     if (!ctxMenu) return;
     const t = e.target as Node;
@@ -119,6 +215,12 @@
 </script>
 
 <div class="layout">
+  {#if actionError}
+    <div class="action-error" role="alert">
+      {actionError}
+      <button class="dismiss" onclick={() => (actionError = null)} aria-label="Dismiss">×</button>
+    </div>
+  {/if}
   <aside class="commits">
     {#if log.data}
       <ul>
@@ -172,14 +274,65 @@
     role="menu"
     style="left: {ctxMenu.x}px; top: {ctxMenu.y}px;"
   >
-    <button
-      type="button"
-      class="ctx-item"
-      role="menuitem"
+    <!-- info group -->
+    <button type="button" class="ctx-item" role="menuitem"
+      onclick={() => copySha(ctxMenu!.commit)}>
+      <Icon name="Copy" size={12} />
+      <span>Copy SHA</span>
+    </button>
+    <button type="button" class="ctx-item" role="menuitem"
+      onclick={() => openOnGitHub(ctxMenu!.commit)}
+      disabled={!webBase}
+      title={webBase ? '' : 'No GitHub remote configured'}>
+      <Icon name="ExternalLink" size={12} />
+      <span>Open on GitHub</span>
+    </button>
+
+    <div class="ctx-divider"></div>
+
+    <!-- branch group -->
+    <button type="button" class="ctx-item" role="menuitem"
+      onclick={() => startBranchFrom(ctxMenu!.commit)}>
+      <Icon name="GitBranch" size={12} />
+      <span>Create branch from here…</span>
+    </button>
+
+    <div class="ctx-divider"></div>
+
+    <!-- apply group -->
+    <button type="button" class="ctx-item" role="menuitem"
+      onclick={() => startCherrypick(ctxMenu!.commit)}
+      disabled={opKind !== 'clean'}
+      title={opKind === 'clean' ? '' : `${opKind} in progress`}>
+      <Icon name="GitCommitHorizontal" size={12} />
+      <span>Cherry-pick</span>
+    </button>
+    <button type="button" class="ctx-item" role="menuitem"
+      onclick={() => startRevert(ctxMenu!.commit)}
+      disabled={opKind !== 'clean'}
+      title={opKind === 'clean' ? '' : `${opKind} in progress`}>
+      <Icon name="Undo2" size={12} />
+      <span>Revert</span>
+    </button>
+
+    <div class="ctx-divider"></div>
+
+    <!-- rewind group -->
+    <button type="button" class="ctx-item" role="menuitem"
+      onclick={() => startReset(ctxMenu!.commit)}
+      disabled={opKind !== 'clean' || ctxMenu.isHead}
+      title={ctxMenu.isHead ? 'Already at this commit' : (opKind === 'clean' ? '' : `${opKind} in progress`)}>
+      <Icon name="History" size={12} />
+      <span>Reset to here…</span>
+    </button>
+
+    <div class="ctx-divider"></div>
+
+    <!-- edit group (existing) -->
+    <button type="button" class="ctx-item" role="menuitem"
       onclick={() => startAmend(ctxMenu!.commit)}
       disabled={!ctxMenu.isHead}
-      title={ctxMenu.isHead ? '' : 'Only the most recent commit can be amended'}
-    >
+      title={ctxMenu.isHead ? '' : 'Only the most recent commit can be amended'}>
       <Icon name="Pencil" size={12} />
       <span>Amend commit…</span>
     </button>
@@ -226,8 +379,40 @@
   </Modal>
 {/if}
 
+{#if branchTarget}
+  <BranchFromCommitModal
+    repoId={id}
+    commit={branchTarget}
+    onClose={() => (branchTarget = null)}
+  />
+{/if}
+
+{#if confirmTarget}
+  <ConfirmActionModal
+    repoId={id}
+    commit={confirmTarget.commit}
+    kind={confirmTarget.kind}
+    {currentBranch}
+    onClose={() => (confirmTarget = null)}
+  />
+{/if}
+
+{#if resetTarget}
+  <ResetModal
+    repoId={id}
+    commit={resetTarget}
+    status={status.data ?? null}
+    onClose={() => (resetTarget = null)}
+  />
+{/if}
+
+{#if toastMsg}
+  <Toast message={toastMsg} onDone={() => (toastMsg = null)} />
+{/if}
+
 <style>
   .layout {
+    position: relative;
     display: grid;
     grid-template-columns: 360px 1fr;
     height: 100%;
@@ -348,4 +533,30 @@
     border-color: var(--border);
   }
   .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
+
+  .ctx-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 6px;
+  }
+  .action-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: 6px 12px;
+    background: color-mix(in srgb, #c00 12%, var(--bg-elev-1));
+    border-bottom: 1px solid color-mix(in srgb, #c00 30%, var(--border));
+    color: var(--fg);
+    font-size: var(--fs-xs);
+  }
+  .action-error .dismiss {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+  }
 </style>
