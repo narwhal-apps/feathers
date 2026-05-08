@@ -7,6 +7,7 @@
   import '$lib/styles/theme.light.css';
 
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Titlebar from '$lib/components/shell/Titlebar.svelte';
@@ -21,6 +22,11 @@
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
 
   let { children } = $props();
+
+  // The Settings window runs the same SvelteKit bundle but in a separate
+  // Tauri webview — it has its own minimal drag region and doesn't want
+  // the main repo titlebar.
+  const isSettings = $derived($page.url.pathname.startsWith('/settings'));
 
   // Same cache key as Titlebar / Pull Requests tab — single fetch shared.
   const remoteUrl = createQuery<string | null>(
@@ -124,8 +130,10 @@
   });
 </script>
 
-<Titlebar />
-<main class="page">
+{#if !isSettings}
+  <Titlebar />
+{/if}
+<main class="page" class:full={isSettings}>
   {@render children?.()}
 </main>
 
@@ -140,4 +148,5 @@
     color: var(--fg);
     min-width: 0;
   }
+  .page.full { height: 100vh; }
 </style>

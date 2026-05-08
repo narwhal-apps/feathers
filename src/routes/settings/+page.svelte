@@ -1,5 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment';
+  import FeatherMark from '$lib/components/shell/FeatherMark.svelte';
   import SettingsSidebar from '$lib/components/settings/SettingsSidebar.svelte';
   import GeneralPane from '$lib/components/settings/GeneralPane.svelte';
   import AccountPane from '$lib/components/settings/AccountPane.svelte';
@@ -45,38 +46,63 @@
   });
 </script>
 
-<div class="settings">
-  <SettingsSidebar {active} onSelect={select} />
-  <section class="pane">
-    {#if active === 'general'}
-      <h1>General</h1>
-      <GeneralPane />
-    {:else if active === 'account'}
-      <h1>Account</h1>
-      <AccountPane />
-    {:else if active === 'git'}
-      <h1>Git identity</h1>
-      <GitIdentityPane />
-    {:else if active === 'repos'}
-      <h1>Repositories</h1>
-      <RepositoriesPane />
-    {:else}
-      <h1>About</h1>
-      <AboutPane />
-    {/if}
-  </section>
+<div class="root">
+  <header class="drag" data-tauri-drag-region>
+    <div class="lights" data-tauri-drag-region></div>
+    <span class="brand" data-tauri-drag-region title="Feathers"><FeatherMark size={16} /></span>
+  </header>
+  <div class="settings">
+    <SettingsSidebar {active} onSelect={select} />
+    <section class="pane">
+      {#if active === 'general'}
+        <h1>General</h1>
+        <GeneralPane />
+      {:else if active === 'account'}
+        <h1>Account</h1>
+        <AccountPane />
+      {:else if active === 'git'}
+        <h1>Git identity</h1>
+        <GitIdentityPane />
+      {:else if active === 'repos'}
+        <h1>Repositories</h1>
+        <RepositoriesPane />
+      {:else}
+        <h1>About</h1>
+        <AboutPane />
+      {/if}
+    </section>
+  </div>
 </div>
 
 <style>
-  .settings {
+  .root {
     display: flex;
+    flex-direction: column;
     height: 100vh;
     background: var(--bg);
     color: var(--fg);
     font-family: var(--font-sans);
-    /* Pad the top so content clears the overlay traffic-light strip. */
-    padding-top: 28px;
   }
+  .drag {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    flex-shrink: 0;
+    background: var(--bg-elev-1);
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+  }
+  /* Reserve space for the macOS traffic lights (positioned at x=16). */
+  .lights { width: 72px; height: 100%; flex-shrink: 0; }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: var(--accent-fg);
+  }
+  .settings { flex: 1; display: flex; min-height: 0; }
   .pane {
     flex: 1;
     padding: var(--sp-5);
