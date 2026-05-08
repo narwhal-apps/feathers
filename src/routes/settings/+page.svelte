@@ -1,6 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import SettingsSidebar from '$lib/components/settings/SettingsSidebar.svelte';
+  import GeneralPane from '$lib/components/settings/GeneralPane.svelte';
 
   type Pane = 'general' | 'account' | 'git' | 'repos' | 'about';
   const validPanes: Pane[] = ['general', 'account', 'git', 'repos', 'about'];
@@ -45,7 +46,7 @@
   <section class="pane">
     {#if active === 'general'}
       <h1>General</h1>
-      <p class="placeholder">Coming up in the next task.</p>
+      <GeneralPane />
     {:else if active === 'account'}
       <h1>Account</h1>
       <p class="placeholder">Coming up.</p>
