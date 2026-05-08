@@ -17,6 +17,7 @@
   import { repos } from '$lib/stores/repos.svelte';
   import { github } from '$lib/stores/github.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
 
   let { children } = $props();
@@ -42,6 +43,7 @@
     if (!browser) return;
     repos.refresh();
     github.refresh();
+    settings.refresh();
   });
 
   // External changes (terminal commits, branch switches, file edits) come in
@@ -51,6 +53,15 @@
     if (!browser) return;
     const stop = listen<{ id: string }>('repo_changed', (e) => {
       queryClient.invalidate(['repo', e.payload.id]);
+    });
+    return () => { stop.then((unlisten) => unlisten()); };
+  });
+
+  // Settings written from the Settings window — re-pull and re-apply.
+  $effect(() => {
+    if (!browser) return;
+    const stop = listen('settings_changed', () => {
+      settings.refresh();
     });
     return () => { stop.then((unlisten) => unlisten()); };
   });
@@ -106,6 +117,7 @@
       if (k === 'o') { e.preventDefault(); ui.openRepoSwitcher(); return; }
       if (k === 'p' && repoId) { e.preventDefault(); ui.push(); return; }
       if (k === 'r' && repoId) { e.preventDefault(); ui.createPr(); return; }
+      if (k === ',') { e.preventDefault(); invoke('open_settings_window').catch(() => {}); return; }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
