@@ -6,10 +6,12 @@
   import RepoSwitcher from '$lib/components/shell/RepoSwitcher.svelte';
   import BranchSwitcher from '$lib/components/shell/BranchSwitcher.svelte';
   import { repos } from '$lib/stores/repos.svelte';
+  import { github } from '$lib/stores/github.svelte';
   import { queryClient } from '$lib/query/client';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
+  import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
   import type { AppError, BranchInfo } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -30,7 +32,37 @@
   const ahead  = $derived(head?.ahead  ?? 0);
   const behind = $derived(head?.behind ?? 0);
 
+  // Create-PR button is shown only when origin is on github.com, the
+  // branch is published, and we're not sitting on the repo's default
+  // branch (no point opening a PR from main → main).
+  const isGithubRepo = $derived(
+    !!remoteUrl.data && /github\.com[:/]/.test(remoteUrl.data),
+  );
+  const defaultBranch = $derived(
+    branches.data?.find((b) => !b.is_remote && (b.name === 'main' || b.name === 'master'))
+      ?? null,
+  );
+  const onDefaultBranch = $derived(
+    head != null && defaultBranch != null && head.name === defaultBranch.name,
+  );
+  const canCreatePr = $derived(
+    isGithubRepo && hasUpstream && head != null && !onDefaultBranch,
+  );
+
   let busy = $state<null | 'fetch' | 'pull' | 'push' | 'publish'>(null);
+  let createPrOpen = $state(false);
+
+  function startCreatePr() {
+    if (!active || !canCreatePr || !head) return;
+    if (github.user) {
+      // Signed in — use the in-app modal so we can call the GitHub API.
+      createPrOpen = true;
+    } else {
+      // Signed out — fall back to GitHub's web UI for the same branch.
+      const url = `${webBase}/pull/new/${encodeURIComponent(head.name)}`;
+      openUrl(url);
+    }
+  }
 
   function reportError(prefix: string, err: unknown) {
     const e = err as AppError;
@@ -133,8 +165,25 @@
         title="Push {head.name} to origin and set it as the upstream"
       />
     {/if}
+    {#if canCreatePr && head}
+      <Button
+        label={github.user ? 'Create PR' : 'Create PR…'}
+        icon="GitPullRequest"
+        variant="ghost"
+        size="sm"
+        disabled={busy !== null}
+        onclick={startCreatePr}
+        title={github.user
+          ? `Open a pull request from ${head.name}`
+          : `Open ${head.name} on github.com to create a pull request`}
+      />
+    {/if}
   </div>
 </header>
+
+{#if createPrOpen && active}
+  <CreatePRModal id={active.id} onClose={() => (createPrOpen = false)} />
+{/if}
 
 <style>
   .titlebar {

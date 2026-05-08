@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod error;
 pub mod git_core;
+pub mod github;
 pub mod persistence;
 pub mod repo_registry;
 pub mod watcher;
@@ -76,6 +77,7 @@ pub fn run() {
             commands::branch::branch_delete,
             commands::branch::branch_rename,
             commands::commit::commit_log,
+            commands::commit::commit_log_unpushed,
             commands::commit::commit_create,
             commands::commit::commit_undo,
             commands::diff::diff_workdir,
@@ -88,6 +90,12 @@ pub fn run() {
             commands::op::repo_op_state,
             commands::op::repo_op_continue,
             commands::op::repo_op_abort,
+            commands::github::github_start_device_flow,
+            commands::github::github_complete_device_flow,
+            commands::github::github_signout,
+            commands::github::github_user,
+            commands::github::github_list_prs,
+            commands::github::github_create_pr,
             commands::remote::repo_remote_url,
             commands::remote::repo_fetch,
             commands::remote::repo_push,

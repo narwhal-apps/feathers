@@ -7,28 +7,16 @@
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
-  import type { CommitPage, BranchInfo, DiffFile, DiffPayload } from '$lib/types';
+  import type { CommitPage, DiffFile, DiffPayload } from '$lib/types';
 
   let { id, onClose }: { id: string; onClose: () => void } = $props();
 
   const log = createQuery<CommitPage>(
-    () => queryKeys.repoLog(id),
-    () => invoke<CommitPage>('commit_log', { id, opts: { max: 50 } }),
-  );
-  const branches = createQuery<BranchInfo[] | null>(
-    () => queryKeys.repoBranches(id),
-    () => invoke<BranchInfo[]>('branch_list', { id }),
+    () => queryKeys.repoLogUnpushed(id),
+    () => invoke<CommitPage>('commit_log_unpushed', { id, max: 50 }),
   );
 
-  const head = $derived(branches.data?.find((b) => b.is_head) ?? null);
-  const hasUpstream = $derived(head != null && head.ahead != null);
-
-  // Same slice the RecentCommitsStack uses — only unpushed commits.
-  const commits = $derived.by(() => {
-    const list = log.data?.commits ?? [];
-    if (head == null) return [];
-    return hasUpstream ? list.slice(0, head.ahead ?? 0) : list;
-  });
+  const commits = $derived(log.data?.commits ?? []);
 
   let selectedOid = $state<string | null>(null);
 
@@ -96,9 +84,7 @@
       <aside class="commits">
         {#if log.data}
           {#if commits.length === 0}
-            <p class="hint">
-              {hasUpstream ? 'No unpushed commits.' : 'No commits yet.'}
-            </p>
+            <p class="hint">No unpushed commits.</p>
           {:else}
             <ul>
               {#each commits as c}

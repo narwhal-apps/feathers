@@ -6,33 +6,19 @@
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
-  import type { CommitPage, BranchInfo, AppError } from '$lib/types';
+  import type { CommitPage, AppError } from '$lib/types';
 
   let { id, onOpen }: { id: string; onOpen: () => void } = $props();
 
-  // Same cache keys used by Titlebar/History — shared, no extra fetches.
+  // Backend computes "reachable from HEAD but not from any remote-tracking
+  // ref" — the right definition regardless of upstream config.
   const log = createQuery<CommitPage>(
-    () => queryKeys.repoLog(id),
-    () => invoke<CommitPage>('commit_log', { id, opts: { max: 50 } }),
-  );
-  const branches = createQuery<BranchInfo[] | null>(
-    () => queryKeys.repoBranches(id),
-    () => invoke<BranchInfo[]>('branch_list', { id }),
+    () => queryKeys.repoLogUnpushed(id),
+    () => invoke<CommitPage>('commit_log_unpushed', { id, max: 50 }),
   );
 
-  const head = $derived(branches.data?.find((b) => b.is_head) ?? null);
-  const hasUpstream = $derived(head != null && head.ahead != null);
-
-  // Only the unpushed slice. With an upstream that's ahead==0 → empty.
-  // Without an upstream, every local commit qualifies (newly created branch).
-  const unpushed = $derived.by(() => {
-    const list = log.data?.commits ?? [];
-    if (head == null) return [];
-    return hasUpstream ? list.slice(0, head.ahead ?? 0) : list;
-  });
-
-  const top = $derived(unpushed[0] ?? null);
-  const count = $derived(unpushed.length);
+  const top = $derived(log.data?.commits[0] ?? null);
+  const count = $derived(log.data?.commits.length ?? 0);
 
   let undoing = $state(false);
 

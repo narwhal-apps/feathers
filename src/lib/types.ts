@@ -103,6 +103,42 @@ export interface DiffPayload {
   files: DiffFile[];
 }
 
+export interface DeviceCodeResponse {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
+}
+
+export interface GitHubUser {
+  login: string;
+  name: string | null;
+  avatar_url: string;
+  html_url: string;
+}
+
+export interface PrUser {
+  login: string;
+  avatar_url: string;
+}
+export interface PrRef {
+  ref: string;
+  sha: string;
+}
+export interface PullRequest {
+  number: number;
+  title: string;
+  state: string;
+  draft: boolean;
+  html_url: string;
+  user: PrUser;
+  head: PrRef;
+  base: PrRef;
+  created_at: string;
+  updated_at: string;
+}
+
 export type OpKind =
   | 'clean'
   | 'merge'

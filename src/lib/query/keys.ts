@@ -6,6 +6,8 @@ export const queryKeys = {
   repoBranches: (id: RepoId) => ['repo', id, 'branches'] as const,
   repoLog: (id: RepoId, before?: string | null) =>
     ['repo', id, 'log', before ?? null] as const,
+  repoLogUnpushed: (id: RepoId) =>
+    ['repo', id, 'log-unpushed'] as const,
   repoDiffWorkdir: (id: RepoId, path: string | null) =>
     ['repo', id, 'diff', 'workdir', path ?? null] as const,
   repoDiffIndex: (id: RepoId, path: string | null) =>
@@ -15,4 +17,5 @@ export const queryKeys = {
   repoRemoteUrl: (id: RepoId, remote = 'origin') =>
     ['repo', id, 'remote-url', remote] as const,
   repoOpState: (id: RepoId) => ['repo', id, 'op-state'] as const,
+  repoPullRequests: (id: RepoId) => ['repo', id, 'pull-requests'] as const,
 };

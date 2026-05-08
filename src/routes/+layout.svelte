@@ -10,6 +10,7 @@
   import { queryClient } from '$lib/query/client';
   import { theme } from '$lib/stores/theme.svelte';
   import { repos } from '$lib/stores/repos.svelte';
+  import { github } from '$lib/stores/github.svelte';
 
   let { children } = $props();
 
@@ -24,6 +25,7 @@
   $effect(() => {
     if (!browser) return;
     repos.refresh();
+    github.refresh();
   });
 
   // External changes (terminal commits, branch switches, file edits) come in

@@ -19,6 +19,17 @@ pub async fn commit_log(
 }
 
 #[tauri::command]
+pub async fn commit_log_unpushed(
+    id: String,
+    max: Option<usize>,
+    registry: State<'_, RepoRegistry>,
+) -> Result<CommitPage, AppError> {
+    let handle = registry.get(&id)?;
+    let r = handle.repo.lock();
+    git_core::commit::log_unpushed(&r, max.unwrap_or(50))
+}
+
+#[tauri::command]
 pub async fn commit_create(
     id: String,
     message: String,

@@ -54,10 +54,26 @@
     return !!defaultBranch && b.name === defaultBranch.name;
   }
 
-  const filtered = $derived(
-    filter.trim() === ''
-      ? localBranches
-      : localBranches.filter((b) => b.name.toLowerCase().includes(filter.toLowerCase())),
+  // Remote-tracking refs that don't have a same-named local branch yet.
+  // We strip the first path segment (the remote name, usually "origin") and
+  // skip the synthetic HEAD pointer.
+  const localNames = $derived(new Set(localBranches.map((b) => b.name)));
+  const remoteOnly = $derived.by(() => {
+    const list = (branches.data ?? []).filter((b) => b.is_remote);
+    return list.filter((b) => {
+      const stripped = b.name.split('/').slice(1).join('/');
+      return stripped !== '' && !stripped.endsWith('HEAD') && !localNames.has(stripped);
+    });
+  });
+
+  function matchesFilter(b: BranchInfo): boolean {
+    const q = filter.trim().toLowerCase();
+    return q === '' || b.name.toLowerCase().includes(q);
+  }
+  const filteredLocal = $derived(localBranches.filter(matchesFilter));
+  const filteredRemote = $derived(remoteOnly.filter(matchesFilter));
+  const filteredEmpty = $derived(
+    filteredLocal.length === 0 && filteredRemote.length === 0,
   );
 
   function close() {
@@ -283,29 +299,64 @@
         </div>
         <div class="list">
           <ul>
-            {#each filtered as b}
-              <li>
-                <button
-                  class="item"
-                  class:current={b.is_head}
-                  role="menuitem"
-                  onclick={() => pick(b)}
-                  oncontextmenu={(e) => openCtxMenu(b, e)}
-                  disabled={busy}
-                >
-                  <Icon name="GitBranch" size={12} />
-                  <span class="item-name">{b.name}</span>
-                  {#if isDefaultBranch(b)}
-                    <span class="default-tag">default</span>
-                  {/if}
-                  {#if b.is_head}
-                    <Icon name="Check" size={14} />
-                  {/if}
-                </button>
-              </li>
-            {:else}
+            {#if filteredLocal.length > 0}
+              <li class="section-head">Local</li>
+              {#each filteredLocal as b}
+                {@const tracked = b.ahead != null || b.behind != null}
+                <li>
+                  <button
+                    class="item"
+                    class:current={b.is_head}
+                    role="menuitem"
+                    onclick={() => pick(b)}
+                    oncontextmenu={(e) => openCtxMenu(b, e)}
+                    disabled={busy}
+                  >
+                    <Icon name="GitBranch" size={12} />
+                    <span class="item-name">{b.name}</span>
+                    <span
+                      class="loc-icon"
+                      class:remote={tracked}
+                      title={tracked ? 'Tracking a remote branch' : 'Local only — not on any remote yet'}
+                      aria-label={tracked ? 'remote' : 'local only'}
+                    >
+                      <Icon name={tracked ? 'Cloud' : 'HardDrive'} size={11} />
+                    </span>
+                    {#if isDefaultBranch(b)}
+                      <span class="default-tag">default</span>
+                    {/if}
+                    {#if b.is_head}
+                      <Icon name="Check" size={14} />
+                    {/if}
+                  </button>
+                </li>
+              {/each}
+            {/if}
+
+            {#if filteredRemote.length > 0}
+              <li class="section-head">Remote</li>
+              {#each filteredRemote as b}
+                <li>
+                  <button
+                    class="item"
+                    role="menuitem"
+                    onclick={() => pick(b)}
+                    disabled={busy}
+                    title="Check out — creates a local branch tracking {b.name}"
+                  >
+                    <Icon name="GitBranch" size={12} />
+                    <span class="item-name">{b.name}</span>
+                    <span class="loc-icon remote" aria-label="remote" title="Remote-only — checking out will create a local tracking branch">
+                      <Icon name="Cloud" size={11} />
+                    </span>
+                  </button>
+                </li>
+              {/each}
+            {/if}
+
+            {#if filteredEmpty}
               <li class="empty">No matching branches.</li>
-            {/each}
+            {/if}
           </ul>
         </div>
 
@@ -604,6 +655,16 @@
     text-align: center;
     font-size: var(--fs-sm);
   }
+  li.section-head {
+    padding: 8px 10px 4px;
+    color: var(--fg-subtle);
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    font-weight: var(--weight-semibold);
+  }
+  /* Tighten the gap when one section follows another. */
+  li.section-head + li { margin-top: 0; }
 
   .item {
     display: flex;
@@ -651,6 +712,20 @@
     text-transform: uppercase;
     line-height: 1;
   }
+
+  /* Tiny "is this branch tracked or local-only" indicator. */
+  .loc-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--fg-faint);
+  }
+  .loc-icon.remote { color: var(--accent-fg); opacity: 0.85; }
+  /* Override the .item :global(svg) catch-all so this stays subtle. */
+  .item .loc-icon :global(svg) { color: inherit; }
 
   .footer {
     flex-shrink: 0;

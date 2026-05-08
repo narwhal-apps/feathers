@@ -62,10 +62,15 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
     Ok(out)
 }
 
-/// Checkout a local branch by name. Errors with `AppError::Dirty { paths }` if
-/// there are staged or unstaged changes (untracked files are allowed).
-/// Errors with `AppError::Git { ... }` if the branch is not found or libgit2
-/// refuses the checkout for any other reason.
+/// Checkout a branch by name. Accepts:
+///   - a local branch name ("feature-x"): just switches HEAD to it.
+///   - a remote-tracking branch ("origin/feature-x"): creates a local
+///     branch that tracks it (or reuses the existing same-named local),
+///     then switches HEAD.
+///
+/// Errors with `AppError::Dirty { paths }` if the working tree has staged,
+/// unstaged or conflicted changes; `AppError::Git { ... }` for not-found /
+/// other libgit2 failures.
 pub fn checkout(repo: &Repository, branch_name: &str) -> Result<(), AppError> {
     // Refuse if working tree has tracked modifications.
     let snap = status::status(repo)?;
@@ -82,12 +87,41 @@ pub fn checkout(repo: &Repository, branch_name: &str) -> Result<(), AppError> {
         return Err(AppError::Dirty { paths });
     }
 
-    // Resolve the branch (local only — remotes need a tracking branch first).
-    let branch = repo
-        .find_branch(branch_name, BranchType::Local)
-        .map_err(|_| AppError::Git {
-            message: format!("local branch not found: {branch_name}"),
-        })?;
+    // 1. Local branch with this exact name? Switch to it.
+    if let Ok(branch) = repo.find_branch(branch_name, BranchType::Local) {
+        return finalize_checkout(repo, &branch);
+    }
+
+    // 2. Remote-tracking branch like "origin/feature-x"? Create / reuse the
+    //    matching local branch, then check it out.
+    if let Ok(remote_branch) = repo.find_branch(branch_name, BranchType::Remote) {
+        let local_name = branch_name
+            .splitn(2, '/')
+            .nth(1)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| AppError::Git {
+                message: format!("invalid remote branch name: {branch_name}"),
+            })?;
+
+        let local_branch = match repo.find_branch(local_name, BranchType::Local) {
+            Ok(b) => b,
+            Err(_) => {
+                let target = remote_branch.get().peel_to_commit()?;
+                let mut b = repo.branch(local_name, &target, false)?;
+                // Best-effort: tracking config is nice but not required.
+                let _ = b.set_upstream(Some(branch_name));
+                b
+            }
+        };
+        return finalize_checkout(repo, &local_branch);
+    }
+
+    Err(AppError::Git {
+        message: format!("branch not found: {branch_name}"),
+    })
+}
+
+fn finalize_checkout(repo: &Repository, branch: &git2::Branch<'_>) -> Result<(), AppError> {
     let refname = branch
         .get()
         .name()
@@ -95,15 +129,12 @@ pub fn checkout(repo: &Repository, branch_name: &str) -> Result<(), AppError> {
             message: "branch has no ref name".into(),
         })?
         .to_string();
-
-    // Move HEAD's working tree to the branch tip, then point HEAD at the ref.
     let target = branch.get().peel_to_commit()?;
     let tree = target.tree()?;
     let mut opts = git2::build::CheckoutBuilder::new();
     opts.safe();
     repo.checkout_tree(tree.as_object(), Some(&mut opts))?;
     repo.set_head(&refname)?;
-
     Ok(())
 }
 

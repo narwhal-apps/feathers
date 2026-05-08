@@ -56,6 +56,47 @@ pub fn log(repo: &Repository, opts: LogOpts) -> Result<CommitPage, AppError> {
     })
 }
 
+/// Commits reachable from HEAD that are NOT reachable from any remote-tracking
+/// ref. Works whether or not the current branch has an upstream — if any
+/// remote ref already contains the commit (e.g. via `main`), it's considered
+/// pushed. Capped at `max`.
+pub fn log_unpushed(repo: &Repository, max: usize) -> Result<CommitPage, AppError> {
+    let mut walk = repo.revwalk()?;
+    walk.set_sorting(Sort::TIME | Sort::TOPOLOGICAL)?;
+    walk.push_head()?;
+
+    // Hide everything reachable from any refs/remotes/* ref. Errors here are
+    // swallowed: a missing OID for one remote ref shouldn't prevent the rest.
+    for r in repo.references()? {
+        let r = match r { Ok(r) => r, Err(_) => continue };
+        if !r.is_remote() { continue; }
+        if let Some(oid) = r.target() {
+            let _ = walk.hide(oid);
+        }
+    }
+
+    let mut commits = Vec::with_capacity(max);
+    for oid_result in walk.by_ref() {
+        let oid = oid_result?;
+        if commits.len() == max { break; }
+        let c = repo.find_commit(oid)?;
+        let short_sha = c.as_object().short_id()?.as_str().unwrap_or("").to_string();
+        commits.push(CommitInfo {
+            oid: oid.to_string(),
+            short_sha,
+            summary: c.summary().unwrap_or("").to_string(),
+            author_name: c.author().name().unwrap_or("").to_string(),
+            author_email: c.author().email().unwrap_or("").to_string(),
+            author_when: c.time().seconds(),
+            parent_oids: (0..c.parent_count())
+                .filter_map(|i| c.parent_id(i).ok().map(|o| o.to_string()))
+                .collect(),
+        });
+    }
+
+    Ok(CommitPage { commits, next_cursor: None })
+}
+
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct CommitOpts {
     /// Replace HEAD instead of creating a new commit on top of it.
