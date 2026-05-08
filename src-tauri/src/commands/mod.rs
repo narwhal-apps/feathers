@@ -8,4 +8,5 @@ pub mod github;
 pub mod op;
 pub mod remote;
 pub mod repo;
+pub mod settings;
 pub mod stage;

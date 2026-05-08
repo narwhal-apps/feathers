@@ -103,6 +103,8 @@ pub fn run() {
             commands::remote::repo_push,
             commands::remote::repo_publish,
             commands::remote::repo_pull,
+            commands::settings::settings_get,
+            commands::settings::settings_set_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
