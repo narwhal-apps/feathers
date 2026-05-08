@@ -109,6 +109,10 @@ pub fn run() {
             commands::settings::settings_get_git_identity,
             commands::settings::settings_set_git_identity,
             commands::window::open_settings_window,
+            commands::history::branch_create_at,
+            commands::history::commit_cherrypick,
+            commands::history::commit_revert,
+            commands::history::commit_reset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -5,6 +5,7 @@ pub mod diff;
 pub mod discard;
 pub mod editor;
 pub mod github;
+pub mod history;
 pub mod op;
 pub mod remote;
 pub mod repo;
