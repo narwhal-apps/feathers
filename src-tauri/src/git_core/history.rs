@@ -85,7 +85,7 @@ pub(crate) fn finalize_cherrypick(repo: &Repository, source: &git2::Commit<'_>) 
 }
 
 /// Revert a commit on top of HEAD. Same conflict semantics as cherry-pick;
-/// libgit2 sets the message to `Revert "<subject>"` automatically.
+/// `finalize_revert` produces a `Revert "<subject>"` commit body.
 pub fn revert(repo: &Repository, oid: Oid) -> Result<(), AppError> {
     require_clean_op_state(repo)?;
     require_clean_tree(repo)?;

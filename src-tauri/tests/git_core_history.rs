@@ -105,7 +105,7 @@ fn cherrypick_clean_applies_and_commits() {
 
     // OpState is back to Clean and HEAD has a new commit on main with the same message.
     let st = op::state(&r).unwrap();
-    matches!(st.kind, op::OpKind::Clean);
+    assert!(matches!(st.kind, op::OpKind::Clean));
     let new_head = r.head().unwrap().peel_to_commit().unwrap();
     let msg = new_head.message().unwrap_or("");
     assert!(msg.contains("add b"));
@@ -120,8 +120,7 @@ fn cherrypick_conflict_leaves_op_state_cherrypick() {
     let r = repo::open(dir.path()).unwrap();
     let a = r.head().unwrap().peel_to_commit().unwrap();
     r.branch("feature", &a, false).unwrap();
-    let b_oid = commit_on(&r, "refs/heads/main", "a.txt", "main edit\n", "main edit");
-    let _ = b_oid;
+    let _b_oid = commit_on(&r, "refs/heads/main", "a.txt", "main edit\n", "main edit");
     r.set_head("refs/heads/feature").unwrap();
     r.checkout_head(Some(git2::build::CheckoutBuilder::new().force())).unwrap();
     let c_oid = commit_on(&r, "refs/heads/feature", "a.txt", "feat edit\n", "feat edit");
@@ -131,7 +130,7 @@ fn cherrypick_conflict_leaves_op_state_cherrypick() {
     history::cherrypick(&r, c_oid).unwrap();
 
     let st = op::state(&r).unwrap();
-    matches!(st.kind, op::OpKind::CherryPick);
+    assert!(matches!(st.kind, op::OpKind::CherryPick));
     assert!(!st.conflicted.is_empty());
 }
 
@@ -147,7 +146,7 @@ fn revert_clean_creates_inverse_commit() {
     history::revert(&r, head.id()).unwrap();
 
     let st = op::state(&r).unwrap();
-    matches!(st.kind, op::OpKind::Clean);
+    assert!(matches!(st.kind, op::OpKind::Clean));
     let new_head = r.head().unwrap().peel_to_commit().unwrap();
     let msg = new_head.message().unwrap_or("");
     assert!(msg.starts_with("Revert"));
