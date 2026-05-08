@@ -1,14 +1,30 @@
 import { browser } from '$app/environment';
+import type { ThemeName } from '$lib/types';
 
-export type ThemeName = 'dark' | 'light';
+class ThemeStore {
+  /** User-pinned theme. `null` = follow OS. */
+  override = $state<ThemeName | null>(null);
+  /** Last-known OS preference. */
+  systemPref = $state<ThemeName>('dark');
 
-// Reactive global theme. Mirrored to <html data-theme="..."> by the root layout.
-export const theme = $state<{ value: ThemeName }>({ value: 'dark' });
+  /** What the UI actually renders. */
+  effective = $derived<ThemeName>(this.override ?? this.systemPref);
+
+  setOverride(value: ThemeName | null): void {
+    this.override = value;
+  }
+
+  setSystemPref(value: ThemeName): void {
+    this.systemPref = value;
+  }
+}
+
+export const theme = new ThemeStore();
 
 if (browser) {
   const mql = window.matchMedia('(prefers-color-scheme: dark)');
-  theme.value = mql.matches ? 'dark' : 'light';
+  theme.setSystemPref(mql.matches ? 'dark' : 'light');
   mql.addEventListener('change', (e) => {
-    theme.value = e.matches ? 'dark' : 'light';
+    theme.setSystemPref(e.matches ? 'dark' : 'light');
   });
 }

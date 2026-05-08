@@ -166,3 +166,14 @@ export type AppError =
   | { kind: 'io'; message: string }
   | { kind: 'git'; message: string }
   | { kind: 'cancelled' };
+
+export type ThemeName = 'dark' | 'light';
+
+export interface AppSettings {
+  theme_override: ThemeName | null;
+}
+
+export interface GitIdentity {
+  name: string | null;
+  email: string | null;
+}

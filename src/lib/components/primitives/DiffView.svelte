@@ -71,7 +71,7 @@
   let hl = $state<Record<string, string[][]>>({});
 
   $effect(() => {
-    const t = theme.value;
+    const t = theme.effective;
     const p = payload;
     if (!p) { hl = {}; return; }
     let cancelled = false;

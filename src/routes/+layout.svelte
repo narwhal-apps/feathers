@@ -33,7 +33,7 @@
   // Mirror the reactive theme store to <html data-theme="...">.
   $effect(() => {
     if (!browser) return;
-    document.documentElement.dataset.theme = theme.value;
+    document.documentElement.dataset.theme = theme.effective;
   });
 
   // Load the persisted repo list on app start (was previously done by the

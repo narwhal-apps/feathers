@@ -6,7 +6,7 @@
 // is paid once per session. Languages are deduped via _loading promises.
 
 import type { BundledLanguage, HighlighterGeneric } from 'shiki';
-import type { ThemeName } from '$lib/stores/theme.svelte';
+import type { ThemeName } from '$lib/types';
 
 type Hl = HighlighterGeneric<BundledLanguage, string>;
 
