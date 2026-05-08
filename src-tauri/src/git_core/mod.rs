@@ -3,6 +3,7 @@ pub mod clone;
 pub mod commit;
 pub mod diff;
 pub mod discard;
+pub mod history;
 pub mod op;
 pub mod remote;
 pub mod repo;
