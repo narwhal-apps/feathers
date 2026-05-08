@@ -5,6 +5,7 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
+  import { portal } from '$lib/utils/portal';
   import type { BranchInfo, AppError } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -379,6 +380,7 @@
   <div
     class="modal-backdrop"
     role="presentation"
+    use:portal
     onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
     onkeydown={() => {}}
   >
@@ -499,6 +501,7 @@
   <div
     class="modal-backdrop"
     role="presentation"
+    use:portal
     onclick={(e) => { if (e.target === e.currentTarget) closeRename(); }}
     onkeydown={() => {}}
   >

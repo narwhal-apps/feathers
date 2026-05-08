@@ -52,6 +52,34 @@ pub async fn repo_open(
 }
 
 #[tauri::command]
+pub async fn repo_clone(
+    url: String,
+    dest: String,
+    registry: State<'_, RepoRegistry>,
+    watchers: State<'_, Arc<WatcherRegistry>>,
+    store: State<'_, Arc<dyn ConfigStore>>,
+) -> Result<RepoOpenResult, AppError> {
+    let dest_path = PathBuf::from(&dest);
+    git_core::clone::clone(&url, &dest_path)?;
+    let id = registry.add(dest_path)?;
+    let handle = registry.get(&id)?;
+    let head = {
+        let r = handle.repo.lock();
+        gc_repo::head_info(&r)?
+    };
+    let summary = registry
+        .list()
+        .into_iter()
+        .find(|s| s.id == id)
+        .ok_or(AppError::RepoNotFound { id: id.clone() })?;
+    if let Err(e) = watchers.watch(id.clone(), handle.path.clone()) {
+        tracing::warn!("watcher start failed for {id}: {e:?}");
+    }
+    persist(&registry, store.inner().as_ref());
+    Ok(RepoOpenResult { id, summary, head })
+}
+
+#[tauri::command]
 pub async fn repo_close(
     id: String,
     registry: State<'_, RepoRegistry>,

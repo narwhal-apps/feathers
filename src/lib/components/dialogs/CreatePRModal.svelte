@@ -5,6 +5,7 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
+  import { portal } from '$lib/utils/portal';
   import type { BranchInfo, CommitPage, PullRequest, AppError } from '$lib/types';
 
   let { id, onClose }: { id: string; onClose: (created?: PullRequest) => void } = $props();
@@ -103,6 +104,7 @@
 <div
   class="backdrop"
   role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) close(); }}
   onkeydown={() => {}}
 >

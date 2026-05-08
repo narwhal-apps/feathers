@@ -7,6 +7,7 @@
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
+  import { portal } from '$lib/utils/portal';
   import type { CommitPage, DiffFile, DiffPayload } from '$lib/types';
 
   let { id, onClose }: { id: string; onClose: () => void } = $props();
@@ -66,6 +67,7 @@
 <div
   class="backdrop"
   role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}
   onkeydown={() => {}}
 >

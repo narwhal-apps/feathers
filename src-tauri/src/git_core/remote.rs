@@ -11,12 +11,12 @@ fn pick_remote(remote: Option<&str>) -> &str {
     remote.unwrap_or(DEFAULT_REMOTE)
 }
 
-/// Credential callback used for both fetch and push.
+/// Credential callback used for fetch / push / clone.
 ///
 /// SSH-agent first (covers SSH remotes when the user has an agent unlocked).
 /// HTTPS auth requires stored credentials we don't have yet — surfaces a
 /// clear error so the UI can show an actionable message.
-fn credentials_cb(
+pub(crate) fn credentials_cb(
     _url: &str,
     username_from_url: Option<&str>,
     allowed: CredentialType,

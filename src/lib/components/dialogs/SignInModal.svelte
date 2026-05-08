@@ -3,6 +3,7 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { github } from '$lib/stores/github.svelte';
+  import { portal } from '$lib/utils/portal';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
 
   let { onClose }: { onClose: () => void } = $props();
@@ -60,6 +61,7 @@
 <div
   class="backdrop"
   role="presentation"
+  use:portal
   onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}
   onkeydown={() => {}}
 >

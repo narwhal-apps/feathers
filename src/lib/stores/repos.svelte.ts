@@ -25,6 +25,12 @@ class ReposStore {
     return result;
   }
 
+  async clone(url: string, dest: string): Promise<RepoOpenResult> {
+    const result = await invoke<RepoOpenResult>('repo_clone', { url, dest });
+    await this.refresh();
+    return result;
+  }
+
   async close(id: RepoId): Promise<void> {
     await invoke('repo_close', { id });
     await this.refresh();

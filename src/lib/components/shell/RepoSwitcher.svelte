@@ -2,10 +2,12 @@
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { openRepoFlow } from '$lib/components/dialogs/openRepo';
+  import CloneModal from '$lib/components/dialogs/CloneModal.svelte';
   import { goto } from '$app/navigation';
   import type { RepoSummary } from '$lib/types';
 
   let open = $state(false);
+  let cloneOpen = $state(false);
   let triggerEl = $state<HTMLButtonElement | null>(null);
 
   const active = $derived(repos.activeRepo);
@@ -22,6 +24,10 @@
   async function add() {
     close();
     await openRepoFlow();
+  }
+  function startClone() {
+    close();
+    cloneOpen = true;
   }
 
   function onDocClick(e: MouseEvent) {
@@ -51,10 +57,31 @@
 </script>
 
 {#if list.length === 0}
-  <button class="empty-trigger" onclick={add}>
-    <Icon name="FolderOpen" size={12} />
-    <span>Open repository</span>
-  </button>
+  <div class="wrap">
+    <button
+      class="empty-trigger"
+      bind:this={triggerEl}
+      onclick={() => (open = !open)}
+      aria-haspopup="menu"
+      aria-expanded={open}
+    >
+      <Icon name="FolderOpen" size={12} />
+      <span>Open repository</span>
+      <Icon name="ChevronsUpDown" size={12} />
+    </button>
+    {#if open}
+      <div id="repo-switcher-menu" class="menu" role="menu">
+        <button class="add" role="menuitem" onclick={add}>
+          <span>Open existing repository…</span>
+          <Icon name="FolderOpen" size={14} />
+        </button>
+        <button class="add" role="menuitem" onclick={startClone}>
+          <span>Clone repository…</span>
+          <Icon name="DownloadCloud" size={14} />
+        </button>
+      </div>
+    {/if}
+  </div>
 {:else}
   <div class="wrap">
     <button
@@ -95,12 +122,20 @@
         </ul>
         <div class="divider"></div>
         <button class="add" role="menuitem" onclick={add}>
-          <span>Add new repository</span>
-          <Icon name="Plus" size={14} />
+          <span>Open existing repository…</span>
+          <Icon name="FolderOpen" size={14} />
+        </button>
+        <button class="add" role="menuitem" onclick={startClone}>
+          <span>Clone repository…</span>
+          <Icon name="DownloadCloud" size={14} />
         </button>
       </div>
     {/if}
   </div>
+{/if}
+
+{#if cloneOpen}
+  <CloneModal onClose={() => (cloneOpen = false)} />
 {/if}
 
 <style>

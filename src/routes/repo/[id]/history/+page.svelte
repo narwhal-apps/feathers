@@ -7,6 +7,7 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
+  import { portal } from '$lib/utils/portal';
   import { relTime } from '$lib/utils/time';
   import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
 
@@ -189,6 +190,7 @@
   <div
     class="modal-backdrop"
     role="presentation"
+    use:portal
     onclick={(e) => { if (e.target === e.currentTarget) closeAmend(); }}
     onkeydown={() => {}}
   >

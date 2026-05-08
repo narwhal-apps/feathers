@@ -4,6 +4,7 @@
   import Icon from '$lib/components/primitives/Icon.svelte';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import { queryClient } from '$lib/query/client';
+  import { portal } from '$lib/utils/portal';
   import type { OpKind, AppError } from '$lib/types';
 
   let {
@@ -113,7 +114,7 @@
   }
 </script>
 
-<div class="backdrop" role="presentation">
+<div class="backdrop" role="presentation" use:portal>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="conflict-title">
     <header class="head">
       <h2 id="conflict-title">Resolve conflicts before {label}</h2>

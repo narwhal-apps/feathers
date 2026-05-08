@@ -68,6 +68,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::app::app_version,
             commands::repo::repo_open,
+            commands::repo::repo_clone,
             commands::repo::repo_close,
             commands::repo::repo_list_known,
             commands::repo::repo_status,
