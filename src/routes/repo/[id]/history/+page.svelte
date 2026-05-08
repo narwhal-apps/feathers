@@ -540,6 +540,7 @@
     margin: 4px 6px;
   }
   .action-error {
+    grid-column: 1 / -1;
     display: flex;
     align-items: center;
     justify-content: space-between;
