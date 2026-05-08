@@ -1,7 +1,11 @@
 <script lang="ts">
   import { getFileIcon } from './icon/getFileIcon';
 
-  let { fileName, color, size = 14 }: { fileName: string; color?: string; size?: number } = $props();
+  let {
+    fileName,
+    color,
+    size = 14,
+  }: { fileName: string; color?: string; size?: number } = $props();
 
   const svg = $derived(getFileIcon(fileName));
 </script>
@@ -17,8 +21,6 @@
 </i>
 
 <style>
-  /* The bundled SVGs reference a small named palette via CSS custom properties.
-     Defaults match GitButler's; pass `color` to override every shade at once. */
   .file-icon {
     display: inline-flex;
     flex-shrink: 0;

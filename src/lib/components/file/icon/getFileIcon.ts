@@ -1,5 +1,3 @@
-// File-icon resolver — direct port of GitButler's getFileIcon helper
-// (https://github.com/gitbutlerapp/gitbutler/blob/master/packages/ui/src/lib/components/file/icon/getFileIcon.ts).
 // All SVGs in ./svg are inlined eagerly via Vite's import.meta.glob so we get
 // raw markup we can feed to {@html} in a Svelte component.
 
