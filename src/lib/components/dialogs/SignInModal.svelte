@@ -2,8 +2,8 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Modal from '$lib/components/primitives/Modal.svelte';
   import { github } from '$lib/stores/github.svelte';
-  import { portal } from '$lib/utils/portal';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
 
   let { onClose }: { onClose: () => void } = $props();
@@ -14,7 +14,6 @@
   let errorMsg = $state<string | null>(null);
   let copied = $state(false);
 
-  // Kick off the flow when the modal mounts.
   $effect(() => {
     let cancelled = false;
     (async () => {
@@ -23,8 +22,6 @@
         if (cancelled) return;
         code = resp;
         stage = 'waiting';
-        // Auto-open the verification URL so the user just has to enter the
-        // code (which we've already copied to their clipboard).
         try { await openUrl(resp.verification_uri); } catch { /* user can click */ }
         try { await navigator.clipboard.writeText(resp.user_code); copied = true; } catch { /* ignore */ }
         await invoke('github_complete_device_flow', {
@@ -34,7 +31,6 @@
         if (cancelled) return;
         await github.refresh();
         stage = 'success';
-        // Auto-close shortly after success so it doesn't feel sticky.
         setTimeout(() => { if (!cancelled) onClose(); }, 1200);
       } catch (err) {
         if (cancelled) return;
@@ -58,144 +54,72 @@
   }
 </script>
 
-<div
-  class="backdrop"
-  role="presentation"
-  use:portal
-  onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-  onkeydown={() => {}}
->
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="signin-title">
-    <header class="head">
-      <h2 id="signin-title">Sign in to GitHub</h2>
-      <button class="close" onclick={onClose} aria-label="Close">
-        <Icon name="X" size={14} />
-      </button>
-    </header>
-
-    <div class="body">
-      {#if stage === 'starting'}
-        <p class="hint">Requesting device code…</p>
-      {:else if stage === 'waiting' && code}
-        <ol class="steps">
-          <li>
-            <span class="step-num">1</span>
-            <div>
-              <strong>Open the verification page</strong>
-              <a href={code.verification_uri} onclick={(e) => { e.preventDefault(); openUrl(code!.verification_uri); }}>
-                {code.verification_uri}
-                <Icon name="ExternalLink" size={11} />
-              </a>
-            </div>
-          </li>
-          <li>
-            <span class="step-num">2</span>
-            <div>
-              <strong>Enter this code</strong>
-              <button class="code" onclick={copyCode} title="Copy to clipboard">
-                <span>{code.user_code}</span>
-                <Icon name={copied ? 'Check' : 'Copy'} size={12} />
-              </button>
-              {#if copied}<span class="copied-tag">Copied to clipboard</span>{/if}
-            </div>
-          </li>
-          <li>
-            <span class="step-num">3</span>
-            <div>
-              <strong>Authorize the app</strong>
-              <span class="muted">This window will close automatically.</span>
-            </div>
-          </li>
-        </ol>
-        <div class="waiting">
-          <span class="spinner"></span>
-          Waiting for authorization…
-        </div>
-      {:else if stage === 'success'}
-        <div class="success">
-          <span class="ok-pill"><Icon name="Check" size={14} /></span>
+<Modal title="Sign in to GitHub" onClose={onClose} width="sm">
+  {#snippet body()}
+    {#if stage === 'starting'}
+      <p class="hint">Requesting device code…</p>
+    {:else if stage === 'waiting' && code}
+      <ol class="steps">
+        <li>
+          <span class="step-num">1</span>
           <div>
-            <strong>Signed in as {github.user?.login ?? 'GitHub user'}</strong>
-            <span class="muted">You can now see your pull requests.</span>
+            <strong>Open the verification page</strong>
+            <a href={code.verification_uri} onclick={(e) => { e.preventDefault(); openUrl(code!.verification_uri); }}>
+              {code.verification_uri}
+              <Icon name="ExternalLink" size={11} />
+            </a>
           </div>
-        </div>
-      {:else}
-        <div class="error">
-          <Icon name="AlertTriangle" size={16} />
+        </li>
+        <li>
+          <span class="step-num">2</span>
           <div>
-            <strong>Sign-in failed</strong>
-            <span>{errorMsg}</span>
+            <strong>Enter this code</strong>
+            <button class="code" onclick={copyCode} title="Copy to clipboard">
+              <span>{code.user_code}</span>
+              <Icon name={copied ? 'Check' : 'Copy'} size={12} />
+            </button>
+            {#if copied}<span class="copied-tag">Copied to clipboard</span>{/if}
           </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div>
+            <strong>Authorize the app</strong>
+            <span class="muted">This window will close automatically.</span>
+          </div>
+        </li>
+      </ol>
+      <div class="waiting">
+        <span class="spinner"></span>
+        Waiting for authorization…
+      </div>
+    {:else if stage === 'success'}
+      <div class="success">
+        <span class="ok-pill"><Icon name="Check" size={14} /></span>
+        <div>
+          <strong>Signed in as {github.user?.login ?? 'GitHub user'}</strong>
+          <span class="muted">You can now see your pull requests.</span>
         </div>
-      {/if}
-    </div>
-
-    {#if stage === 'error'}
-      <footer class="foot">
-        <button class="btn ghost" onclick={onClose}>Close</button>
-      </footer>
+      </div>
+    {:else}
+      <div class="error">
+        <Icon name="AlertTriangle" size={16} />
+        <div>
+          <strong>Sign-in failed</strong>
+          <span>{errorMsg}</span>
+        </div>
+      </div>
     {/if}
-  </div>
-</div>
+  {/snippet}
+
+  {#snippet foot()}
+    {#if stage === 'error'}
+      <button class="btn ghost" onclick={onClose}>Close</button>
+    {/if}
+  {/snippet}
+</Modal>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 14vh;
-    z-index: 200;
-  }
-  .modal {
-    width: min(480px, calc(100vw - 32px));
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
-  .head h2 {
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: var(--weight-semibold);
-    color: var(--fg);
-  }
-  .close {
-    width: 26px; height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .close:hover { background: var(--bg-elev-3); color: var(--fg); }
-
-  .body { padding: 14px 16px; position: relative; z-index: 1; }
   .hint { color: var(--fg-subtle); font-size: var(--fs-sm); margin: 0; }
 
   .steps { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
@@ -307,14 +231,6 @@
   .error strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
   .error span { color: var(--fg-muted); font-size: var(--fs-xs); }
 
-  .foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
   .btn {
     height: 32px;
     padding: 0 14px;

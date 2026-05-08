@@ -158,15 +158,18 @@
   .empty-trigger {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     height: 28px;
     padding: 0 10px 0 4px;
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     color: var(--fg);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-semibold);
+    /* Repo name is the most important context in the entire app —
+       give it a real typographic moment instead of pill-button text. */
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-medium);
     letter-spacing: var(--tracking-tight);
     cursor: pointer;
     transition: background var(--t-fast), border-color var(--t-fast);
@@ -177,7 +180,12 @@
     background: var(--bg-elev-3);
     border-color: var(--border-strong);
   }
-  .empty-trigger { padding: 0 10px; gap: 6px; }
+  .empty-trigger {
+    padding: 0 10px;
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-semibold);
+  }
 
   .avatar {
     display: inline-flex;

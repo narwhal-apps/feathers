@@ -83,7 +83,7 @@
     <div class="head-actions">
       {#if github.user}
         <span class="me" title="Signed in as {github.user.login}">
-          <Avatar name={github.user.name ?? github.user.login} email={github.user.login} size={20} />
+          <Avatar name={github.user.name ?? github.user.login} email={github.user.login} url={github.user.avatar_url} size={20} />
           <span>{github.user.login}</span>
         </span>
         <button
@@ -110,10 +110,10 @@
     <div class="state cta">
       <Icon name="GitPullRequest" size={28} />
       <h3>Sign in to GitHub</h3>
-      <p>List, view, and (soon) create pull requests for this repository.</p>
+      <p>Pull requests, your real avatar, and tokens you didn't have to copy-paste.</p>
       <button class="primary" onclick={() => (signInOpen = true)}>
         <Icon name="LogIn" size={14} />
-        Sign in with GitHub
+        Sign in
       </button>
     </div>
   {:else if !isGithubRepo}
@@ -121,8 +121,8 @@
       <Icon name="GitFork" size={20} />
       <p>
         {remoteUrl.data
-          ? 'This repository’s origin is not on github.com.'
-          : 'No origin remote configured.'}
+          ? 'Origin lives somewhere other than github.com.'
+          : 'No origin remote — nothing to compare.'}
       </p>
     </div>
   {:else if prs.error}
@@ -133,7 +133,7 @@
   {:else if prs.data && prs.data.length === 0}
     <div class="state hint">
       <Icon name="GitPullRequest" size={28} />
-      <p>No open pull requests.</p>
+      <p>Nothing open. Inbox zero for review.</p>
     </div>
   {:else if prs.data}
     <ul class="prs">
@@ -150,7 +150,7 @@
                   <span class="pr-num">#{pr.number}</span>
                 </div>
                 <div class="pr-meta">
-                  <Avatar name={pr.user.login} email={pr.user.login} size={14} />
+                  <Avatar name={pr.user.login} email={pr.user.login} url={pr.user.avatar_url} size={14} />
                   <span class="who">{pr.user.login}</span>
                   <span class="dot">·</span>
                   <span class="branch"><Icon name="GitBranch" size={11} /> {pr.head.ref} → {pr.base.ref}</span>

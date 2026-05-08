@@ -2,8 +2,8 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { goto } from '$app/navigation';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Modal from '$lib/components/primitives/Modal.svelte';
   import { repos } from '$lib/stores/repos.svelte';
-  import { portal } from '$lib/utils/portal';
   import type { AppError } from '$lib/types';
 
   let { onClose }: { onClose: () => void } = $props();
@@ -15,8 +15,6 @@
   let error = $state<string | null>(null);
   let urlEl = $state<HTMLInputElement | null>(null);
 
-  // Auto-derive the folder name from the URL whenever the user hasn't
-  // overridden it. Tracking that with a flag keeps manual edits intact.
   let folderManuallyEdited = false;
   $effect(() => {
     if (folderManuallyEdited) return;
@@ -26,9 +24,7 @@
   function deriveName(raw: string): string {
     const trimmed = raw.trim();
     if (!trimmed) return '';
-    // Strip trailing slashes and a trailing .git, then take the last segment.
     const noGit = trimmed.replace(/\.git\/?$/, '').replace(/\/+$/, '');
-    // SSH form: git@host:owner/repo
     const sshMatch = noGit.match(/^[^@\s]+@[^:\s]+:(.+)$/);
     const path = sshMatch ? sshMatch[1] : noGit;
     const segs = path.split('/').filter(Boolean);
@@ -73,30 +69,12 @@
   }
 
   function close() { if (!busy) onClose(); }
-  function onKey(e: KeyboardEvent) { if (e.key === 'Escape') close(); }
-  $effect(() => {
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  });
   $effect(() => { urlEl?.focus(); });
 </script>
 
-<div
-  class="backdrop"
-  role="presentation"
-  use:portal
-  onclick={(e) => { if (e.target === e.currentTarget) close(); }}
-  onkeydown={() => {}}
->
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="clone-title">
-    <header class="head">
-      <h2 id="clone-title">Clone repository</h2>
-      <button class="close" onclick={close} aria-label="Close">
-        <Icon name="X" size={14} />
-      </button>
-    </header>
-
-    <form class="body" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+<Modal title="Clone repository" onClose={close} width="md">
+  {#snippet body()}
+    <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <label class="field">
         <span class="label">Repository URL</span>
         <input
@@ -159,83 +137,19 @@
           <span>{error}</span>
         </div>
       {/if}
-
-      <footer class="foot">
-        <button type="button" class="btn ghost" onclick={close} disabled={busy}>Cancel</button>
-        <button type="submit" class="btn primary" disabled={!ready}>
-          {busy ? 'Cloning…' : 'Clone'}
-        </button>
-      </footer>
     </form>
-  </div>
-</div>
+  {/snippet}
+
+  {#snippet foot()}
+    <button type="button" class="btn ghost" onclick={close} disabled={busy}>Cancel</button>
+    <button type="button" class="btn primary" onclick={submit} disabled={!ready}>
+      {busy ? 'Cloning…' : 'Clone'}
+    </button>
+  {/snippet}
+</Modal>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 12vh;
-    z-index: 200;
-  }
-  .modal {
-    width: min(560px, calc(100vw - 32px));
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
-  .head h2 {
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: var(--weight-semibold);
-    color: var(--fg);
-    letter-spacing: var(--tracking-tight);
-  }
-  .close {
-    width: 26px; height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .close:hover { background: var(--bg-elev-3); color: var(--fg); }
-
-  .body {
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    position: relative; z-index: 1;
-  }
-
+  .form { display: contents; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .label {
     font-size: var(--fs-2xs);
@@ -310,7 +224,6 @@
   }
   .err :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
 
-  .foot { display: flex; justify-content: flex-end; gap: 8px; }
   .btn {
     height: 32px;
     padding: 0 14px;

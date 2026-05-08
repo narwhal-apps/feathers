@@ -5,8 +5,8 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import { portal } from '$lib/utils/portal';
   import { ui } from '$lib/stores/ui.svelte';
+  import Modal from '$lib/components/primitives/Modal.svelte';
   import type { BranchInfo, AppError } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -391,25 +391,9 @@
 {/if}
 
 {#if modalOpen && head}
-  <div
-    class="modal-backdrop"
-    role="presentation"
-    use:portal
-    onclick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-    onkeydown={() => {}}
-  >
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="new-branch-title">
-      <header class="modal-header">
-        <h2 id="new-branch-title">New branch</h2>
-        <button class="modal-close" onclick={closeModal} aria-label="Close">
-          <Icon name="X" size={14} />
-        </button>
-      </header>
-
-      <form
-        class="modal-body"
-        onsubmit={(e) => { e.preventDefault(); createBranch(); }}
-      >
+  <Modal title="New branch" onClose={closeModal} width="md">
+    {#snippet body()}
+      <form class="form" onsubmit={(e) => { e.preventDefault(); createBranch(); }}>
         <label class="field">
           <span class="label">Name</span>
           <input
@@ -461,23 +445,19 @@
             </div>
           {/if}
         </div>
-
-        <footer class="modal-footer">
-          <button
-            type="button"
-            class="btn ghost"
-            onclick={closeModal}
-            disabled={busy}
-          >Cancel</button>
-          <button
-            type="submit"
-            class="btn primary"
-            disabled={busy || !newName.trim()}
-          >{busy ? 'Creating…' : 'Create branch'}</button>
-        </footer>
       </form>
-    </div>
-  </div>
+    {/snippet}
+
+    {#snippet foot()}
+      <button type="button" class="btn ghost" onclick={closeModal} disabled={busy}>Cancel</button>
+      <button
+        type="button"
+        class="btn primary"
+        onclick={createBranch}
+        disabled={busy || !newName.trim()}
+      >{busy ? 'Creating…' : 'Create branch'}</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 {#if ctxMenu}
@@ -512,27 +492,12 @@
 {/if}
 
 {#if renameTarget}
-  <div
-    class="modal-backdrop"
-    role="presentation"
-    use:portal
-    onclick={(e) => { if (e.target === e.currentTarget) closeRename(); }}
-    onkeydown={() => {}}
-  >
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rename-branch-title">
-      <header class="modal-header">
-        <h2 id="rename-branch-title">Rename branch</h2>
-        <button class="modal-close" onclick={closeRename} aria-label="Close">
-          <Icon name="X" size={14} />
-        </button>
-      </header>
-
-      <form
-        class="modal-body"
-        onsubmit={(e) => { e.preventDefault(); submitRename(); }}
-      >
+  {@const target = renameTarget}
+  <Modal title="Rename branch" onClose={closeRename} width="md">
+    {#snippet body()}
+      <form class="form" onsubmit={(e) => { e.preventDefault(); submitRename(); }}>
         <label class="field">
-          <span class="label">Rename "{renameTarget.name}" to</span>
+          <span class="label">Rename "{target.name}" to</span>
           <input
             class="input"
             type="text"
@@ -541,23 +506,19 @@
             disabled={busy}
           />
         </label>
-
-        <footer class="modal-footer">
-          <button
-            type="button"
-            class="btn ghost"
-            onclick={closeRename}
-            disabled={busy}
-          >Cancel</button>
-          <button
-            type="submit"
-            class="btn primary"
-            disabled={busy || !renameName.trim() || renameName.trim() === renameTarget.name}
-          >{busy ? 'Renaming…' : 'Rename'}</button>
-        </footer>
       </form>
-    </div>
-  </div>
+    {/snippet}
+
+    {#snippet foot()}
+      <button type="button" class="btn ghost" onclick={closeRename} disabled={busy}>Cancel</button>
+      <button
+        type="button"
+        class="btn primary"
+        onclick={submitRename}
+        disabled={busy || !renameName.trim() || renameName.trim() === target.name}
+      >{busy ? 'Renaming…' : 'Rename'}</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>
@@ -772,71 +733,8 @@
   .new:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
   .new:disabled { opacity: 0.6; cursor: progress; }
 
-  /* Modal */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 14vh;
-    z-index: 100;
-  }
-  .modal {
-    width: min(440px, calc(100vw - 32px));
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
-  .modal-header h2 {
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg);
-  }
-  .modal-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px; height: 26px;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .modal-close:hover { background: var(--bg-elev-3); color: var(--fg); }
-
-  .modal-body {
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    position: relative; z-index: 1;
-  }
+  /* Form bits inside the new-branch / rename modals (provided shell now). */
+  .form { display: contents; }
   .field {
     display: flex;
     flex-direction: column;
@@ -926,12 +824,6 @@
   .seg-static :global(svg) { color: var(--accent-fg); flex-shrink: 0; }
   .seg-static .seg-tag { color: var(--accent-fg); opacity: 0.85; }
 
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 4px;
-  }
   .btn {
     height: 32px;
     padding: 0 14px;

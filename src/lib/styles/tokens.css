@@ -23,7 +23,17 @@
   --removed-text: #fecaca;
   --removed-bg:   color-mix(in srgb, #f87171 12%, transparent);
 
-  --hunk-bg:    color-mix(in srgb, var(--accent-500) 6%, transparent);
+  /* Hunk header bg lives per-theme — neutral elevation, not branded. */
+
+  /* Modified / Renamed status hues — distinct from the accent so the
+     pill family doesn't blur into the "selected" / "current branch" tint. */
+  --warn:        #d39e1c;     /* amber-ish, slightly desaturated */
+  --warn-bg:     color-mix(in srgb, #d39e1c 14%, transparent);
+  --warn-border: color-mix(in srgb, #d39e1c 30%, transparent);
+
+  --rename:        #8b5cf6;   /* violet — definitively not teal */
+  --rename-bg:     color-mix(in srgb, #8b5cf6 14%, transparent);
+  --rename-border: color-mix(in srgb, #8b5cf6 30%, transparent);
 
   /* ── type — Geist Sans (UI) + Geist Mono (code/sha) ─────────── */
   --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;

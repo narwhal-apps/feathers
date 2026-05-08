@@ -2,15 +2,14 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Modal from '$lib/components/primitives/Modal.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import { portal } from '$lib/utils/portal';
   import type { BranchInfo, CommitPage, PullRequest, AppError } from '$lib/types';
 
   let { id, onClose }: { id: string; onClose: (created?: PullRequest) => void } = $props();
 
-  // Pull pieces from the same caches the rest of the app uses.
   const branches = createQuery<BranchInfo[] | null>(
     () => queryKeys.repoBranches(id),
     () => invoke<BranchInfo[]>('branch_list', { id }),
@@ -24,7 +23,6 @@
   const localBranches = $derived(
     (branches.data ?? []).filter((b) => !b.is_remote && !b.is_head),
   );
-  // Default base: prefer "main", then "master", else first non-head local.
   const defaultBase = $derived(
     branches.data?.find((b) => !b.is_remote && b.name === 'main') ??
     branches.data?.find((b) => !b.is_remote && b.name === 'master') ??
@@ -40,8 +38,6 @@
   let error = $state<string | null>(null);
   let titleEl = $state<HTMLInputElement | null>(null);
 
-  // Pre-fill title (and body, if commit has one beyond the summary) from the
-  // most recent commit on the current branch — matches GitHub's web UI.
   let prefilled = false;
   $effect(() => {
     if (prefilled) return;
@@ -50,11 +46,9 @@
     title = top.summary;
     prefilled = true;
   });
-  // Default base picker once branches load.
   $effect(() => {
     if (!base && defaultBase) base = defaultBase.name;
   });
-  // Focus the title field once it's populated.
   $effect(() => {
     if (titleEl && title && !busy) {
       titleEl.focus();
@@ -78,7 +72,6 @@
       });
       queryClient.invalidate(queryKeys.repoPullRequests(id));
       onClose(pr);
-      // Open the new PR for follow-up.
       try { await openUrl(pr.html_url); } catch { /* ignore */ }
     } catch (err) {
       const e = err as AppError;
@@ -92,31 +85,11 @@
   }
 
   function close() { if (!busy) onClose(); }
-  function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') close();
-  }
-  $effect(() => {
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  });
 </script>
 
-<div
-  class="backdrop"
-  role="presentation"
-  use:portal
-  onclick={(e) => { if (e.target === e.currentTarget) close(); }}
-  onkeydown={() => {}}
->
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="create-pr-title">
-    <header class="head">
-      <h2 id="create-pr-title">Create pull request</h2>
-      <button class="close" onclick={close} aria-label="Close">
-        <Icon name="X" size={14} />
-      </button>
-    </header>
-
-    <form class="body" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+<Modal title="Open pull request" onClose={close} width="md">
+  {#snippet body()}
+    <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <div class="branches">
         <span class="branch base"><Icon name="GitBranch" size={12} />
           <select bind:value={base} disabled={busy}>
@@ -169,86 +142,24 @@
           <span>{error}</span>
         </div>
       {/if}
-
-      <footer class="foot">
-        <button type="button" class="btn ghost" onclick={close} disabled={busy}>Cancel</button>
-        <button
-          type="submit"
-          class="btn primary"
-          disabled={busy || !title.trim() || !head || !base || base === head?.name}
-        >
-          {busy ? 'Creating…' : draft ? 'Create draft' : 'Create pull request'}
-        </button>
-      </footer>
     </form>
-  </div>
-</div>
+  {/snippet}
+
+  {#snippet foot()}
+    <button type="button" class="btn ghost" onclick={close} disabled={busy}>Cancel</button>
+    <button
+      type="button"
+      class="btn primary"
+      onclick={submit}
+      disabled={busy || !title.trim() || !head || !base || base === head?.name}
+    >
+      {busy ? 'Creating…' : draft ? 'Open draft' : 'Open pull request'}
+    </button>
+  {/snippet}
+</Modal>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 10vh;
-    z-index: 200;
-  }
-  .modal {
-    width: min(560px, calc(100vw - 32px));
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
-  .head h2 {
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg);
-  }
-  .close {
-    width: 26px; height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .close:hover { background: var(--bg-elev-3); color: var(--fg); }
-
-  .body {
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    position: relative; z-index: 1;
-  }
+  .form { display: contents; }
 
   .branches {
     display: flex;
@@ -351,11 +262,6 @@
   }
   .err :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
 
-  .foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
   .btn {
     height: 32px;
     padding: 0 14px;

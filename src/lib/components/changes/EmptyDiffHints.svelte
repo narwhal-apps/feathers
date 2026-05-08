@@ -57,15 +57,15 @@
   {#if canCreatePr && head}
     <article class="card primary">
       <div class="text">
-        <strong>Create a pull request from this branch</strong>
+        <strong>Open a pull request</strong>
         <p>
-          <code>{head.name}</code> is published to GitHub. Open a pull request to propose your changes.
+          <code>{head.name}</code> is up on GitHub. Ship it for review.
         </p>
-        <div class="kbd-line">Branch menu or <Kbd keys={['⌘', 'R']} /></div>
+        <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
       </div>
       <button type="button" class="btn primary-btn" onclick={() => ui.createPr()}>
         <Icon name="GitPullRequest" size={12} />
-        Create pull request
+        Open pull request
       </button>
     </article>
   {/if}
@@ -73,9 +73,9 @@
   {#if hasUpstream && ahead > 0}
     <article class="card">
       <div class="text">
-        <strong>Push your changes</strong>
+        <strong>Push {ahead} commit{ahead === 1 ? '' : 's'}</strong>
         <p>
-          {ahead} commit{ahead === 1 ? '' : 's'} ahead of <code>origin/{head?.name}</code>.
+          Ahead of <code>origin/{head?.name}</code>. Send them up.
         </p>
         <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'P']} /></div>
       </div>
@@ -89,8 +89,8 @@
   {#if repoPath}
     <article class="card">
       <div class="text">
-        <strong>Open the repository in your editor</strong>
-        <p>Launches the folder in your OS default app for source folders.</p>
+        <strong>Open in your editor</strong>
+        <p>Cursor, VS Code, Zed, or whatever is set as default.</p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'A']} /></div>
       </div>
       <button type="button" class="btn" onclick={openInEditor}>
@@ -103,13 +103,13 @@
   {#if webBase}
     <article class="card">
       <div class="text">
-        <strong>Open the repository on the remote</strong>
-        <p>{webBase}</p>
+        <strong>Open on GitHub</strong>
+        <p><code>{webBase}</code></p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'G']} /></div>
       </div>
       <button type="button" class="btn" onclick={openOnGithub}>
         <Icon name="ExternalLink" size={12} />
-        View on remote
+        View
       </button>
     </article>
   {/if}

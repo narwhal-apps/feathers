@@ -367,14 +367,14 @@
     border-color: color-mix(in srgb, var(--removed) 28%, transparent);
   }
   .status-mod {
-    background: color-mix(in srgb, #f59e0b 14%, transparent);
-    color: #f59e0b;
-    border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+    background: var(--warn-bg);
+    color: var(--warn);
+    border-color: var(--warn-border);
   }
   .status-ren {
-    background: var(--accent-bg-medium);
-    color: var(--accent-fg);
-    border-color: var(--accent-bg-strong);
+    background: var(--rename-bg);
+    color: var(--rename);
+    border-color: var(--rename-border);
   }
 
   /* Two adjacent badges showing line counts. */
@@ -443,10 +443,12 @@
     gap: 8px;
     padding: var(--sp-1) var(--sp-3);
     background: var(--hunk-bg);
-    color: var(--accent-fg);
+    color: var(--hunk-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
+    /* Sharp top-left corner — industrial code-block feel. */
+    border-top-left-radius: 0;
   }
   .hunk-header-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hunk-discard {

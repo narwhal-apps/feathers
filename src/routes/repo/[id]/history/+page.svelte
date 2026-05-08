@@ -7,8 +7,8 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
-  import { portal } from '$lib/utils/portal';
   import { relTime } from '$lib/utils/time';
+  import Modal from '$lib/components/primitives/Modal.svelte';
   import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
@@ -187,27 +187,13 @@
 {/if}
 
 {#if amendTarget}
-  <div
-    class="modal-backdrop"
-    role="presentation"
-    use:portal
-    onclick={(e) => { if (e.target === e.currentTarget) closeAmend(); }}
-    onkeydown={() => {}}
-  >
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="amend-title">
-      <header class="modal-header">
-        <h2 id="amend-title">Amend commit</h2>
-        <button class="modal-close" onclick={closeAmend} aria-label="Close">
-          <Icon name="X" size={14} />
-        </button>
-      </header>
-      <form
-        class="modal-body"
-        onsubmit={(e) => { e.preventDefault(); submitAmend(); }}
-      >
+  {@const target = amendTarget}
+  <Modal title="Amend commit" onClose={closeAmend} width="md">
+    {#snippet body()}
+      <form class="form" onsubmit={(e) => { e.preventDefault(); submitAmend(); }}>
         <div class="meta">
-          <span class="sha">{amendTarget.short_sha}</span>
-          <span class="when">{relTime(amendTarget.author_when)}</span>
+          <span class="sha">{target.short_sha}</span>
+          <span class="when">{relTime(target.author_when)}</span>
         </div>
         <label class="field">
           <span class="label">Message</span>
@@ -225,17 +211,19 @@
             }}
           ></textarea>
         </label>
-        <footer class="modal-footer">
-          <button type="button" class="btn ghost" onclick={closeAmend} disabled={amending}>Cancel</button>
-          <button
-            type="submit"
-            class="btn primary"
-            disabled={amending || !amendMessage.trim() || amendMessage.trim() === amendTarget.summary}
-          >{amending ? 'Amending…' : 'Amend'}</button>
-        </footer>
       </form>
-    </div>
-  </div>
+    {/snippet}
+
+    {#snippet foot()}
+      <button type="button" class="btn ghost" onclick={closeAmend} disabled={amending}>Cancel</button>
+      <button
+        type="button"
+        class="btn primary"
+        onclick={submitAmend}
+        disabled={amending || !amendMessage.trim() || amendMessage.trim() === target.summary}
+      >{amending ? 'Amending…' : 'Amend'}</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>
@@ -307,70 +295,8 @@
   .ctx-item:hover:not(:disabled) :global(svg) { color: var(--fg-muted); }
   .ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  /* Amend modal */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 14vh;
-    z-index: 100;
-  }
-  .modal {
-    width: min(520px, calc(100vw - 32px));
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
-  .modal-header h2 {
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg);
-  }
-  .modal-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px; height: 26px;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .modal-close:hover { background: var(--bg-elev-3); color: var(--fg); }
-  .modal-body {
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    position: relative; z-index: 1;
-  }
+  /* Amend modal — shell provided by Modal primitive. */
+  .form { display: contents; }
   .meta {
     display: flex;
     align-items: center;
@@ -403,11 +329,6 @@
     transition: border-color var(--t-fast);
   }
   .input.message:focus { border-color: var(--accent-500); }
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
   .btn {
     height: 32px;
     padding: 0 14px;

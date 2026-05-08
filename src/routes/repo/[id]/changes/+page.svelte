@@ -312,7 +312,11 @@
               title={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
             />
             <span class="group-label">Changed files</span>
-            <span class="group-count">{allChanges.length}</span>
+            <span class="group-count">
+              {#key allChanges.length}
+                <span class="num">{allChanges.length}</span>
+              {/key}
+            </span>
             <button
               class="bulk danger"
               onclick={discardAll}
@@ -553,6 +557,19 @@
     font-size: var(--fs-2xs);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+    display: inline-block;
+    overflow: hidden;
+    line-height: 1;
+  }
+  /* Each new {#key} mount slides up from below — keeps the eye on the
+     count when bulk discard / stage changes it. */
+  .group-count .num {
+    display: inline-block;
+    animation: count-slide 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes count-slide {
+    from { transform: translateY(60%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
   }
   .bulk {
     color: var(--fg-subtle);

@@ -1,13 +1,13 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import Icon from '$lib/components/primitives/Icon.svelte';
   import Avatar from '$lib/components/primitives/Avatar.svelte';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
+  import Modal from '$lib/components/primitives/Modal.svelte';
+  import Tag from '$lib/components/primitives/Tag.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
-  import { portal } from '$lib/utils/portal';
   import type { CommitPage, DiffFile, DiffPayload } from '$lib/types';
 
   let { id, onClose }: { id: string; onClose: () => void } = $props();
@@ -21,9 +21,6 @@
 
   let selectedOid = $state<string | null>(null);
 
-  // Default-select the latest unpushed commit when the list resolves; if the
-  // current selection scrolled out of the unpushed window (e.g. after a push),
-  // reset to the new top.
   $effect(() => {
     if (commits.length === 0) {
       selectedOid = null;
@@ -53,36 +50,25 @@
     if (file.status === 'deleted') return null;
     return fileUrlOnRemote(webBase, selectedOid, file.path);
   }
-
-  function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') onClose();
-  }
-
-  $effect(() => {
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  });
 </script>
 
-<div
-  class="backdrop"
-  role="presentation"
-  use:portal
-  onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-  onkeydown={() => {}}
->
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="commits-title">
+<Modal {onClose} width="lg" align="center">
+  {#snippet head()}
     <header class="head">
-      <h2 id="commits-title">
+      <h2>
         Unpushed commits
-        {#if commits.length > 0}<span class="count">{commits.length}</span>{/if}
+        {#if commits.length > 0}
+          <Tag tone="accent" size="sm">{commits.length}</Tag>
+        {/if}
       </h2>
       <button class="close" onclick={onClose} aria-label="Close">
-        <Icon name="X" size={14} />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </header>
+  {/snippet}
 
-    <div class="body">
+  {#snippet body()}
+    <div class="split">
       <aside class="commits">
         {#if log.data}
           {#if commits.length === 0}
@@ -127,48 +113,17 @@
         {/if}
       </section>
     </div>
-  </div>
-</div>
+  {/snippet}
+</Modal>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    padding: 5vh 4vw;
-  }
-  .modal {
-    width: min(1100px, 100%);
-    height: 100%;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
   .head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    gap: 12px;
+    padding: 16px 18px;
     border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
     flex-shrink: 0;
   }
   .head h2 {
@@ -176,23 +131,14 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: var(--fs-md);
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
     color: var(--fg);
   }
-  .count {
-    background: var(--accent-bg-medium);
-    color: var(--accent-fg);
-    border-radius: var(--r-pill);
-    padding: 1px 8px;
-    font-size: var(--fs-2xs);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-weight: var(--weight-bold);
-  }
   .close {
-    width: 26px; height: 26px;
+    width: 28px; height: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -205,12 +151,12 @@
   }
   .close:hover { background: var(--bg-elev-3); color: var(--fg); }
 
-  .body {
+  .split {
     flex: 1;
     min-height: 0;
     display: grid;
     grid-template-columns: 360px 1fr;
-    position: relative; z-index: 1;
+    height: 100%;
   }
   .commits {
     border-right: 1px solid var(--border);

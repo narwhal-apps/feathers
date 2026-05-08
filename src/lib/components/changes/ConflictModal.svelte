@@ -3,8 +3,8 @@
   import { openPath } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
+  import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
-  import { portal } from '$lib/utils/portal';
   import type { OpKind, AppError } from '$lib/types';
 
   let {
@@ -22,15 +22,14 @@
   let busy = $state<null | 'continue' | 'abort' | string>(null);
 
   const KIND_LABEL: Record<Exclude<OpKind, 'clean'>, string> = {
-    merge: 'Merge',
-    rebase: 'Rebase',
-    cherry_pick: 'Cherry-pick',
-    revert: 'Revert',
-    bisect: 'Bisect',
-    apply_mailbox: 'Mailbox',
+    merge: 'merge',
+    rebase: 'rebase',
+    cherry_pick: 'cherry-pick',
+    revert: 'revert',
+    bisect: 'bisect',
+    apply_mailbox: 'mailbox',
   };
   const label = $derived(kind === 'clean' ? '' : KIND_LABEL[kind]);
-
   const allResolved = $derived(conflicted.length === 0);
 
   function basename(p: string): string {
@@ -92,7 +91,7 @@
       await invoke('repo_op_continue', { id });
       queryClient.invalidate(['repo', id]);
     } catch (err) {
-      reportError(`Failed to continue ${label.toLowerCase()}`, err);
+      reportError(`Failed to continue ${label}`, err);
     } finally {
       busy = null;
     }
@@ -100,135 +99,85 @@
 
   async function doAbort() {
     if (busy) return;
-    const ok = confirm(`Abort ${label.toLowerCase()}? Working tree will be reset.`);
+    const ok = confirm(`Abort ${label}? Working tree will be reset.`);
     if (!ok) return;
     busy = 'abort';
     try {
       await invoke('repo_op_abort', { id });
       queryClient.invalidate(['repo', id]);
     } catch (err) {
-      reportError(`Failed to abort ${label.toLowerCase()}`, err);
+      reportError(`Failed to abort ${label}`, err);
     } finally {
       busy = null;
     }
   }
 </script>
 
-<div class="backdrop" role="presentation" use:portal>
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="conflict-title">
-    <header class="head">
-      <h2 id="conflict-title">Resolve conflicts before {label}</h2>
-    </header>
-
-    <div class="body">
-      {#if allResolved}
-        <div class="status ok">
-          <span class="icon-wrap"><Icon name="Check" size={14} /></span>
-          <div class="status-text">
-            <strong>All conflicts resolved</strong>
-            <span>Continue {label.toLowerCase()} to wrap things up.</span>
-          </div>
+<Modal title="Resolve {label} conflicts" width="md">
+  {#snippet body()}
+    {#if allResolved}
+      <div class="status ok">
+        <span class="icon-wrap"><Icon name="Check" size={14} /></span>
+        <div class="status-text">
+          <strong>All conflicts resolved</strong>
+          <span>Continue the {label} to wrap things up.</span>
         </div>
-      {:else}
-        <h3 class="files-title">
-          {conflicted.length} conflicted file{conflicted.length === 1 ? '' : 's'}
-        </h3>
-        <ul class="files">
-          {#each conflicted as path}
-            {@const name = basename(path)}
-            {@const dir = dirname(path)}
-            <li>
-              <FileIcon fileName={name} size={16} />
-              <div class="file-text">
-                <div class="file-name">
-                  <span class="basename">{name}</span>
-                  {#if dir}<span class="dir">{dir}</span>{/if}
-                </div>
-                <div class="file-sub">Conflicted</div>
+      </div>
+    {:else}
+      <h3 class="files-title">
+        {conflicted.length} conflicted file{conflicted.length === 1 ? '' : 's'}
+      </h3>
+      <ul class="files">
+        {#each conflicted as path}
+          {@const name = basename(path)}
+          {@const dir = dirname(path)}
+          <li>
+            <FileIcon fileName={name} size={16} />
+            <div class="file-text">
+              <div class="file-name">
+                <span class="basename">{name}</span>
+                {#if dir}<span class="dir">{dir}</span>{/if}
               </div>
-              <button
-                class="row-btn"
-                onclick={() => openOne(path)}
-                disabled={!repoPath || busy !== null}
-                title={repoPath ? `Open ${name} in your default editor` : 'Repo path unavailable'}
-              >
-                <Icon name="ExternalLink" size={12} />
-                <span>Open</span>
-              </button>
-              <button
-                class="row-btn ok"
-                onclick={() => resolveOne(path)}
-                disabled={busy !== null}
-                title="Mark this file resolved"
-              >
-                <Icon name="Check" size={12} />
-                <span>{busy === `resolve:${path}` ? 'Resolving…' : 'Resolved'}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-        <p class="hint">
-          Open each file in your editor, fix the conflict markers (<code>{'<<<<<<<'}</code>, <code>{'======='}</code>, <code>{'>>>>>>>'}</code>), save, then mark it resolved.
-        </p>
-      {/if}
-    </div>
+              <div class="file-sub">Needs resolution</div>
+            </div>
+            <button
+              class="row-btn"
+              onclick={() => openOne(path)}
+              disabled={!repoPath || busy !== null}
+              title={repoPath ? `Open ${name} in your default editor` : 'Repo path unavailable'}
+            >
+              <Icon name="ExternalLink" size={12} />
+              <span>Open</span>
+            </button>
+            <button
+              class="row-btn ok"
+              onclick={() => resolveOne(path)}
+              disabled={busy !== null}
+              title="Mark this file resolved"
+            >
+              <Icon name="Check" size={12} />
+              <span>{busy === `resolve:${path}` ? 'Resolving…' : 'Resolved'}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+      <p class="hint">
+        Open each file, fix the conflict markers (<code>{'<<<<<<<'}</code>, <code>{'======='}</code>, <code>{'>>>>>>>'}</code>), save, then mark it resolved.
+      </p>
+    {/if}
+  {/snippet}
 
-    <footer class="foot">
-      <button class="btn ghost" onclick={doAbort} disabled={busy !== null}>
-        {busy === 'abort' ? 'Aborting…' : `Abort ${label}`}
-      </button>
-      <button class="btn primary" onclick={doContinue} disabled={busy !== null || !allResolved}>
-        {busy === 'continue' ? 'Continuing…' : `Continue ${label}`}
-      </button>
-    </footer>
-  </div>
-</div>
+  {#snippet foot()}
+    <button class="btn ghost" onclick={doAbort} disabled={busy !== null}>
+      {busy === 'abort' ? 'Aborting…' : `Abort ${label}`}
+    </button>
+    <button class="btn primary" onclick={doContinue} disabled={busy !== null || !allResolved}>
+      {busy === 'continue' ? 'Continuing…' : `Continue ${label}`}
+    </button>
+  {/snippet}
+</Modal>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 18vh;
-    z-index: 200;
-  }
-  .modal {
-    width: min(560px, calc(100vw - 32px));
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
-    box-shadow: var(--shadow-3);
-    overflow: hidden;
-    position: relative;
-  }
-  .modal::before {
-    content: "";
-    position: absolute; inset: 0;
-    background-image: var(--grain);
-    opacity: 0.35;
-    pointer-events: none;
-    mix-blend-mode: overlay;
-  }
-  .head {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
-  .head h2 {
-    margin: 0;
-    font-size: var(--fs-md);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg);
-  }
-  .body {
-    padding: 14px 16px;
-    position: relative; z-index: 1;
-  }
   .status {
     display: flex;
     align-items: flex-start;
@@ -253,17 +202,8 @@
     background: color-mix(in srgb, var(--removed) 40%, transparent);
     color: #fff;
   }
-  .status.ok .icon-wrap {
-    background: var(--added);
-  }
-  .status-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: var(--fs-sm);
-    color: var(--fg);
-    line-height: 1.4;
-  }
+  .status.ok .icon-wrap { background: var(--added); }
+  .status-text { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--fg); line-height: 1.4; }
   .status-text strong { font-weight: var(--weight-semibold); }
   .status-text span { color: var(--fg-muted); font-size: var(--fs-xs); }
 
@@ -292,20 +232,8 @@
     border-bottom: 1px solid var(--border);
   }
   .files li:last-child { border-bottom: none; }
-  .file-text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .file-name {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-    overflow: hidden;
-  }
+  .file-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .file-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
   .file-name .basename {
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
@@ -321,7 +249,7 @@
     white-space: nowrap;
   }
   .file-sub {
-    color: #f59e0b;
+    color: var(--removed);
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
   }
@@ -342,10 +270,7 @@
     transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
   }
   .row-btn :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .row-btn:hover:not(:disabled) {
-    color: var(--fg);
-    border-color: var(--border-strong);
-  }
+  .row-btn:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
   .row-btn:hover:not(:disabled) :global(svg) { color: var(--fg); }
   .row-btn.ok:hover:not(:disabled) {
     color: var(--added);
@@ -355,12 +280,7 @@
   .row-btn.ok:hover:not(:disabled) :global(svg) { color: var(--added); }
   .row-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .hint {
-    margin: 0;
-    color: var(--fg-subtle);
-    font-size: var(--fs-xs);
-    line-height: 1.5;
-  }
+  .hint { margin: 0; color: var(--fg-subtle); font-size: var(--fs-xs); line-height: 1.5; }
   .hint code {
     font-family: var(--font-mono);
     font-size: var(--fs-2xs);
@@ -371,14 +291,6 @@
     color: var(--fg-muted);
   }
 
-  .foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-    position: relative; z-index: 1;
-  }
   .btn {
     height: 32px;
     padding: 0 14px;
@@ -389,10 +301,7 @@
     border: 1px solid transparent;
     transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
   }
-  .btn.primary {
-    background: var(--accent-500);
-    color: var(--accent-on);
-  }
+  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
   .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
   .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn.ghost {

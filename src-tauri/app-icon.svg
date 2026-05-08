@@ -1,0 +1,57 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Card surface — warm cream paper, top-lit. -->
+    <linearGradient id="cardFill" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#fdfbf6"/>
+      <stop offset="1" stop-color="#f0ebe2"/>
+    </linearGradient>
+    <!-- Vane fill — teal gradient deepening toward the base. -->
+    <linearGradient id="vaneFill" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#99f6e4"/>
+      <stop offset="0.55" stop-color="#5eead4"/>
+      <stop offset="1"   stop-color="#14b8a6"/>
+    </linearGradient>
+    <!-- Card drop shadow + top highlight. -->
+    <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+    <linearGradient id="cardHi" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.12" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS Big Sur+ style squircle card. -->
+  <g filter="url(#cardShadow)">
+    <rect x="40" y="40" width="944" height="944" rx="208" fill="url(#cardFill)"/>
+  </g>
+  <rect x="40" y="40" width="944" height="944" rx="208" fill="url(#cardHi)" pointer-events="none"/>
+  <rect x="40.5" y="40.5" width="943" height="943" rx="207.5"
+        fill="none" stroke="#d8d3cb" stroke-width="1.5"/>
+
+  <!--
+    Lucide feather icon (CC BY-ISC), scaled 30× into the 1024 canvas,
+    centered with 152px margins. Original stroke-width 2 in the 24-unit
+    viewBox; we use 1.1 here so it renders at ~33px stroke (bold but not
+    chunky) at 1024×1024. The feather body gets a teal gradient fill so
+    the silhouette reads at small sizes.
+  -->
+  <g
+    transform="translate(152 152) scale(30)"
+    fill="none"
+    stroke="#15201f"
+    stroke-width="1.1"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <!-- Closed feather body — filled in teal so it reads as a SHAPE. -->
+    <path
+      d="M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z"
+      fill="url(#vaneFill)"
+    />
+    <!-- Diagonal rachis (spine). -->
+    <path d="M16 8 2 22"/>
+    <!-- Vane separator. -->
+    <path d="M17.5 15H9"/>
+  </g>
+</svg>

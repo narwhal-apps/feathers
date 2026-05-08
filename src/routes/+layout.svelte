@@ -122,7 +122,7 @@
   .page {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 56px);
+    height: calc(100vh - 40px);
     overflow: hidden;
     background: var(--bg);
     color: var(--fg);
