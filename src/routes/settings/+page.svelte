@@ -3,6 +3,7 @@
   import SettingsSidebar from '$lib/components/settings/SettingsSidebar.svelte';
   import GeneralPane from '$lib/components/settings/GeneralPane.svelte';
   import AccountPane from '$lib/components/settings/AccountPane.svelte';
+  import GitIdentityPane from '$lib/components/settings/GitIdentityPane.svelte';
 
   type Pane = 'general' | 'account' | 'git' | 'repos' | 'about';
   const validPanes: Pane[] = ['general', 'account', 'git', 'repos', 'about'];
@@ -53,7 +54,7 @@
       <AccountPane />
     {:else if active === 'git'}
       <h1>Git identity</h1>
-      <p class="placeholder">Coming up.</p>
+      <GitIdentityPane />
     {:else if active === 'repos'}
       <h1>Repositories</h1>
       <p class="placeholder">Coming up.</p>
