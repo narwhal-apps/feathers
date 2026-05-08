@@ -218,6 +218,19 @@
     if (selectAllEl) selectAllEl.indeterminate = someStaged;
   });
 
+  // If the selected path leaves the changes list (committed, discarded
+  // externally, etc.), clear the selection so the diff pane falls back to
+  // EmptyDiffHints instead of "No changes." for a phantom file.
+  $effect(() => {
+    if (
+      selected != null &&
+      status.data &&
+      !allChanges.some((r) => r.path === selected)
+    ) {
+      selected = null;
+    }
+  });
+
   async function toggleStage(row: ChangeRow) {
     if (row.staged) await unstagePaths([row.path]);
     else await stagePaths([row.path]);

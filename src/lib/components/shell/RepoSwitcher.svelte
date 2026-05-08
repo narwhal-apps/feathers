@@ -14,6 +14,51 @@
   const active = $derived(repos.activeRepo);
   const list = $derived(repos.knownRepos);
 
+  // Group repos by their parent directory name — matches the common
+  // `~/Developer/<org>/<repo>` convention. Repos that live directly in a
+  // non-org folder (or whose parent looks like a personal home dir) fall
+  // into "Other".
+  function groupOf(path: string): string {
+    // Strip trailing slashes, then split.
+    const parts = path.replace(/\/+$/, '').split('/');
+    if (parts.length < 2) return 'Other';
+    const parent = parts[parts.length - 2];
+    if (!parent) return 'Other';
+    // Skip generic dev-folder names — they're not orgs.
+    const generic = new Set([
+      'Developer', 'Development', 'dev', 'code', 'src',
+      'projects', 'Projects', 'work', 'Work', 'repos', 'Repos',
+    ]);
+    if (generic.has(parent)) return 'Other';
+    return parent;
+  }
+
+  type RepoGroup = { name: string; repos: RepoSummary[] };
+  const grouped = $derived.by((): RepoGroup[] => {
+    const buckets = new Map<string, RepoSummary[]>();
+    for (const r of list) {
+      const key = groupOf(r.path);
+      const arr = buckets.get(key) ?? [];
+      arr.push(r);
+      buckets.set(key, arr);
+    }
+    // Group order: active repo's group first, "Other" last, rest alpha.
+    const activeGroup = active ? groupOf(active.path) : null;
+    const sortedKeys = Array.from(buckets.keys()).sort((a, b) => {
+      if (a === activeGroup && b !== activeGroup) return -1;
+      if (b === activeGroup && a !== activeGroup) return 1;
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+    return sortedKeys.map((name) => ({
+      name,
+      repos: buckets.get(name)!.sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  });
+  // Hide section headers when there's only one group — no point.
+  const showHeaders = $derived(grouped.length > 1);
+
   function close() { open = false; }
 
   function pick(r: RepoSummary) {
@@ -117,20 +162,25 @@
     {#if open}
       <div id="repo-switcher-menu" class="menu" role="menu">
         <ul>
-          {#each list as r}
-            <li>
-              <button
-                class="item"
-                class:active={r.id === active?.id}
-                role="menuitem"
-                onclick={() => pick(r)}
-              >
-                <span class="item-name">{r.name}</span>
-                {#if r.id === active?.id}
-                  <Icon name="Check" size={14} />
-                {/if}
-              </button>
-            </li>
+          {#each grouped as g}
+            {#if showHeaders}
+              <li class="group-head">{g.name}</li>
+            {/if}
+            {#each g.repos as r}
+              <li>
+                <button
+                  class="item"
+                  class:active={r.id === active?.id}
+                  role="menuitem"
+                  onclick={() => pick(r)}
+                >
+                  <span class="item-name">{r.name}</span>
+                  {#if r.id === active?.id}
+                    <Icon name="Check" size={14} />
+                  {/if}
+                </button>
+              </li>
+            {/each}
           {/each}
         </ul>
         <div class="divider"></div>
@@ -236,6 +286,19 @@
   }
   .menu ul { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; }
   .menu li { padding: 0; }
+  .menu li.group-head {
+    padding: 8px 10px 4px;
+    color: var(--fg-subtle);
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    font-weight: var(--weight-semibold);
+  }
+  /* Tighten the gap between consecutive group headers (only happens when
+     a group has zero repos, but defensive). */
+  .menu li.group-head + .group-head { margin-top: 0; padding-top: 4px; }
+  /* First group's header should hug the menu edge. */
+  .menu ul > li.group-head:first-child { padding-top: 4px; }
 
   .item {
     display: flex;
