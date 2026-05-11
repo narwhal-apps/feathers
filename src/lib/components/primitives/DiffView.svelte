@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { DiffPayload, DiffFile, DiffLine, FileStatus } from '$lib/types';
+  import type { DiffPayload, DiffFile, DiffHunk, DiffLine, FileStatus } from '$lib/types';
   import { browser } from '$app/environment';
   import { detectLang, highlightLines } from '$lib/syntax/highlighter';
   import { theme } from '$lib/stores/theme.svelte';
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
@@ -67,17 +68,30 @@
     onDiscardHunk?: (file: DiffFile, hunkIndex: number) => void;
   } = $props();
 
-  // hl[file.path][hunkIdx][lineIdx] = highlighted HTML for that line.
-  let hl = $state<Record<string, string[][]>>({});
+  // hl.get(file.path)?.[hunkIdx]?.[lineIdx] = highlighted HTML for that line.
+  // SvelteMap so per-file publish is O(1) instead of spreading a growing record.
+  const hl = new SvelteMap<string, string[][]>();
+
+  // Skip the highlighter entirely when payload+theme reference is unchanged.
+  let hlPayloadRef: DiffPayload | null = null;
+  let hlTheme: string | null = null;
 
   $effect(() => {
     const t = theme.effective;
     const p = payload;
-    if (!p) { hl = {}; return; }
+    if (!p) {
+      hl.clear();
+      hlPayloadRef = null;
+      hlTheme = null;
+      return;
+    }
+    if (hlPayloadRef === p && hlTheme === t) return;
+    hlPayloadRef = p;
+    hlTheme = t;
+    hl.clear();
     let cancelled = false;
 
     (async () => {
-      const next: Record<string, string[][]> = {};
       for (const file of p.files) {
         if (file.binary) continue;
         const lang = detectLang(file.path);
@@ -89,15 +103,67 @@
           hunkHtml.push(html);
         }
         if (cancelled) return;
-        next[file.path] = hunkHtml;
         // Publish progressively so files highlight as they finish.
-        hl = { ...hl, [file.path]: hunkHtml };
+        hl.set(file.path, hunkHtml);
       }
-      if (cancelled) return;
-      hl = next;
     })();
 
     return () => { cancelled = true; };
+  });
+
+  // Memoize pairLines per hunk so split-view rows aren't recomputed on every
+  // render. Map keyed by hunk reference; rebuilds only when mode/payload changes.
+  const splitRows = $derived.by(() => {
+    const m = new Map<DiffHunk, SplitRow[]>();
+    if (mode !== 'split' || !payload) return m;
+    for (const file of payload.files) {
+      for (const hunk of file.hunks) {
+        m.set(hunk, pairLines(hunk.lines));
+      }
+    }
+    return m;
+  });
+
+  // Memoize line counts per file (cheap but called multiple times per render).
+  const fileCounts = $derived.by(() => {
+    const m = new Map<DiffFile, { adds: number; dels: number }>();
+    if (!payload) return m;
+    for (const file of payload.files) m.set(file, countLines(file));
+    return m;
+  });
+
+  // Virtualize at the file level: render hunks only when the file scrolls
+  // within ~500px of the viewport. One-shot IntersectionObserver per file —
+  // once visible, the file stays mounted (preserves browser ⌘F).
+  const visibleFiles = new SvelteSet<string>();
+
+  function visible(node: HTMLElement, opts: { path: string }) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          visibleFiles.add(opts.path);
+          io.unobserve(node);
+        }
+      }
+    }, { rootMargin: '500px' });
+    io.observe(node);
+    return { destroy: () => io.disconnect() };
+  }
+
+  const isVisible = (path: string) => visibleFiles.has(path);
+
+  function estimateHeight(file: DiffFile): number {
+    let lines = 0;
+    for (const h of file.hunks) lines += h.lines.length;
+    return Math.max(60, lines * 22 + file.hunks.length * 36);
+  }
+
+  // When the payload reference changes, reset visibility so newly mounted
+  // files start hidden; the IO callback will fire immediately for any that
+  // happen to be in the viewport.
+  $effect(() => {
+    const _ = payload;
+    visibleFiles.clear();
   });
 
   function basename(p: string): string {
@@ -160,11 +226,11 @@
     </div>
   </div>
   {#each payload.files as file (file.path + ':' + (file.old_path ?? ''))}
-    {@const counts = countLines(file)}
+    {@const counts = fileCounts.get(file) ?? { adds: 0, dels: 0 }}
     {@const lbl = statusLabel(file.status)}
     {@const dir = dirname(file.path)}
     {@const href = fileHref ? fileHref(file) : null}
-    <article class="file">
+    <article class="file" use:visible={{ path: file.path }}>
       <header class="file-header">
         <FileIcon fileName={basename(file.path)} size={14} />
         <span class="name">
@@ -199,7 +265,10 @@
       </header>
       {#if file.binary}
         <div class="binary">Binary file — diff not shown.</div>
+      {:else if !isVisible(file.path)}
+        <div class="file-placeholder" style:height="{estimateHeight(file)}px"></div>
       {:else if mode === 'unified'}
+        {@const fileHl = hl.get(file.path)}
         <div class="body">
           {#each file.hunks as hunk, hunkIdx (hunk.header)}
             <div class="hunk">
@@ -223,8 +292,8 @@
                     <span class="ln ln-old">{line.old_no ?? ''}</span>
                     <span class="ln ln-new">{line.new_no ?? ''}</span>
                     <span class="prefix">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span>
-                    {#if hl[file.path]?.[hunkIdx]?.[lineIdx] != null}
-                      <span class="text">{@html hl[file.path][hunkIdx][lineIdx]}</span>
+                    {#if fileHl?.[hunkIdx]?.[lineIdx] != null}
+                      <span class="text">{@html fileHl[hunkIdx][lineIdx]}</span>
                     {:else}
                       <span class="text">{line.text}</span>
                     {/if}
@@ -236,9 +305,10 @@
         </div>
       {:else}
         <!-- Split (side-by-side) view -->
+        {@const fileHl = hl.get(file.path)}
         <div class="body split-body">
           {#each file.hunks as hunk, hunkIdx (hunk.header)}
-            {@const rows = pairLines(hunk.lines)}
+            {@const rows = splitRows.get(hunk) ?? []}
             <div class="hunk split-hunk">
               <div class="hunk-header">
                 <span class="hunk-header-text">{hunk.header}</span>
@@ -260,8 +330,8 @@
                     <div class="split-side {row.old ? `line-${row.old.line.kind}` : 'line-empty'}">
                       <span class="ln">{row.old?.line.old_no ?? ''}</span>
                       <span class="prefix">{row.old?.line.kind === 'del' ? '−' : ' '}</span>
-                      {#if row.old && hl[file.path]?.[hunkIdx]?.[row.old.idx] != null}
-                        <span class="text">{@html hl[file.path][hunkIdx][row.old.idx]}</span>
+                      {#if row.old && fileHl?.[hunkIdx]?.[row.old.idx] != null}
+                        <span class="text">{@html fileHl[hunkIdx][row.old.idx]}</span>
                       {:else}
                         <span class="text">{row.old?.line.text ?? ''}</span>
                       {/if}
@@ -269,8 +339,8 @@
                     <div class="split-side {row.new ? `line-${row.new.line.kind}` : 'line-empty'}">
                       <span class="ln">{row.new?.line.new_no ?? ''}</span>
                       <span class="prefix">{row.new?.line.kind === 'add' ? '+' : ' '}</span>
-                      {#if row.new && hl[file.path]?.[hunkIdx]?.[row.new.idx] != null}
-                        <span class="text">{@html hl[file.path][hunkIdx][row.new.idx]}</span>
+                      {#if row.new && fileHl?.[hunkIdx]?.[row.new.idx] != null}
+                        <span class="text">{@html fileHl[hunkIdx][row.new.idx]}</span>
                       {:else}
                         <span class="text">{row.new?.line.text ?? ''}</span>
                       {/if}
@@ -428,6 +498,12 @@
   }
 
   .binary { padding: var(--sp-3); color: var(--fg-subtle); font-size: var(--fs-sm); }
+
+  /* Reserves vertical space for files outside the viewport so scroll
+     position stays stable until IntersectionObserver swaps in real hunks. */
+  .file-placeholder {
+    width: 100%;
+  }
 
   /* Per-file horizontal scroll: long lines reveal a single scrollbar
      under all hunks of this file. The header stays fixed (not in body). */
