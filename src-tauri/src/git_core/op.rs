@@ -44,6 +44,36 @@ impl OpKind {
     }
 }
 
+impl std::fmt::Display for OpKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            OpKind::Clean => "clean",
+            OpKind::Merge => "merge",
+            OpKind::Rebase => "rebase",
+            OpKind::CherryPick => "cherry-pick",
+            OpKind::Revert => "revert",
+            OpKind::Bisect => "bisect",
+            OpKind::ApplyMailbox => "mailbox",
+            OpKind::StashApply { .. } => "stash apply",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Error out unless the repo is in a Clean op state. Used by every history /
+/// stash mutation that can't safely run with a merge/rebase/cherry-pick/etc.
+/// in flight. Centralised here so the error string ("<op> in progress —
+/// finish or abort it first") stays consistent.
+pub fn require_clean(repo: &Repository) -> Result<(), AppError> {
+    let st = state(repo)?;
+    if !matches!(st.kind, OpKind::Clean) {
+        return Err(AppError::Git {
+            message: format!("{} in progress — finish or abort it first", st.kind),
+        });
+    }
+    Ok(())
+}
+
 pub fn state(repo: &Repository) -> Result<OpState, AppError> {
     let raw_state = repo.state();
     let conflicted = collect_conflicted_paths(repo)?;

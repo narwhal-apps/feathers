@@ -326,23 +326,13 @@ pub fn write_sidecar_for_test(
     )
 }
 
-fn require_clean_op_state(repo: &Repository) -> Result<(), AppError> {
-    let st = op::state(repo)?;
-    if !matches!(st.kind, op::OpKind::Clean) {
-        return Err(AppError::Git {
-            message: format!("{:?} in progress — finish or abort it first", st.kind),
-        });
-    }
-    Ok(())
-}
-
 /// Apply the stash at `index` onto the working tree. Writes a sidecar before
 /// invoking libgit2, then:
 ///   - if the apply produced no conflicts, removes the sidecar; the stash is kept.
 ///   - if conflicts exist, leaves the sidecar in place. The Resolve panel
 ///     (driven by `op::state()` returning `StashApply`) takes over.
 pub fn apply(repo: &mut Repository, index: usize) -> Result<(), AppError> {
-    require_clean_op_state(repo)?;
+    op::require_clean(repo)?;
 
     let oid = stash_oid_at(repo, index)?;
     write_sidecar(
@@ -370,7 +360,7 @@ pub fn apply(repo: &mut Repository, index: usize) -> Result<(), AppError> {
 /// is NOT dropped — the user needs to resolve via the Resolve panel; the
 /// `op_continue` arm will drop the stash after a clean resolution.
 pub fn pop(repo: &mut Repository, index: usize) -> Result<(), AppError> {
-    require_clean_op_state(repo)?;
+    op::require_clean(repo)?;
 
     let oid = stash_oid_at(repo, index)?;
     write_sidecar(

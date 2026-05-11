@@ -30,15 +30,6 @@ fn require_clean_tree(repo: &Repository) -> Result<(), AppError> {
     Ok(())
 }
 
-fn require_clean_op_state(repo: &Repository) -> Result<(), AppError> {
-    let st = op::state(repo)?;
-    if !matches!(st.kind, op::OpKind::Clean) {
-        return Err(AppError::Git {
-            message: format!("{:?} in progress — finish or abort it first", st.kind),
-        });
-    }
-    Ok(())
-}
 
 /// Cherry-pick a commit onto HEAD. If the result has no conflicts, commit
 /// immediately with the source's message + a `(cherry picked from commit
@@ -46,7 +37,7 @@ fn require_clean_op_state(repo: &Repository) -> Result<(), AppError> {
 /// let the user resolve via the existing Resolve panel; `op_continue` will
 /// finish the commit.
 pub fn cherrypick(repo: &Repository, oid: Oid) -> Result<(), AppError> {
-    require_clean_op_state(repo)?;
+    op::require_clean(repo)?;
     require_clean_tree(repo)?;
 
     let target = repo.find_commit(oid)?;
@@ -87,7 +78,7 @@ pub(crate) fn finalize_cherrypick(repo: &Repository, source: &git2::Commit<'_>) 
 /// Revert a commit on top of HEAD. Same conflict semantics as cherry-pick;
 /// `finalize_revert` produces a `Revert "<subject>"` commit body.
 pub fn revert(repo: &Repository, oid: Oid) -> Result<(), AppError> {
-    require_clean_op_state(repo)?;
+    op::require_clean(repo)?;
     require_clean_tree(repo)?;
 
     let target = repo.find_commit(oid)?;
@@ -128,7 +119,7 @@ pub(crate) fn finalize_revert(repo: &Repository, source: &git2::Commit<'_>) -> R
 /// (you can't reset --hard during a merge).
 pub fn reset(repo: &Repository, oid: Oid, mode: ResetMode) -> Result<(), AppError> {
     if matches!(mode, ResetMode::Hard) {
-        require_clean_op_state(repo)?;
+        op::require_clean(repo)?;
     }
     let target = repo.find_object(oid, None)?;
     repo.reset(&target, mode.into(), None)?;
