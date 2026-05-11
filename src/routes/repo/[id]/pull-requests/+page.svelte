@@ -371,6 +371,7 @@
   .ghost-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     height: 36px;
     padding: 0 14px;
@@ -380,7 +381,9 @@
     color: var(--fg-muted);
     font-size: var(--fs-sm);
     font-weight: var(--weight-semibold);
+    line-height: 1;
     cursor: pointer;
+    box-sizing: border-box;
     transition: color var(--t-fast), border-color var(--t-fast);
   }
   .ghost-btn :global(svg) { color: var(--fg-subtle); }
@@ -420,20 +423,23 @@
     margin-top: var(--sp-2);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    gap: 6px;
     height: 36px;
-    padding: 0 18px;
+    padding: 0 14px;
     background: var(--accent-500);
     color: var(--accent-on);
-    border: none;
+    border: 1px solid var(--accent-500);
     border-radius: var(--r-md);
     font-size: var(--fs-sm);
     font-weight: var(--weight-semibold);
+    line-height: 1;
     cursor: pointer;
-    transition: background var(--t-fast), transform var(--t-fast);
+    box-sizing: border-box;
+    transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
   }
   .primary :global(svg) { color: var(--accent-on); }
-  .primary:hover { background: var(--accent-400); }
+  .primary:hover { background: var(--accent-400); border-color: var(--accent-400); }
   .primary:active { transform: translateY(1px); }
 
   .prs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
