@@ -50,17 +50,10 @@ fn client_id() -> Result<&'static str, AppError> {
     })
 }
 
-fn http() -> Result<reqwest::Client, AppError> {
-    reqwest::Client::builder()
-        .user_agent("feathers")
-        .build()
-        .map_err(|e| AppError::Network { message: e.to_string() })
-}
-
 /// Step 1 of the device flow — ask GitHub for a device code + user code.
 pub async fn start_device_flow() -> Result<DeviceCodeResponse, AppError> {
     let id = client_id()?;
-    let resp = http()?
+    let resp = crate::github::client()
         .post(DEVICE_CODE_URL)
         .header("Accept", "application/json")
         .form(&[("client_id", id), ("scope", SCOPES)])
@@ -82,7 +75,7 @@ pub async fn start_device_flow() -> Result<DeviceCodeResponse, AppError> {
 /// signals; aborts on `expired_token`/`access_denied`/timeout.
 pub async fn complete_device_flow(device_code: &str, interval_secs: u64) -> Result<(), AppError> {
     let id = client_id()?;
-    let client = http()?;
+    let client = crate::github::client();
     let start = Instant::now();
     let timeout = Duration::from_secs(900); // 15 min — GitHub device codes expire after ~15
     let mut interval = interval_secs.max(5);

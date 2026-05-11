@@ -7,13 +7,6 @@ use serde::Serialize;
 
 const API_BASE: &str = "https://api.github.com";
 
-fn http() -> Result<reqwest::Client, AppError> {
-    reqwest::Client::builder()
-        .user_agent("feathers")
-        .build()
-        .map_err(|e| AppError::Network { message: e.to_string() })
-}
-
 /// Convert a non-2xx GitHub response into the right `AppError` variant.
 ///
 /// GitHub uses 403 for several distinct conditions and they need different UX:
@@ -88,7 +81,7 @@ async fn get<T: DeserializeOwned>(url: &str) -> Result<T, AppError> {
     let token = auth::load_token()?.ok_or_else(|| AppError::Auth {
         message: "not signed in to GitHub".into(),
     })?;
-    let resp = http()?
+    let resp = crate::github::client()
         .get(url)
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
@@ -109,7 +102,7 @@ async fn post<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> Result<
     let token = auth::load_token()?.ok_or_else(|| AppError::Auth {
         message: "not signed in to GitHub".into(),
     })?;
-    let resp = http()?
+    let resp = crate::github::client()
         .post(url)
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
