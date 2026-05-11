@@ -26,11 +26,11 @@
     DiffPayload,
     DiffFile,
     FileStatus,
-    AppError,
     FileChange,
   } from '$lib/types';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { formatError } from '$lib/utils/error';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { SvelteMap } from 'svelte/reactivity';
 
   const id = $derived($page.params.id ?? '');
@@ -66,7 +66,7 @@
     try {
       await openPath(abs);
     } catch (err) {
-      alert(`Failed to open ${relPath}: ${String(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
 
@@ -77,9 +77,12 @@
   }
 
   async function discardHunk(file: DiffFile, hunkIndex: number) {
-    const ok = confirm(
-      `Discard this hunk in ${file.path}? This cannot be undone.`,
-    );
+    const ok = await confirm({
+      title: 'Discard hunk',
+      message: `Discard this hunk in ${file.path}? This cannot be undone.`,
+      confirmLabel: 'Discard',
+      danger: true,
+    });
     if (!ok) return;
     await withBusy(async () => {
       await invoke('discard_hunk', { id, path: file.path, hunkIndex });
@@ -158,9 +161,7 @@
     try {
       return await fn();
     } catch (err) {
-      const e = err as AppError;
-      const msg = 'message' in e ? e.message : JSON.stringify(err);
-      alert(`Failed: ${msg}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
       return null;
     } finally {
       busy = false;
@@ -175,7 +176,7 @@
       refresh();
     } catch (err) {
       for (const p of paths) pendingStaged.delete(p);
-      alert(`Failed: ${formatError(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
   async function unstagePaths(paths: string[]) {
@@ -186,16 +187,20 @@
       refresh();
     } catch (err) {
       for (const p of paths) pendingStaged.delete(p);
-      alert(`Failed: ${formatError(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
   async function discardPaths(paths: string[], label: string) {
     if (paths.length === 0) return;
-    const ok = confirm(
-      `Discard changes to ${label}? This cannot be undone.\n\n` +
+    const ok = await confirm({
+      title: 'Discard changes',
+      message:
+        `Discard changes to ${label}? This cannot be undone.\n\n` +
         paths.slice(0, 8).join('\n') +
         (paths.length > 8 ? `\n…and ${paths.length - 8} more` : ''),
-    );
+      confirmLabel: 'Discard',
+      danger: true,
+    });
     if (!ok) return;
     await withBusy(async () => {
       await invoke('discard_files', { id, paths });
