@@ -2,6 +2,7 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { goto } from '$app/navigation';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import type { AppError } from '$lib/types';
@@ -141,10 +142,14 @@
   {/snippet}
 
   {#snippet foot()}
-    <button type="button" class="btn ghost" onclick={close} disabled={busy}>Cancel</button>
-    <button type="button" class="btn primary" onclick={submit} disabled={!ready}>
-      {busy ? 'Cloning…' : 'Clone'}
-    </button>
+    <Button variant="ghost" label="Cancel" onclick={close} disabled={busy} />
+    <Button
+      variant="primary"
+      label={busy ? 'Cloning…' : 'Clone'}
+      loading={busy}
+      onclick={submit}
+      disabled={!ready}
+    />
   {/snippet}
 </Modal>
 
@@ -224,23 +229,4 @@
   }
   .err :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
 
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 </style>

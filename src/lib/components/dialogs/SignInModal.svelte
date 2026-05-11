@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { github } from '$lib/stores/github.svelte';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
@@ -114,7 +115,7 @@
 
   {#snippet foot()}
     {#if stage === 'error'}
-      <button class="btn ghost" onclick={onClose}>Close</button>
+      <Button variant="ghost" label="Close" onclick={onClose} />
     {/if}
   {/snippet}
 </Modal>
@@ -231,17 +232,4 @@
   .error strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
   .error span { color: var(--fg-muted); font-size: var(--fs-xs); }
 
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--fg-muted);
-    transition: color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn:hover { color: var(--fg); border-color: var(--border-strong); }
 </style>
