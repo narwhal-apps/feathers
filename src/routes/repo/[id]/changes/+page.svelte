@@ -29,6 +29,8 @@
     FileChange,
   } from '$lib/types';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
+  import { formatError } from '$lib/utils/error';
+  import { SvelteMap } from 'svelte/reactivity';
 
   const id = $derived($page.params.id ?? '');
 
@@ -98,6 +100,12 @@
   let committing = $state(false);
   let message = $state('');
   let commitsModalOpen = $state(false);
+
+  // Optimistic stage state. Path → desired staged value, set immediately so
+  // checkboxes reflect the user's intent without waiting for the IPC + refetch
+  // round-trip. Cleared per-path once status.data catches up.
+  // SvelteMap is used (not a plain object) for fine-grained reactivity.
+  const pendingStaged = new SvelteMap<string, boolean>();
 
   // Stash UI state.
   let stashModalOpen = $state(false);
@@ -169,17 +177,25 @@
 
   async function stagePaths(paths: string[]) {
     if (paths.length === 0) return;
-    await withBusy(async () => {
+    for (const p of paths) pendingStaged.set(p, true);
+    try {
       await invoke('stage_files', { id, paths });
-      await refresh();
-    });
+      refresh();
+    } catch (err) {
+      for (const p of paths) pendingStaged.delete(p);
+      alert(`Failed: ${formatError(err)}`);
+    }
   }
   async function unstagePaths(paths: string[]) {
     if (paths.length === 0) return;
-    await withBusy(async () => {
+    for (const p of paths) pendingStaged.set(p, false);
+    try {
       await invoke('unstage_files', { id, paths });
-      await refresh();
-    });
+      refresh();
+    } catch (err) {
+      for (const p of paths) pendingStaged.delete(p);
+      alert(`Failed: ${formatError(err)}`);
+    }
   }
   async function discardPaths(paths: string[], label: string) {
     if (paths.length === 0) return;
@@ -232,17 +248,17 @@
     const rows: ChangeRow[] = [];
     for (const f of s.staged) {
       seen.add(f.path);
-      rows.push({ path: f.path, status: f.status, staged: true });
+      rows.push({ path: f.path, status: f.status, staged: pendingStaged.get(f.path) ?? true });
     }
     for (const f of s.unstaged) {
       if (seen.has(f.path)) continue;
       seen.add(f.path);
-      rows.push({ path: f.path, status: f.status, staged: false });
+      rows.push({ path: f.path, status: f.status, staged: pendingStaged.get(f.path) ?? false });
     }
     for (const f of s.untracked) {
       if (seen.has(f.path)) continue;
       seen.add(f.path);
-      rows.push({ path: f.path, status: 'untracked', staged: false });
+      rows.push({ path: f.path, status: 'untracked', staged: pendingStaged.get(f.path) ?? false });
     }
     for (const f of s.conflicted) {
       if (seen.has(f.path)) continue;
@@ -253,7 +269,23 @@
     return rows;
   });
 
-  const stagedCount = $derived(status.data?.staged.length ?? 0);
+  // Use the optimistic overlay so the "N staged" hint follows the checkbox
+  // immediately instead of lagging behind the IPC round-trip.
+  const stagedCount = $derived(allChanges.filter((r) => r.staged).length);
+
+  // Reconcile pendingStaged with reality: drop entries whose desired value
+  // matches the latest server-side status. Anything left over is still
+  // in flight.
+  $effect(() => {
+    const s = status.data;
+    if (!s) return;
+    const stagedSet = new Set(s.staged.map((f) => f.path));
+    for (const [path, desired] of pendingStaged) {
+      if (stagedSet.has(path) === desired) {
+        pendingStaged.delete(path);
+      }
+    }
+  });
   const allStaged = $derived(
     allChanges.length > 0 && allChanges.every((r) => r.staged),
   );
