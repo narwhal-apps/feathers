@@ -14,6 +14,9 @@
   import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
   import ConflictModal from '$lib/components/changes/ConflictModal.svelte';
   import EmptyDiffHints from '$lib/components/changes/EmptyDiffHints.svelte';
+  import StashList from '$lib/components/changes/StashList.svelte';
+  import CreateStashModal from '$lib/components/dialogs/CreateStashModal.svelte';
+  import { isOpInProgress } from '$lib/types';
   import type {
     StatusSnapshot,
     DiffPayload,
@@ -22,6 +25,8 @@
     BranchInfo,
     OpState,
     AppError,
+    StashEntry,
+    FileChange,
   } from '$lib/types';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
 
@@ -58,7 +63,7 @@
   );
   const conflictedCount = $derived(status.data?.conflicted.length ?? 0);
   const activeRepoPath = $derived(repos.activeRepo?.path ?? null);
-  const opInProgress = $derived(opState.data != null && opState.data.kind !== 'clean');
+  const opInProgress = $derived(opState.data != null && isOpInProgress(opState.data.kind));
 
   async function openInEditor(relPath: string) {
     if (!activeRepoPath) return;
@@ -93,6 +98,43 @@
   let committing = $state(false);
   let message = $state('');
   let commitsModalOpen = $state(false);
+
+  // Stash UI state.
+  let stashModalOpen = $state(false);
+  let selectedStashIndex = $state<number | null>(null);
+
+  const stashFiles = createQuery<FileChange[]>(
+    () =>
+      selectedStashIndex == null
+        ? ['noop']
+        : queryKeys.repoStashFiles(id, selectedStashIndex),
+    () =>
+      selectedStashIndex == null
+        ? Promise.resolve([] as FileChange[])
+        : invoke<FileChange[]>('stash_show_files', { id, index: selectedStashIndex }),
+  );
+  const stashDiff = createQuery<string>(
+    () =>
+      selectedStashIndex == null || selected == null
+        ? ['noop']
+        : queryKeys.repoStashDiff(id, selectedStashIndex, selected),
+    () =>
+      selectedStashIndex == null || selected == null
+        ? Promise.resolve('')
+        : invoke<string>('stash_diff_file', {
+            id,
+            index: selectedStashIndex,
+            path: selected,
+          }),
+  );
+
+  function selectStash(idx: number | null): void {
+    selectedStashIndex = idx;
+    selected = null;
+  }
+
+  // Whether to show the stash diff or the working-tree diff in the right pane.
+  const showingStash = $derived(selectedStashIndex != null);
 
   const diff = createQuery<DiffPayload>(
     () => queryKeys.repoDiffWorkdir(id, selected ?? ''),
@@ -178,6 +220,12 @@
   };
 
   const allChanges = $derived.by((): ChangeRow[] => {
+    if (showingStash) {
+      const files = stashFiles.data ?? [];
+      return files
+        .map<ChangeRow>((f) => ({ path: f.path, status: f.status, staged: false }))
+        .sort((a, b) => a.path.localeCompare(b.path));
+    }
     const s = status.data;
     if (!s) return [];
     const seen = new Set<string>();
@@ -288,6 +336,13 @@
 <div class="layout">
   <aside class="files">
     <div class="files-scroll">
+      <StashList
+        repoId={id}
+        selectedIndex={selectedStashIndex}
+        onSelect={selectStash}
+        onRequestSelect={selectStash}
+        disabled={opInProgress}
+      />
       {#if status.data}
         {#if conflictedCount > 0 && !opInProgress}
           <aside class="conflict-banner" role="alert">
@@ -412,6 +467,25 @@
     </div>
 
     <footer class="composer">
+      <div class="toolbar">
+        <button
+          class="stash-btn"
+          onclick={() => (stashModalOpen = true)}
+          disabled={
+            committing ||
+            busy ||
+            opInProgress ||
+            ((status.data?.staged.length ?? 0) +
+              (status.data?.unstaged.length ?? 0) +
+              (status.data?.untracked.length ?? 0)) === 0
+          }
+          title={opInProgress ? 'Operation in progress' : 'Stash all working-tree changes'}
+        >
+          <Icon name="Archive" size={12} />
+          <span>Stash…</span>
+        </button>
+      </div>
+
       <RecentCommitsStack {id} onOpen={() => (commitsModalOpen = true)} />
 
       <textarea
@@ -456,7 +530,21 @@
   </aside>
 
   <section class="diff">
-    {#if selected == null}
+    {#if showingStash}
+      {#if selected == null}
+        <div class="hint">
+          Select a file from this stash to see its changes. Press <kbd>Esc</kbd> to return to the working tree.
+        </div>
+      {:else if stashDiff.loading}
+        <div class="hint">Loading diff…</div>
+      {:else if stashDiff.error}
+        <div class="err">{String(stashDiff.error)}</div>
+      {:else if (stashDiff.data ?? '').trim() === ''}
+        <div class="hint">No changes for this file in the stash.</div>
+      {:else}
+        <pre class="patch">{stashDiff.data}</pre>
+      {/if}
+    {:else if selected == null}
       <EmptyDiffHints {id} />
     {:else if diff.data}
       <DiffView payload={diff.data} {fileHref} onDiscardHunk={discardHunk} />
@@ -470,6 +558,14 @@
 
 {#if commitsModalOpen}
   <CommitsModal {id} onClose={() => (commitsModalOpen = false)} />
+{/if}
+
+{#if stashModalOpen}
+  <CreateStashModal
+    repoId={id}
+    status={status.data ?? null}
+    onClose={() => (stashModalOpen = false)}
+  />
 {/if}
 
 {#if opInProgress && opState.data}
@@ -842,5 +938,41 @@
     color: var(--removed);
     padding: var(--sp-3);
     font-size: var(--fs-sm);
+  }
+  .toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: var(--sp-2);
+  }
+  .stash-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+  }
+  .stash-btn:hover:not(:disabled) {
+    color: var(--fg);
+    border-color: var(--border-strong);
+  }
+  .stash-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .stash-btn :global(svg) { color: var(--fg-subtle); }
+  .patch {
+    margin: 0;
+    padding: var(--sp-3);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+    white-space: pre;
+    overflow: auto;
   }
 </style>
