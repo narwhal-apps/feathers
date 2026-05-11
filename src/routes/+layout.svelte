@@ -53,19 +53,28 @@
   });
 
   // External changes (terminal commits, branch switches, file edits) come in
-  // as `repo_changed` events from the per-repo FS watcher. Invalidate that
-  // repo's queries so any visible data refreshes.
+  // as `repo_changed` events from the per-repo FS watcher. The watcher tags
+  // each batch with a `kind` hint:
+  //   - 'workdir' — working-tree edits, `.git/index`, etc. → status+op-state
+  //   - 'refs'    — branch/HEAD/MERGE_HEAD/FETCH_HEAD/stash sidecar changes
+  //                 → also branches + log + log-unpushed.
+  // The watcher already drops pure-noise batches (e.g. `.git/objects/`).
   $effect(() => {
     if (!browser) return;
-    const stop = listen<{ id: string }>('repo_changed', (e) => {
-      // Workdir/index changes never bump branches or log — narrow to the
-      // two views that actually update on FS events. The watcher fix (perf
-      // #2) will refine further once the event payload distinguishes refs
-      // from workdir.
-      queryClient.invalidateMany([
-        queryKeys.repoStatus(e.payload.id),
-        queryKeys.repoOpState(e.payload.id),
-      ]);
+    const stop = listen<{ id: string; kind: 'refs' | 'workdir' }>('repo_changed', (e) => {
+      const { id, kind } = e.payload;
+      const keys: (readonly (string | number | null)[])[] = [
+        queryKeys.repoStatus(id),
+        queryKeys.repoOpState(id),
+      ];
+      if (kind === 'refs') {
+        keys.push(queryKeys.repoBranches(id));
+        // ['repo', id, 'log'] is a prefix that matches every paginated
+        // log query (queryKeys.repoLog uses a 4th `before` slot).
+        keys.push(['repo', id, 'log']);
+        keys.push(queryKeys.repoLogUnpushed(id));
+      }
+      queryClient.invalidateMany(keys);
     });
     return () => { stop.then((unlisten) => unlisten()); };
   });
