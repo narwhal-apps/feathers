@@ -14,6 +14,8 @@
   import { queryKeys } from '$lib/query/keys';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
+  import { notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
   import type { AppError, BranchInfo } from '$lib/types';
 
@@ -79,18 +81,14 @@
   function reportError(prefix: string, err: unknown) {
     const e = err as AppError;
     if (e?.kind === 'merge_conflict') {
-      alert(
+      const text =
         `${prefix}: merge conflict in ${e.paths.length} file${e.paths.length === 1 ? '' : 's'}.\n\n` +
-          e.paths.slice(0, 10).join('\n') +
-          (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : ''),
-      );
+        e.paths.slice(0, 10).join('\n') +
+        (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '');
+      notify(text, { kind: 'error', durationMs: 0 });
       return;
     }
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   async function run<T>(kind: NonNullable<typeof busy>, fn: () => Promise<T>) {

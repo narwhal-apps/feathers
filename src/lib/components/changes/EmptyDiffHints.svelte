@@ -6,6 +6,7 @@
   import { repos } from '$lib/stores/repos.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
+  import { notify } from '$lib/utils/dialog.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import Kbd from '$lib/components/primitives/Kbd.svelte';
   import type { BranchInfo } from '$lib/types';
@@ -44,7 +45,7 @@
 
   function openInEditor() {
     invoke('repo_open_in_editor', { id }).catch((err) =>
-      alert(`Failed to open editor: ${String(err)}`),
+      notify(`Failed to open editor: ${String(err)}`, { kind: 'error', durationMs: 0 }),
     );
   }
   function openOnGithub() {

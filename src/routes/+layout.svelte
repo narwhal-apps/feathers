@@ -21,6 +21,7 @@
   import { ui } from '$lib/stores/ui.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
+  import { notify } from '$lib/utils/dialog.svelte';
 
   let { children } = $props();
 
@@ -120,7 +121,7 @@
         if (k === 'a' && repoId) {
           e.preventDefault();
           invoke('repo_open_in_editor', { id: repoId }).catch((err) =>
-            alert(`Failed to open editor: ${String(err)}`),
+            notify(`Failed to open editor: ${String(err)}`, { kind: 'error', durationMs: 0 }),
           );
           return;
         }
