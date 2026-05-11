@@ -104,12 +104,14 @@
     <div class="state hint">Loading…</div>
   {:else if !github.user}
     <div class="state cta">
-      <Icon name="GitPullRequest" size={28} />
+      <span class="cta-icon" aria-hidden="true">
+        <Icon name="GitPullRequest" size={26} />
+      </span>
       <h3>Sign in to GitHub</h3>
       <p>Pull requests, your real avatar, and tokens you didn't have to copy-paste.</p>
       <button class="primary" onclick={() => (signInOpen = true)}>
         <Icon name="LogIn" size={14} />
-        Sign in
+        <span>Sign in</span>
       </button>
     </div>
   {:else if !isGithubRepo}
@@ -270,25 +272,43 @@
   .state.hint { font-size: var(--fs-sm); }
   .state.err { color: var(--removed); font-size: var(--fs-sm); }
   .state.err .err-hint { color: var(--fg-muted); font-size: var(--fs-xs); margin-top: 4px; }
-  .state.cta { padding: var(--sp-8) var(--sp-4); }
+  .state.cta {
+    padding: var(--sp-10, 64px) var(--sp-4);
+    gap: var(--sp-3);
+  }
+  .cta-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--r-pill);
+    background: var(--accent-bg-soft);
+    border: 1px solid var(--accent-bg-medium);
+    margin-bottom: var(--sp-1);
+  }
+  .cta-icon :global(svg) { color: var(--accent-fg); }
   .state.cta h3 {
     margin: 0;
-    font-size: var(--fs-md);
+    font-size: var(--fs-lg);
     font-weight: var(--weight-semibold);
     color: var(--fg);
+    letter-spacing: var(--tracking-tight);
   }
   .state.cta p {
     margin: 0;
-    max-width: 420px;
+    max-width: 380px;
     color: var(--fg-muted);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
   }
   .primary {
-    margin-top: 8px;
+    margin-top: var(--sp-2);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 14px;
+    gap: 8px;
+    height: 36px;
+    padding: 0 18px;
     background: var(--accent-500);
     color: var(--accent-on);
     border: none;
@@ -296,9 +316,11 @@
     font-size: var(--fs-sm);
     font-weight: var(--weight-semibold);
     cursor: pointer;
-    transition: background var(--t-fast);
+    transition: background var(--t-fast), transform var(--t-fast);
   }
+  .primary :global(svg) { color: var(--accent-on); }
   .primary:hover { background: var(--accent-400); }
+  .primary:active { transform: translateY(1px); }
 
   .prs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
   .prs li { padding: 0; }
