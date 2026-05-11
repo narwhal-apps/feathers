@@ -391,13 +391,12 @@
               <button
                 class="bulk danger"
                 onclick={discardAll}
-                disabled={busy}
                 title="Discard all changes">Discard all</button
               >
             {/if}
           </header>
           <ul>
-            {#each allChanges as row}
+            {#each allChanges as row (row.path)}
               {@const meta = statusMeta(row.status)}
               {@const parts = splitPath(row.path)}
               <li class:selected={selected === row.path} class:stash-mode={showingStash}>
