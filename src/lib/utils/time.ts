@@ -1,6 +1,6 @@
 /** Compact relative-time formatter matching the rest of the app's vibe. */
-export function relTime(secs: number): string {
-  const ms = Date.now() - secs * 1000;
+export function relTime(secs: number, now: number = Math.floor(Date.now() / 1000)): string {
+  const ms = (now - secs) * 1000;
   const m = Math.round(ms / 60000);
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;

@@ -189,31 +189,29 @@
     </div>
   {:else if prs.data}
     <ul class="prs">
-      {#each prs.data as pr}
-        {#key timestamp}
-          <li>
-            <button class="row" onclick={() => open(pr.html_url)} title="Open #{pr.number} on GitHub">
-              <span class="pr-icon" class:draft={pr.draft}>
-                <Icon name={pr.draft ? 'GitPullRequestDraft' : 'GitPullRequest'} size={16} />
-              </span>
-              <div class="pr-text">
-                <div class="pr-title">
-                  <span class="title-text">{pr.title}</span>
-                  <span class="pr-num">#{pr.number}</span>
-                </div>
-                <div class="pr-meta">
-                  <Avatar name={pr.user.login} email={pr.user.login} url={pr.user.avatar_url} size={14} />
-                  <span class="who">{pr.user.login}</span>
-                  <span class="dot">·</span>
-                  <span class="branch"><Icon name="GitBranch" size={11} /> {pr.head.ref} → {pr.base.ref}</span>
-                  <span class="dot">·</span>
-                  <span class="when">updated {relTime(Math.floor(new Date(pr.updated_at).getTime() / 1000))}</span>
-                </div>
+      {#each prs.data as pr (pr.number)}
+        <li>
+          <button class="row" onclick={() => open(pr.html_url)} title="Open #{pr.number} on GitHub">
+            <span class="pr-icon" class:draft={pr.draft}>
+              <Icon name={pr.draft ? 'GitPullRequestDraft' : 'GitPullRequest'} size={16} />
+            </span>
+            <div class="pr-text">
+              <div class="pr-title">
+                <span class="title-text">{pr.title}</span>
+                <span class="pr-num">#{pr.number}</span>
               </div>
-              <Icon name="ExternalLink" size={12} class="open-icon" />
-            </button>
-          </li>
-        {/key}
+              <div class="pr-meta">
+                <Avatar name={pr.user.login} email={pr.user.login} url={pr.user.avatar_url} size={14} />
+                <span class="who">{pr.user.login}</span>
+                <span class="dot">·</span>
+                <span class="branch"><Icon name="GitBranch" size={11} /> {pr.head.ref} → {pr.base.ref}</span>
+                <span class="dot">·</span>
+                <span class="when">updated {relTime(Math.floor(new Date(pr.updated_at).getTime() / 1000), Math.floor(timestamp / 1000))}</span>
+              </div>
+            </div>
+            <Icon name="ExternalLink" size={12} class="open-icon" />
+          </button>
+        </li>
       {/each}
     </ul>
   {:else if prs.loading}
