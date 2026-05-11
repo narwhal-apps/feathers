@@ -153,3 +153,74 @@ fn drop_at_out_of_range_returns_git_error() {
         other => panic!("expected Git error, got {other:?}"),
     }
 }
+
+#[test]
+fn show_files_lists_files_changed_in_stash_without_applying() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
+    common::fixtures::write_file(dir.path(), "newfile.txt", "brand new\n");
+    stash::create(&mut r, None, true, false).unwrap();
+
+    // Working tree is restored to clean.
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+        "alpha\n"
+    );
+    assert!(!dir.path().join("newfile.txt").exists());
+
+    let files = stash::show_files(&mut r, 0).unwrap();
+    let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+    assert!(paths.contains(&"a.txt"));
+    assert!(paths.contains(&"newfile.txt"));
+}
+
+#[test]
+fn show_files_out_of_range_returns_git_error() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+
+    let err = stash::show_files(&mut r, 5).unwrap_err();
+    match err {
+        AppError::Git { message } => assert!(message.contains("no stash at index")),
+        other => panic!("expected Git error, got {other:?}"),
+    }
+}
+
+#[test]
+fn diff_file_returns_unified_diff_for_a_path() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
+    stash::create(&mut r, None, false, false).unwrap();
+
+    let patch = stash::diff_file(&mut r, 0, "a.txt").unwrap();
+    assert!(patch.contains("---"));
+    assert!(patch.contains("+++"));
+    assert!(patch.contains("-alpha"));
+    assert!(patch.contains("+alpha edited"));
+}
+
+#[test]
+fn diff_file_for_unknown_path_returns_empty_string() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
+    stash::create(&mut r, None, false, false).unwrap();
+
+    let patch = stash::diff_file(&mut r, 0, "does/not/exist.txt").unwrap();
+    assert_eq!(patch, "");
+}
+
+#[test]
+fn diff_file_returns_unified_diff_for_untracked_file_in_stash() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "newfile.txt", "brand new\n");
+    stash::create(&mut r, None, true, false).unwrap();
+
+    let patch = stash::diff_file(&mut r, 0, "newfile.txt").unwrap();
+    // Untracked-file diff should show the file being created.
+    assert!(patch.contains("+++"));
+    assert!(patch.contains("+brand new"));
+}
