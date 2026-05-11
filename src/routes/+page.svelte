@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import FeatherMark from '$lib/components/shell/FeatherMark.svelte';
   import CloneModal from '$lib/components/dialogs/CloneModal.svelte';
   import { openRepoFlow } from '$lib/components/dialogs/openRepo';
@@ -53,15 +54,11 @@
     </header>
 
     <div class="cta">
-      <button class="btn primary" onclick={openRepoFlow}>
-        <Icon name="FolderOpen" size={14} />
+      <Button variant="primary" size="lg" iconLeft="FolderOpen" onclick={openRepoFlow}>
         <span>Open repository</span>
         <kbd>⌘O</kbd>
-      </button>
-      <button class="btn ghost" onclick={() => (cloneOpen = true)}>
-        <Icon name="DownloadCloud" size={14} />
-        <span>Clone from URL</span>
-      </button>
+      </Button>
+      <Button variant="secondary" size="lg" iconLeft="DownloadCloud" label="Clone from URL" onclick={() => (cloneOpen = true)} />
     </div>
 
     {#if recents.length > 0}
@@ -174,41 +171,7 @@
     justify-content: center;
     flex-wrap: wrap;
   }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: 10px 16px;
-    background: var(--bg-elev-2);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    cursor: pointer;
-    transition: transform var(--t-fast), background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
-    box-shadow: var(--inset-top, 0 1px 0 rgba(255,255,255,0.04) inset);
-  }
-  .btn:hover {
-    background: var(--bg-elev-3);
-    border-color: var(--border-strong);
-    transform: translateY(-1px);
-  }
-  .btn:active { transform: translateY(0); }
-  .btn.primary {
-    background: linear-gradient(180deg, var(--accent-700, var(--accent-fg)), var(--accent-800, var(--accent-fg)));
-    color: var(--accent-50, white);
-    border-color: transparent;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.15) inset,
-      0 6px 16px -8px rgba(0, 0, 0, 0.4);
-  }
-  .btn.primary:hover {
-    background: linear-gradient(180deg, var(--accent-600, var(--accent-fg)), var(--accent-700, var(--accent-fg)));
-  }
-  .btn.ghost { background: transparent; }
-  .btn kbd {
+  .cta :global(kbd) {
     display: inline-block;
     margin-left: 4px;
     padding: 1px 6px;
