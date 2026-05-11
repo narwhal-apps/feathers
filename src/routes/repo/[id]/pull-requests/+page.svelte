@@ -47,13 +47,16 @@
     return () => clearInterval(t);
   });
 
-  function reportError(prefix: string, err: unknown) {
+  function formatError(err: unknown): string {
+    if (typeof err === 'string') return err;
     const e = err as AppError;
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    if (typeof e === 'object' && e !== null && 'message' in e) {
+      return (e as { message: string }).message;
+    }
+    return JSON.stringify(err);
+  }
+  function reportError(prefix: string, err: unknown) {
+    alert(`${prefix}: ${formatError(err)}`);
   }
 
   async function signOut() {
@@ -128,7 +131,8 @@
   {:else if prs.error}
     <div class="state err">
       <Icon name="AlertTriangle" size={16} />
-      <p>{String(prs.error)}</p>
+      <p>{formatError(prs.error)}</p>
+      <p class="err-hint">You can still create a PR from the current branch.</p>
     </div>
   {:else if prs.data && prs.data.length === 0}
     <div class="state hint">
@@ -272,6 +276,7 @@
   .state :global(svg) { color: var(--fg-muted); }
   .state.hint { font-size: var(--fs-sm); }
   .state.err { color: var(--removed); font-size: var(--fs-sm); }
+  .state.err .err-hint { color: var(--fg-muted); font-size: var(--fs-xs); margin-top: 4px; }
   .state.cta { padding: var(--sp-8) var(--sp-4); }
   .state.cta h3 {
     margin: 0;
