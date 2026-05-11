@@ -12,7 +12,8 @@
   import { github } from '$lib/stores/github.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
-  import type { PullRequest, AppError } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
+  import type { PullRequest } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
 
@@ -47,14 +48,6 @@
     return () => clearInterval(t);
   });
 
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const e = err as AppError;
-    if (typeof e === 'object' && e !== null && 'message' in e) {
-      return (e as { message: string }).message;
-    }
-    return JSON.stringify(err);
-  }
   function reportError(prefix: string, err: unknown) {
     alert(`${prefix}: ${formatError(err)}`);
   }
