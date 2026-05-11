@@ -1,13 +1,35 @@
 use crate::error::AppError;
 use crate::github::types::DeviceCodeResponse;
+#[cfg(not(debug_assertions))]
 use keyring::Entry;
 use parking_lot::Mutex;
 use serde::Deserialize;
+use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+#[cfg(not(debug_assertions))]
 const KEYRING_SERVICE: &str = "feathers-github";
+#[cfg(not(debug_assertions))]
 const KEYRING_ACCOUNT: &str = "default";
+
+/// In debug builds we store the OAuth token in a plaintext file under
+/// `app_data_dir/dev-token` instead of the macOS Keychain. Reason: dev
+/// binaries are unsigned (or re-signed every rebuild), so the Keychain ACL
+/// doesn't recognise them and macOS prompts for the login password on every
+/// launch. The file backend trades that prompt for a plaintext token in the
+/// developer's own profile dir — acceptable since dev tokens are scoped to
+/// the developer's personal OAuth app.
+///
+/// Initialised once at startup by `lib.rs` via `init_dev_token_path`. In
+/// release builds the path is never read; the keychain backend is used.
+static DEV_TOKEN_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+/// Called from `lib.rs` setup() to give the dev backend a writable path.
+/// No-op in release builds.
+pub fn init_dev_token_path(path: PathBuf) {
+    let _ = DEV_TOKEN_PATH.set(path);
+}
 
 /// GitHub OAuth client_id. Set at build time via the `GITHUB_CLIENT_ID`
 /// env var. Without it sign-in returns a clear error so devs can register
@@ -128,6 +150,7 @@ pub async fn complete_device_flow(device_code: &str, interval_secs: u64) -> Resu
     }
 }
 
+#[cfg(not(debug_assertions))]
 fn entry() -> Result<Entry, AppError> {
     Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
         .map_err(|e| AppError::Auth { message: e.to_string() })
@@ -151,9 +174,7 @@ fn cache() -> &'static Mutex<Cache> {
 }
 
 pub fn store_token(token: &str) -> Result<(), AppError> {
-    entry()?
-        .set_password(token)
-        .map_err(|e| AppError::Auth { message: e.to_string() })?;
+    write_backend(token)?;
     cache().lock().state = Some(Some(token.to_string()));
     Ok(())
 }
@@ -165,22 +186,83 @@ pub fn load_token() -> Result<Option<String>, AppError> {
             return Ok(loaded.clone());
         }
     }
-    // Cache miss — first call this session. One Keychain read.
-    let loaded = match entry()?.get_password() {
-        Ok(t) => Some(t),
-        Err(keyring::Error::NoEntry) => None,
-        Err(e) => return Err(AppError::Auth { message: e.to_string() }),
-    };
+    // Cache miss — first call this session. One backend read.
+    let loaded = read_backend()?;
     cache().lock().state = Some(loaded.clone());
     Ok(loaded)
 }
 
 pub fn clear_token() -> Result<(), AppError> {
-    let result = match entry()?.delete_credential() {
+    let result = delete_backend();
+    cache().lock().state = Some(None);
+    result
+}
+
+#[cfg(not(debug_assertions))]
+fn write_backend(token: &str) -> Result<(), AppError> {
+    entry()?
+        .set_password(token)
+        .map_err(|e| AppError::Auth { message: e.to_string() })
+}
+
+#[cfg(not(debug_assertions))]
+fn read_backend() -> Result<Option<String>, AppError> {
+    match entry()?.get_password() {
+        Ok(t) => Ok(Some(t)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(AppError::Auth { message: e.to_string() }),
+    }
+}
+
+#[cfg(not(debug_assertions))]
+fn delete_backend() -> Result<(), AppError> {
+    match entry()?.delete_credential() {
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(AppError::Auth { message: e.to_string() }),
-    };
-    cache().lock().state = Some(None);
-    result
+    }
+}
+
+#[cfg(debug_assertions)]
+fn dev_path() -> Result<&'static PathBuf, AppError> {
+    DEV_TOKEN_PATH.get().ok_or_else(|| AppError::Auth {
+        message: "dev token path not initialised — call init_dev_token_path() at startup".into(),
+    })
+}
+
+#[cfg(debug_assertions)]
+fn write_backend(token: &str) -> Result<(), AppError> {
+    let path = dev_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| AppError::Auth {
+            message: format!("create dev token dir: {e}"),
+        })?;
+    }
+    std::fs::write(path, token).map_err(|e| AppError::Auth {
+        message: format!("write dev token: {e}"),
+    })
+}
+
+#[cfg(debug_assertions)]
+fn read_backend() -> Result<Option<String>, AppError> {
+    let path = dev_path()?;
+    match std::fs::read_to_string(path) {
+        Ok(t) => Ok(Some(t)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(AppError::Auth {
+            message: format!("read dev token: {e}"),
+        }),
+    }
+}
+
+#[cfg(debug_assertions)]
+fn delete_backend() -> Result<(), AppError> {
+    let path = dev_path()?;
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(AppError::Auth {
+            message: format!("delete dev token: {e}"),
+        }),
+    }
 }

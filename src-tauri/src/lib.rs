@@ -31,12 +31,19 @@ pub fn run() {
             let registry = RepoRegistry::new();
             let watchers = Arc::new(WatcherRegistry::new(app.handle().clone()));
 
-            // Restore known repos from our JSON sidecar.
-            let cfg_path = app
+            let app_data = app
                 .path()
                 .app_data_dir()
-                .map_err(|e| format!("app_data_dir: {e}"))?
-                .join("config.json");
+                .map_err(|e| format!("app_data_dir: {e}"))?;
+
+            // Dev builds store the GitHub OAuth token in a file under
+            // app_data_dir to avoid the macOS Keychain prompt on every
+            // launch (unsigned/re-signed dev binaries don't match the ACL).
+            // No-op in release builds.
+            crate::github::auth::init_dev_token_path(app_data.join("dev-token"));
+
+            // Restore known repos from our JSON sidecar.
+            let cfg_path = app_data.join("config.json");
             let store: Arc<dyn ConfigStore> = Arc::new(FileStore::new(cfg_path.clone()));
 
             match store.load() {
