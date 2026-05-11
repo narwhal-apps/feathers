@@ -336,9 +336,12 @@
     flex: 1;
   }
 
-  .actions { display: flex; gap: 4px; opacity: 0; transition: opacity var(--t-fast); }
+  .actions { display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity var(--t-fast); }
   li:hover .actions { opacity: 1; }
   .act {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     height: 22px;
     padding: 0 8px;
     background: var(--bg);
@@ -348,10 +351,11 @@
     font-size: var(--fs-2xs);
     font-weight: var(--weight-semibold);
     cursor: pointer;
+    box-sizing: border-box;
   }
   .act:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
   .act.primary { background: var(--accent-500); color: var(--accent-on); border-color: var(--accent-500); }
-  .act.danger { color: var(--fg-muted); }
+  .act.danger { color: var(--fg-muted); width: 22px; padding: 0; }
   .act.danger:hover:not(:disabled) {
     color: var(--removed);
     background: color-mix(in srgb, var(--removed) 14%, transparent);
