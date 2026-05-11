@@ -3,7 +3,8 @@
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import type { CommitInfo, AppError } from '$lib/types';
+  import type { CommitInfo } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
 
   type Kind = 'cherrypick' | 'revert';
 
@@ -23,13 +24,6 @@
 
   let working = $state(false);
   let errorMsg = $state<string | null>(null);
-
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
 
   const cmd = $derived(kind === 'cherrypick' ? 'commit_cherrypick' : 'commit_revert');
   const verb = $derived(kind === 'cherrypick' ? 'Apply' : 'Revert');

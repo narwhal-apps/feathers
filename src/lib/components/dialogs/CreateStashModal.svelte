@@ -3,7 +3,8 @@
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import type { AppError, StatusSnapshot } from '$lib/types';
+  import type { StatusSnapshot } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
 
   let {
     repoId,
@@ -20,6 +21,8 @@
   let keepIndex = $state(false);
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
+  let messageEl = $state<HTMLInputElement | null>(null);
+  $effect(() => { messageEl?.focus(); });
 
   const stagedCount = $derived(status?.staged.length ?? 0);
   const totalChanges = $derived(
@@ -28,13 +31,6 @@
       (includeUntracked ? status?.untracked.length ?? 0 : 0),
   );
   const canSave = $derived(totalChanges > 0 && !saving);
-
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
 
   async function submit(): Promise<void> {
     if (!canSave) return;
@@ -69,7 +65,7 @@
         <input
           class="input"
           type="text"
-          autofocus
+          bind:this={messageEl}
           placeholder="WIP on current branch"
           bind:value={message}
           disabled={saving}

@@ -3,7 +3,8 @@
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import type { CommitInfo, ResetMode, StatusSnapshot, AppError } from '$lib/types';
+  import type { CommitInfo, ResetMode, StatusSnapshot } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
 
   let {
     repoId,
@@ -21,13 +22,6 @@
   let typedConfirm = $state('');
   let working = $state(false);
   let errorMsg = $state<string | null>(null);
-
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
 
   // Files at risk if hard-resetting now (the working tree's modified set).
   const lossyCount = $derived.by(() => {

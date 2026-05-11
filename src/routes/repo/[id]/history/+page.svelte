@@ -15,6 +15,7 @@
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import BranchFromCommitModal from '$lib/components/history/BranchFromCommitModal.svelte';
   import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
@@ -48,13 +49,6 @@
   // Inline feedback at the top of the tab.
   let actionError = $state<string | null>(null);
   let toastMsg = $state<string | null>(null);
-
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
 
   function flashError(msg: string): void {
     actionError = msg;

@@ -4,7 +4,8 @@
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import type { CommitInfo, AppError } from '$lib/types';
+  import type { CommitInfo } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
 
   let {
     repoId,
@@ -15,13 +16,8 @@
   let name = $state('');
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
-
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
+  let nameEl = $state<HTMLInputElement | null>(null);
+  $effect(() => { nameEl?.focus(); });
 
   // Validate: non-empty after trim, no spaces, no `..`, no leading `-`,
   // no trailing `/`. These are the invariants `branch_create_at` will
@@ -70,7 +66,7 @@
         <input
           class="input"
           type="text"
-          autofocus
+          bind:this={nameEl}
           placeholder="feat/your-branch"
           bind:value={name}
           disabled={saving}

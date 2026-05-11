@@ -4,7 +4,8 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
-  import type { StashEntry, AppError } from '$lib/types';
+  import type { StashEntry } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
 
   let {
     repoId,
@@ -36,12 +37,6 @@
   // Right-click context menu state.
   let ctxMenu = $state<{ stash: StashEntry; x: number; y: number } | null>(null);
 
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
 
   function flashError(msg: string): void {
     actionError = msg;
@@ -366,13 +361,6 @@
     border-color: color-mix(in srgb, var(--removed) 30%, transparent);
   }
   .act:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .hint, .err {
-    padding: 6px 14px;
-    color: var(--fg-subtle);
-    font-size: var(--fs-2xs);
-  }
-  .err { color: var(--removed); }
 
   .ctx-menu {
     position: fixed;

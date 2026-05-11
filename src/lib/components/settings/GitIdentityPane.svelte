@@ -1,7 +1,8 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import SettingsRow from './SettingsRow.svelte';
-  import type { GitIdentity, AppError } from '$lib/types';
+  import type { GitIdentity } from '$lib/types';
+  import { formatError } from '$lib/utils/error';
 
   let initial = $state<GitIdentity>({ name: null, email: null });
   let name = $state('');
@@ -9,13 +10,6 @@
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
   let savedFlash = $state(false);
-
-  function formatError(err: unknown): string {
-    if (typeof err === 'string') return err;
-    const ae = err as AppError;
-    if ('message' in ae) return ae.message;
-    return String(err);
-  }
 
   $effect(() => {
     invoke<GitIdentity>('settings_get_git_identity')
