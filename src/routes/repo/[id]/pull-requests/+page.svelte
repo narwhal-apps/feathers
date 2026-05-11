@@ -52,6 +52,30 @@
     alert(`${prefix}: ${formatError(err)}`);
   }
 
+  // Split a string into alternating text + URL segments so the template can
+  // render each URL as an openUrl-on-click link. Matches http(s) URLs only.
+  function splitUrls(text: string): Array<{ text: string; href?: string }> {
+    const re = /https?:\/\/[^\s)`'"]+/g;
+    const out: Array<{ text: string; href?: string }> = [];
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      const i = m.index ?? 0;
+      if (i > last) out.push({ text: text.slice(last, i) });
+      out.push({ text: m[0], href: m[0] });
+      last = i + m[0].length;
+    }
+    if (last < text.length) out.push({ text: text.slice(last) });
+    return out.length ? out : [{ text }];
+  }
+
+  // Detect the most common org-restriction message and pull out the org name
+  // so we can offer a one-click "Approve in GitHub" action that opens the
+  // org's OAuth policies page directly.
+  function oauthRestrictionOrg(message: string): string | null {
+    const m = message.match(/the\s+`?([^`\s]+)`?\s+organization has enabled OAuth App/i);
+    return m?.[1] ?? null;
+  }
+
   async function signOut() {
     try {
       await github.signOut();
@@ -124,10 +148,39 @@
       </p>
     </div>
   {:else if prs.error}
+    {@const errMsg = formatError(prs.error)}
+    {@const restrictedOrg = oauthRestrictionOrg(errMsg)}
     <div class="state err">
-      <Icon name="AlertTriangle" size={16} />
-      <p>{formatError(prs.error)}</p>
-      <p class="err-hint">You can still create a PR from the current branch.</p>
+      <span class="err-icon" aria-hidden="true">
+        <Icon name="AlertTriangle" size={22} />
+      </span>
+      <h3 class="err-title">
+        {restrictedOrg ? `${restrictedOrg} restricts OAuth apps` : "Couldn't load pull requests"}
+      </h3>
+      <p class="err-msg">
+        {#each splitUrls(errMsg) as seg}
+          {#if seg.href}
+            <a href={seg.href} onclick={(e) => { e.preventDefault(); open(seg.href!); }}>{seg.text}</a>
+          {:else}
+            {seg.text}
+          {/if}
+        {/each}
+      </p>
+      <div class="err-actions">
+        {#if restrictedOrg}
+          <button
+            class="primary"
+            onclick={() => open(`https://github.com/orgs/${restrictedOrg}/oauth_policies`)}
+          >
+            <Icon name="ExternalLink" size={14} />
+            <span>Approve in GitHub</span>
+          </button>
+        {/if}
+        <button class="ghost-btn" onclick={() => (createOpen = true)}>
+          <Icon name="Plus" size={14} />
+          <span>Create PR anyway</span>
+        </button>
+      </div>
     </div>
   {:else if prs.data && prs.data.length === 0}
     <div class="state hint">
@@ -270,8 +323,69 @@
   }
   .state :global(svg) { color: var(--fg-muted); }
   .state.hint { font-size: var(--fs-sm); }
-  .state.err { color: var(--removed); font-size: var(--fs-sm); }
-  .state.err .err-hint { color: var(--fg-muted); font-size: var(--fs-xs); margin-top: 4px; }
+  .state.err {
+    padding: var(--sp-10, 64px) var(--sp-4);
+    gap: var(--sp-3);
+  }
+  .err-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--removed) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--removed) 36%, transparent);
+    margin-bottom: var(--sp-1);
+  }
+  .err-icon :global(svg) { color: var(--removed); }
+  .err-title {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--fg);
+    letter-spacing: var(--tracking-tight);
+  }
+  .err-msg {
+    margin: 0;
+    max-width: 520px;
+    color: var(--fg-muted);
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+    text-align: center;
+  }
+  .err-msg a {
+    color: var(--accent-fg);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--accent-fg) 40%, transparent);
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+  }
+  .err-msg a:hover { text-decoration-color: var(--accent-fg); }
+  .err-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--sp-2);
+  }
+  .ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--fg-muted);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    transition: color var(--t-fast), border-color var(--t-fast);
+  }
+  .ghost-btn :global(svg) { color: var(--fg-subtle); }
+  .ghost-btn:hover { color: var(--fg); border-color: var(--border-strong); }
+  .ghost-btn:hover :global(svg) { color: var(--fg); }
   .state.cta {
     padding: var(--sp-10, 64px) var(--sp-4);
     gap: var(--sp-3);
