@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Button from './Button.svelte';
   import { portal } from '$lib/utils/portal';
 
   type Width = 'sm' | 'md' | 'lg';
@@ -16,9 +17,9 @@
     head,
     body,
     foot,
+    actions,
   }: {
     title?: string;
-    /** Omit to make the modal sticky — no Esc, no backdrop close, no X. */
     onClose?: () => void;
     width?: Width;
     align?: Align;
@@ -28,6 +29,11 @@
     head?: import('svelte').Snippet;
     body?: import('svelte').Snippet;
     foot?: import('svelte').Snippet;
+    actions?: {
+      primary?: { label: string; onclick: () => void; loading?: boolean; disabled?: boolean };
+      secondary?: { label: string; onclick: () => void; disabled?: boolean };
+      danger?: { label: string; onclick: () => void; loading?: boolean; disabled?: boolean };
+    };
   } = $props();
 
   const dismissible = $derived(!!onClose);
@@ -78,6 +84,38 @@
 
     {#if foot}
       <footer class="foot">{@render foot()}</footer>
+    {:else if actions}
+      <footer class="foot">
+        {#if actions.secondary}
+          <Button
+            label={actions.secondary.label}
+            variant="ghost"
+            size="md"
+            onclick={actions.secondary.onclick}
+            disabled={actions.secondary.disabled}
+          />
+        {/if}
+        {#if actions.danger}
+          <Button
+            label={actions.danger.label}
+            variant="danger"
+            size="md"
+            onclick={actions.danger.onclick}
+            loading={actions.danger.loading}
+            disabled={actions.danger.disabled}
+          />
+        {/if}
+        {#if actions.primary}
+          <Button
+            label={actions.primary.label}
+            variant="primary"
+            size="md"
+            onclick={actions.primary.onclick}
+            loading={actions.primary.loading}
+            disabled={actions.primary.disabled}
+          />
+        {/if}
+      </footer>
     {/if}
   </div>
 </div>

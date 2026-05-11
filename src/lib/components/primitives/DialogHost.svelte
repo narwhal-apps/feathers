@@ -1,6 +1,5 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
-  import Button from './Button.svelte';
   import Icon from './Icon.svelte';
   import { _readState, _resolveConfirm, _dismissToast } from '$lib/utils/dialog.svelte';
 
@@ -15,23 +14,28 @@
     title={opts.title}
     onClose={() => _resolveConfirm(active.id, false)}
     width="sm"
+    actions={{
+      secondary: {
+        label: opts.cancelLabel ?? 'Cancel',
+        onclick: () => _resolveConfirm(active.id, false),
+      },
+      ...(opts.danger
+        ? {
+            danger: {
+              label: opts.confirmLabel ?? 'Confirm',
+              onclick: () => _resolveConfirm(active.id, true),
+            },
+          }
+        : {
+            primary: {
+              label: opts.confirmLabel ?? 'Confirm',
+              onclick: () => _resolveConfirm(active.id, true),
+            },
+          }),
+    }}
   >
     {#snippet body()}
       <p class="msg">{opts.message}</p>
-    {/snippet}
-    {#snippet foot()}
-      <Button
-        label={opts.cancelLabel ?? 'Cancel'}
-        variant="ghost"
-        size="md"
-        onclick={() => _resolveConfirm(active.id, false)}
-      />
-      <Button
-        label={opts.confirmLabel ?? 'Confirm'}
-        variant={opts.danger ? 'danger' : 'primary'}
-        size="md"
-        onclick={() => _resolveConfirm(active.id, true)}
-      />
     {/snippet}
   </Modal>
 {/if}
