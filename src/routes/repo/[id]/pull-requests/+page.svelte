@@ -14,6 +14,7 @@
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import { formatError } from '$lib/utils/error';
+  import { notify } from '$lib/utils/dialog.svelte';
   import type { PullRequest } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
@@ -50,7 +51,7 @@
   });
 
   function reportError(prefix: string, err: unknown) {
-    alert(`${prefix}: ${formatError(err)}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   // Split a string into alternating text + URL segments so the template can

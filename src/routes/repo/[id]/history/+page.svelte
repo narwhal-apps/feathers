@@ -15,8 +15,9 @@
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
-  import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
+  import type { CommitInfo, CommitPage, DiffFile, DiffPayload } from '$lib/types';
   import { formatError } from '$lib/utils/error';
+  import { notify } from '$lib/utils/dialog.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import BranchFromCommitModal from '$lib/components/history/BranchFromCommitModal.svelte';
   import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
@@ -123,12 +124,7 @@
       ]);
       closeAmend();
     } catch (err) {
-      const e = err as AppError;
-      const msg =
-        typeof e === 'object' && e !== null && 'message' in e
-          ? (e as { message: string }).message
-          : JSON.stringify(err);
-      alert(`Failed to amend: ${msg}`);
+      notify(`Failed to amend: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
     } finally {
       amending = false;
     }
