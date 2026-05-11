@@ -158,13 +158,13 @@
     return Math.max(60, lines * 22 + file.hunks.length * 36);
   }
 
-  // When the payload reference changes, reset visibility so newly mounted
-  // files start hidden; the IO callback will fire immediately for any that
-  // happen to be in the viewport.
-  $effect(() => {
-    const _ = payload;
-    visibleFiles.clear();
-  });
+  // Visibility persists across payload changes by design. With keyed each
+  // blocks, an article whose file.path is unchanged keeps the same DOM node
+  // — and our `use:visible` action is one-shot (it unobserves after first
+  // intersection). Clearing visibleFiles on payload change would strand
+  // those reused nodes as permanent placeholders. Letting the set grow
+  // across the session is fine: the entries are just file paths, and a
+  // returning path renders its hunks immediately, which is what we want.
 
   function basename(p: string): string {
     const i = p.lastIndexOf('/');
