@@ -243,7 +243,8 @@
 <style>
   .stashes {
     border-bottom: 1px solid var(--border);
-    padding: 6px 0;
+    padding: 6px 0 10px;
+    margin-bottom: var(--sp-2);
   }
   .head { padding: 0 var(--sp-3) 0 10px; }
   .toggle {
