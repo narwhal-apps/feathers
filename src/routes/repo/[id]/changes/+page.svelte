@@ -373,10 +373,7 @@
                 class="check check-all"
                 bind:this={selectAllEl}
                 checked={allStaged}
-                onclick={(e) => {
-                  e.preventDefault();
-                  toggleAll();
-                }}
+                onchange={() => toggleAll()}
                 aria-label={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
                 title={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
               />
@@ -405,10 +402,12 @@
                     type="checkbox"
                     class="check"
                     checked={row.staged}
-                    onclick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleStage(row);
+                    onclick={(e) => e.stopPropagation()}
+                    onchange={(e) => {
+                      const want = (e.currentTarget as HTMLInputElement).checked;
+                      if (want === row.staged) return;
+                      if (want) stagePaths([row.path]);
+                      else unstagePaths([row.path]);
                     }}
                     disabled={row.status === 'conflicted'}
                     aria-label="{row.staged ? 'Unstage' : 'Stage'} {row.path}"
