@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { goto } from '$app/navigation';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo } from '$lib/types';
@@ -76,10 +77,14 @@
     </form>
   {/snippet}
   {#snippet foot()}
-    <button class="btn ghost" onclick={onClose} disabled={saving}>Cancel</button>
-    <button class="btn primary" onclick={submit} disabled={!isValid || saving}>
-      {saving ? 'Creating…' : 'Create + checkout'}
-    </button>
+    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={saving} />
+    <Button
+      variant="primary"
+      label={saving ? 'Creating…' : 'Create + checkout'}
+      loading={saving}
+      onclick={submit}
+      disabled={!isValid || saving}
+    />
   {/snippet}
 </Modal>
 
@@ -107,17 +112,5 @@
     outline: none;
   }
   .input:focus { border-color: var(--accent-500); }
-  .err { color: #c00; font-size: var(--fs-xs); }
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--fg-muted); border-color: var(--border); }
+  .err { color: var(--removed); font-size: var(--fs-xs); }
 </style>

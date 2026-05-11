@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo, ResetMode, StatusSnapshot } from '$lib/types';
@@ -111,16 +112,14 @@
     {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
   {/snippet}
   {#snippet foot()}
-    <button class="btn ghost" onclick={onClose} disabled={working}>Cancel</button>
-    <button
-      class="btn"
-      class:primary={mode !== 'hard'}
-      class:danger={mode === 'hard'}
+    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={working} />
+    <Button
+      variant={mode === 'hard' ? 'danger' : 'primary'}
+      label={working ? 'Resetting…' : 'Reset'}
+      loading={working}
       onclick={go}
       disabled={!canConfirm || working}
-    >
-      {working ? 'Resetting…' : 'Reset'}
-    </button>
+    />
   {/snippet}
 </Modal>
 
@@ -140,7 +139,7 @@
   .mode { display: flex; align-items: flex-start; gap: var(--sp-2); cursor: pointer; }
   .mode input { margin-top: 3px; }
   .mode-label { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
-  .mode-label.danger { color: #c00; }
+  .mode-label.danger { color: var(--removed); }
   .mode-desc { font-size: var(--fs-xs); color: var(--fg-subtle); margin-top: 2px; line-height: 1.4; }
   .confirm { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--border); }
   .warn { margin: 0 0 var(--sp-2); font-size: var(--fs-xs); color: var(--fg); }
@@ -158,10 +157,5 @@
     outline: none;
   }
   .input:focus { border-color: var(--accent-500); }
-  .err { margin-top: var(--sp-2); color: #c00; font-size: var(--fs-xs); }
-  .btn { height: 32px; padding: 0 14px; border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: var(--weight-semibold); cursor: pointer; border: 1px solid transparent; }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.danger { background: #c00; color: white; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--fg-muted); border-color: var(--border); }
+  .err { margin-top: var(--sp-2); color: var(--removed); font-size: var(--fs-xs); }
 </style>

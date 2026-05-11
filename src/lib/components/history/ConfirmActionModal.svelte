@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo } from '$lib/types';
@@ -68,10 +69,14 @@
     {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
   {/snippet}
   {#snippet foot()}
-    <button class="btn ghost" onclick={onClose} disabled={working}>Cancel</button>
-    <button class="btn primary" onclick={go} disabled={working}>
-      {working ? `${verb}ing…` : verb}
-    </button>
+    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={working} />
+    <Button
+      variant="primary"
+      label={working ? `${verb}ing…` : verb}
+      loading={working}
+      onclick={go}
+      disabled={working}
+    />
   {/snippet}
 </Modal>
 
@@ -95,9 +100,5 @@
   }
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hint { margin: 0; color: var(--fg-subtle); font-size: var(--fs-xs); }
-  .err { margin-top: var(--sp-2); color: #c00; font-size: var(--fs-xs); }
-  .btn { height: 32px; padding: 0 14px; border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: var(--weight-semibold); cursor: pointer; border: 1px solid transparent; }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--fg-muted); border-color: var(--border); }
+  .err { margin-top: var(--sp-2); color: var(--removed); font-size: var(--fs-xs); }
 </style>
