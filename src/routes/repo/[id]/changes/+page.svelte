@@ -366,49 +366,55 @@
             <p>Working tree is clean.</p>
           </div>
         {:else}
-          <header class="group-header">
-            <input
-              type="checkbox"
-              class="check check-all"
-              bind:this={selectAllEl}
-              checked={allStaged}
-              onclick={(e) => {
-                e.preventDefault();
-                toggleAll();
-              }}
-              aria-label={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
-              title={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
-            />
-            <span class="group-label">Changed files</span>
+          <header class="group-header" class:stash-mode={showingStash}>
+            {#if !showingStash}
+              <input
+                type="checkbox"
+                class="check check-all"
+                bind:this={selectAllEl}
+                checked={allStaged}
+                onclick={(e) => {
+                  e.preventDefault();
+                  toggleAll();
+                }}
+                aria-label={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
+                title={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
+              />
+            {/if}
+            <span class="group-label">{showingStash ? 'Files in stash' : 'Changed files'}</span>
             <span class="group-count">
               {#key allChanges.length}
                 <span class="num">{allChanges.length}</span>
               {/key}
             </span>
-            <button
-              class="bulk danger"
-              onclick={discardAll}
-              disabled={busy}
-              title="Discard all changes">Discard all</button
-            >
+            {#if !showingStash}
+              <button
+                class="bulk danger"
+                onclick={discardAll}
+                disabled={busy}
+                title="Discard all changes">Discard all</button
+              >
+            {/if}
           </header>
           <ul>
             {#each allChanges as row}
               {@const meta = statusMeta(row.status)}
               {@const parts = splitPath(row.path)}
-              <li class:selected={selected === row.path}>
-                <input
-                  type="checkbox"
-                  class="check"
-                  checked={row.staged}
-                  onclick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleStage(row);
-                  }}
-                  disabled={row.status === 'conflicted'}
-                  aria-label="{row.staged ? 'Unstage' : 'Stage'} {row.path}"
-                />
+              <li class:selected={selected === row.path} class:stash-mode={showingStash}>
+                {#if !showingStash}
+                  <input
+                    type="checkbox"
+                    class="check"
+                    checked={row.staged}
+                    onclick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleStage(row);
+                    }}
+                    disabled={row.status === 'conflicted'}
+                    aria-label="{row.staged ? 'Unstage' : 'Stage'} {row.path}"
+                  />
+                {/if}
                 <button class="row" onclick={() => (selected = row.path)}>
                   <FileIcon fileName={parts.name} size={14} />
                   <span class="name">
@@ -418,35 +424,37 @@
                     {/if}
                   </span>
                 </button>
-                {#if row.status === 'conflicted'}
-                  <button
-                    class="action"
-                    title="Open in editor"
-                    aria-label="Open {row.path} in editor"
-                    onclick={() => openInEditor(row.path)}
-                    disabled={busy}
-                  >
-                    <Icon name="ExternalLink" size={12} />
-                  </button>
-                  <button
-                    class="action ok"
-                    title="Mark resolved"
-                    aria-label="Mark {row.path} resolved"
-                    onclick={() => markResolved([row.path])}
-                    disabled={busy}
-                  >
-                    <Icon name="Check" size={12} />
-                  </button>
-                {:else}
-                  <button
-                    class="action danger"
-                    title="Discard"
-                    aria-label="Discard {row.path}"
-                    onclick={() => discardPaths([row.path], row.path)}
-                    disabled={busy}
-                  >
-                    <Icon name="Undo2" size={12} />
-                  </button>
+                {#if !showingStash}
+                  {#if row.status === 'conflicted'}
+                    <button
+                      class="action"
+                      title="Open in editor"
+                      aria-label="Open {row.path} in editor"
+                      onclick={() => openInEditor(row.path)}
+                      disabled={busy}
+                    >
+                      <Icon name="ExternalLink" size={12} />
+                    </button>
+                    <button
+                      class="action ok"
+                      title="Mark resolved"
+                      aria-label="Mark {row.path} resolved"
+                      onclick={() => markResolved([row.path])}
+                      disabled={busy}
+                    >
+                      <Icon name="Check" size={12} />
+                    </button>
+                  {:else}
+                    <button
+                      class="action danger"
+                      title="Discard"
+                      aria-label="Discard {row.path}"
+                      onclick={() => discardPaths([row.path], row.path)}
+                      disabled={busy}
+                    >
+                      <Icon name="Undo2" size={12} />
+                    </button>
+                  {/if}
                 {/if}
                 <span
                   class="status-pill tone-{meta.tone}"
