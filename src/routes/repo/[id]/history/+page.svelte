@@ -22,7 +22,6 @@
   import BranchFromCommitModal from '$lib/components/history/BranchFromCommitModal.svelte';
   import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
   import ResetModal from '$lib/components/history/ResetModal.svelte';
-  import Toast from '$lib/components/history/Toast.svelte';
   import { opKindLabel, type OpKind } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
@@ -50,7 +49,6 @@
 
   // Inline feedback at the top of the tab.
   let actionError = $state<string | null>(null);
-  let toastMsg = $state<string | null>(null);
 
   function flashError(msg: string): void {
     actionError = msg;
@@ -58,7 +56,7 @@
   }
 
   function flashToast(msg: string): void {
-    toastMsg = msg;
+    notify(msg, { kind: 'success' });
   }
 
   const diff = createQuery<DiffPayload>(
@@ -398,10 +396,6 @@
     status={status.data ?? null}
     onClose={() => (resetTarget = null)}
   />
-{/if}
-
-{#if toastMsg}
-  <Toast message={toastMsg} onDone={() => (toastMsg = null)} />
 {/if}
 
 <style>
