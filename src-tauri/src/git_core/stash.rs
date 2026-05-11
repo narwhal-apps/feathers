@@ -1,4 +1,5 @@
 use crate::error::AppError;
+use crate::git_core::op;
 use crate::git_core::types::{FileChange, FileStatus, StashEntry};
 use git2::{Delta, DiffOptions, Oid, Patch, Repository, StashFlags};
 use serde::{Deserialize, Serialize};
@@ -274,8 +275,13 @@ pub(crate) fn write_sidecar(repo: &Repository, sc: &StashApplySidecar) -> Result
     let raw = serde_json::to_string(sc).map_err(|e| AppError::Io {
         message: format!("serialize sidecar: {e}"),
     })?;
-    fs::write(sidecar_path(repo), raw).map_err(|e| AppError::Io {
-        message: format!("write sidecar: {e}"),
+    let final_path = sidecar_path(repo);
+    let tmp_path = final_path.with_extension("json.tmp");
+    fs::write(&tmp_path, raw).map_err(|e| AppError::Io {
+        message: format!("write sidecar tmp: {e}"),
+    })?;
+    fs::rename(&tmp_path, &final_path).map_err(|e| AppError::Io {
+        message: format!("rename sidecar tmp -> final: {e}"),
     })?;
     Ok(())
 }
@@ -322,4 +328,90 @@ pub fn write_sidecar_for_test(
             stash_oid: stash_oid.to_string(),
         },
     )
+}
+
+fn require_clean_op_state(repo: &Repository) -> Result<(), AppError> {
+    let st = op::state(repo)?;
+    if !matches!(st.kind, op::OpKind::Clean) {
+        return Err(AppError::Git {
+            message: format!("{:?} in progress — finish or abort it first", st.kind),
+        });
+    }
+    Ok(())
+}
+
+/// Apply the stash at `index` onto the working tree. Writes a sidecar before
+/// invoking libgit2, then:
+///   - if the apply produced no conflicts, removes the sidecar; the stash is kept.
+///   - if conflicts exist, leaves the sidecar in place. The Resolve panel
+///     (driven by `op::state()` returning `StashApply`) takes over.
+pub fn apply(repo: &mut Repository, index: usize) -> Result<(), AppError> {
+    require_clean_op_state(repo)?;
+
+    let oid = stash_oid_at(repo, index)?;
+    write_sidecar(
+        repo,
+        &StashApplySidecar {
+            index,
+            was_pop: false,
+            stash_oid: oid.to_string(),
+        },
+    )?;
+
+    if let Err(e) = do_stash_apply(repo, index) {
+        // Sidecar would otherwise lock out future apply attempts; roll it back.
+        let _ = delete_sidecar(repo);
+        return Err(e);
+    }
+
+    if !repo.index()?.has_conflicts() {
+        delete_sidecar(repo)?;
+    }
+    Ok(())
+}
+
+/// Apply the stash at `index` and drop it on success. On conflict, the stash
+/// is NOT dropped — the user needs to resolve via the Resolve panel; the
+/// `op_continue` arm will drop the stash after a clean resolution.
+pub fn pop(repo: &mut Repository, index: usize) -> Result<(), AppError> {
+    require_clean_op_state(repo)?;
+
+    let oid = stash_oid_at(repo, index)?;
+    write_sidecar(
+        repo,
+        &StashApplySidecar {
+            index,
+            was_pop: true,
+            stash_oid: oid.to_string(),
+        },
+    )?;
+
+    if let Err(e) = do_stash_apply(repo, index) {
+        // Sidecar would otherwise lock out future apply attempts; roll it back.
+        let _ = delete_sidecar(repo);
+        return Err(e);
+    }
+
+    if !repo.index()?.has_conflicts() {
+        // Clean apply: drop the stash and clear the sidecar.
+        repo.stash_drop(index)?;
+        delete_sidecar(repo)?;
+    }
+    Ok(())
+}
+
+fn do_stash_apply(repo: &mut Repository, index: usize) -> Result<(), AppError> {
+    // Default StashApplyOptions: libgit2 writes conflict markers + index
+    // entries on conflict and returns Ok. If a future version of git2-rs or
+    // libgit2 changes that, the conflict tests in this module will fail and
+    // surface the breakage.
+    repo.stash_apply(index, None).map_err(|e| {
+        if e.code() == git2::ErrorCode::NotFound {
+            AppError::Git {
+                message: format!("no stash at index {index}"),
+            }
+        } else {
+            e.into()
+        }
+    })
 }

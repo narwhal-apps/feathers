@@ -1,7 +1,7 @@
 mod common;
 
 use feathers_app_lib::error::AppError;
-use feathers_app_lib::git_core::{repo, stash};
+use feathers_app_lib::git_core::{op, repo, stash};
 
 #[test]
 fn list_returns_empty_for_unstashed_repo() {
@@ -223,4 +223,135 @@ fn diff_file_returns_unified_diff_for_untracked_file_in_stash() {
     // Untracked-file diff should show the file being created.
     assert!(patch.contains("+++"));
     assert!(patch.contains("+brand new"));
+}
+
+#[test]
+fn apply_clean_restores_working_tree_and_keeps_stash() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
+    stash::create(&mut r, None, false, false).unwrap();
+
+    stash::apply(&mut r, 0).unwrap();
+
+    // Working tree restored.
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+        "alpha edited\n"
+    );
+    // Stash kept.
+    assert_eq!(stash::list(&mut r).unwrap().len(), 1);
+    // Sidecar cleared.
+    let st = op::state(&r).unwrap();
+    assert!(matches!(st.kind, op::OpKind::Clean));
+}
+
+#[test]
+fn pop_clean_restores_working_tree_and_drops_stash() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
+    stash::create(&mut r, None, false, false).unwrap();
+
+    stash::pop(&mut r, 0).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+        "alpha edited\n"
+    );
+    assert!(stash::list(&mut r).unwrap().is_empty());
+    let st = op::state(&r).unwrap();
+    assert!(matches!(st.kind, op::OpKind::Clean));
+}
+
+#[test]
+fn apply_with_conflict_leaves_sidecar_and_keeps_stash() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    // Stash an edit.
+    common::fixtures::write_file(dir.path(), "a.txt", "stashed edit\n");
+    stash::create(&mut r, None, false, false).unwrap();
+    // Now make a conflicting edit on the working tree.
+    common::fixtures::write_file(dir.path(), "a.txt", "main edit\n");
+    common::fixtures::stage(&r, "a.txt");
+    {
+        let sig = git2::Signature::now("Test", "test@example.com").unwrap();
+        let head = r.head().unwrap().peel_to_commit().unwrap();
+        let mut idx = r.index().unwrap();
+        let tree = r.find_tree(idx.write_tree().unwrap()).unwrap();
+        r.commit(Some("HEAD"), &sig, &sig, "main edit", &tree, &[&head]).unwrap();
+    }
+
+    stash::apply(&mut r, 0).unwrap();
+
+    // Stash kept.
+    assert_eq!(stash::list(&mut r).unwrap().len(), 1);
+    // op::state sees a StashApply with conflicts.
+    let st = op::state(&r).unwrap();
+    match st.kind {
+        op::OpKind::StashApply { was_pop, conflicts_present } => {
+            assert!(!was_pop);
+            assert!(conflicts_present);
+        }
+        other => panic!("expected StashApply, got {other:?}"),
+    }
+}
+
+#[test]
+fn pop_with_conflict_does_not_drop_and_leaves_sidecar() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "stashed edit\n");
+    stash::create(&mut r, None, false, false).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "main edit\n");
+    common::fixtures::stage(&r, "a.txt");
+    {
+        let sig = git2::Signature::now("Test", "test@example.com").unwrap();
+        let head = r.head().unwrap().peel_to_commit().unwrap();
+        let mut idx = r.index().unwrap();
+        let tree = r.find_tree(idx.write_tree().unwrap()).unwrap();
+        r.commit(Some("HEAD"), &sig, &sig, "main edit", &tree, &[&head]).unwrap();
+    }
+
+    stash::pop(&mut r, 0).unwrap();
+
+    assert_eq!(stash::list(&mut r).unwrap().len(), 1);
+    let st = op::state(&r).unwrap();
+    match st.kind {
+        op::OpKind::StashApply { was_pop, conflicts_present } => {
+            assert!(was_pop);
+            assert!(conflicts_present);
+        }
+        other => panic!("expected StashApply, got {other:?}"),
+    }
+}
+
+#[test]
+fn apply_with_invalid_index_does_not_leave_orphan_sidecar() {
+    // stash_oid_at fails BEFORE the sidecar is written, so the call is
+    // safe by construction. Exercise it as a baseline regression guard.
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+
+    let _ = stash::apply(&mut r, 99);
+
+    let st = op::state(&r).unwrap();
+    assert!(matches!(st.kind, op::OpKind::Clean));
+}
+
+#[test]
+fn apply_refuses_when_another_op_is_in_progress() {
+    let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
+    let mut r = repo::open(dir.path()).unwrap();
+    common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
+    stash::create(&mut r, None, false, false).unwrap();
+
+    // Plant a sidecar so op::state returns StashApply.
+    stash::write_sidecar_for_test(&r, 99, false, "deadbeefdeadbeef").unwrap();
+
+    let err = stash::apply(&mut r, 0).unwrap_err();
+    match err {
+        AppError::Git { message } => assert!(message.contains("in progress")),
+        other => panic!("expected Git error, got {other:?}"),
+    }
 }
