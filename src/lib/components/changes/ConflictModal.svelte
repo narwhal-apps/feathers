@@ -5,6 +5,7 @@
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
+  import { isStashApply } from '$lib/types';
   import type { OpKind, AppError } from '$lib/types';
 
   let {
@@ -21,7 +22,10 @@
 
   let busy = $state<null | 'continue' | 'abort' | string>(null);
 
-  const KIND_LABEL: Record<Exclude<OpKind, 'clean'>, string> = {
+  const STRING_KIND_LABEL: Record<
+    'merge' | 'rebase' | 'cherry_pick' | 'revert' | 'bisect' | 'apply_mailbox',
+    string
+  > = {
     merge: 'merge',
     rebase: 'rebase',
     cherry_pick: 'cherry-pick',
@@ -29,7 +33,23 @@
     bisect: 'bisect',
     apply_mailbox: 'mailbox',
   };
-  const label = $derived(kind === 'clean' ? '' : KIND_LABEL[kind]);
+
+  const stashApply = $derived(isStashApply(kind) ? kind.stash_apply : null);
+  const isStash = $derived(stashApply !== null);
+  const isStashRecovery = $derived(stashApply !== null && !stashApply.conflicts_present);
+
+  const label = $derived.by(() => {
+    if (isStash) return 'stash apply';
+    if (kind === 'clean') return '';
+    return STRING_KIND_LABEL[kind as keyof typeof STRING_KIND_LABEL] ?? '';
+  });
+
+  const stashSubtitle = $derived(
+    stashApply?.was_pop
+      ? 'Stash will be dropped on continue.'
+      : 'Stash will be kept on continue.',
+  );
+
   const allResolved = $derived(conflicted.length === 0);
 
   function basename(p: string): string {
@@ -99,7 +119,10 @@
 
   async function doAbort() {
     if (busy) return;
-    const ok = confirm(`Abort ${label}? Working tree will be reset.`);
+    const confirmMsg = isStash
+      ? 'Aborting will discard your in-progress resolution. The stash itself remains.'
+      : `Abort ${label}? Working tree will be reset.`;
+    const ok = confirm(confirmMsg);
     if (!ok) return;
     busy = 'abort';
     try {
@@ -113,20 +136,37 @@
   }
 </script>
 
-<Modal title="Resolve {label} conflicts" width="md">
+<Modal title={isStashRecovery ? 'Finish stash apply' : `Resolve ${label} conflicts`} width="md">
   {#snippet body()}
-    {#if allResolved}
+    {#if isStashRecovery}
+      <div class="status">
+        <span class="icon-wrap"><Icon name="Info" size={14} /></span>
+        <div class="status-text">
+          <strong>A previous stash apply was interrupted</strong>
+          <span>{stashSubtitle}</span>
+        </div>
+      </div>
+    {:else if allResolved}
       <div class="status ok">
         <span class="icon-wrap"><Icon name="Check" size={14} /></span>
         <div class="status-text">
           <strong>All conflicts resolved</strong>
-          <span>Continue the {label} to wrap things up.</span>
+          <span>
+            {#if isStash}
+              {stashSubtitle}
+            {:else}
+              Continue the {label} to wrap things up.
+            {/if}
+          </span>
         </div>
       </div>
     {:else}
       <h3 class="files-title">
         {conflicted.length} conflicted file{conflicted.length === 1 ? '' : 's'}
       </h3>
+      {#if isStash}
+        <p class="hint hint-top">{stashSubtitle}</p>
+      {/if}
       <ul class="files">
         {#each conflicted as path}
           {@const name = basename(path)}
@@ -168,12 +208,18 @@
   {/snippet}
 
   {#snippet foot()}
-    <button class="btn ghost" onclick={doAbort} disabled={busy !== null}>
-      {busy === 'abort' ? 'Aborting…' : `Abort ${label}`}
-    </button>
-    <button class="btn primary" onclick={doContinue} disabled={busy !== null || !allResolved}>
-      {busy === 'continue' ? 'Continuing…' : `Continue ${label}`}
-    </button>
+    {#if isStashRecovery}
+      <button class="btn primary" onclick={doContinue} disabled={busy !== null}>
+        {busy === 'continue' ? 'Finishing…' : 'Finish stash apply'}
+      </button>
+    {:else}
+      <button class="btn ghost" onclick={doAbort} disabled={busy !== null}>
+        {busy === 'abort' ? 'Aborting…' : `Abort ${label}`}
+      </button>
+      <button class="btn primary" onclick={doContinue} disabled={busy !== null || !allResolved}>
+        {busy === 'continue' ? 'Continuing…' : `Continue ${label}`}
+      </button>
+    {/if}
   {/snippet}
 </Modal>
 
@@ -310,4 +356,14 @@
     border-color: var(--border);
   }
   .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
+
+  .hint-top {
+    margin-top: -4px;
+    margin-bottom: 8px;
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+  }
+  .status:not(.ok) .icon-wrap {
+    background: color-mix(in srgb, var(--accent-500) 60%, transparent);
+  }
 </style>
