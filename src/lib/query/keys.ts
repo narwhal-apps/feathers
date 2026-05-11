@@ -18,4 +18,9 @@ export const queryKeys = {
     ['repo', id, 'remote-url', remote] as const,
   repoOpState: (id: RepoId) => ['repo', id, 'op-state'] as const,
   repoPullRequests: (id: RepoId) => ['repo', id, 'pull-requests'] as const,
+  repoStashes: (id: RepoId) => ['repo', id, 'stashes'] as const,
+  repoStashFiles: (id: RepoId, index: number) =>
+    ['repo', id, 'stash', index, 'files'] as const,
+  repoStashDiff: (id: RepoId, index: number, path: string) =>
+    ['repo', id, 'stash', index, 'diff', path] as const,
 };

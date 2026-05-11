@@ -139,6 +139,9 @@ export interface PullRequest {
   updated_at: string;
 }
 
+// Note: StashApply is encoded as a tagged object because the Rust enum carries
+// associated data. All the simpler Repository-state variants serialize as
+// snake_case strings.
 export type OpKind =
   | 'clean'
   | 'merge'
@@ -146,11 +149,25 @@ export type OpKind =
   | 'cherry_pick'
   | 'revert'
   | 'bisect'
-  | 'apply_mailbox';
+  | 'apply_mailbox'
+  | { stash_apply: { was_pop: boolean; conflicts_present: boolean } };
 
 export interface OpState {
   kind: OpKind;
   conflicted: string[];
+}
+
+/** True if `kind` is the StashApply variant. Narrows the type so callers can
+ *  read `.was_pop` / `.conflicts_present`. */
+export function isStashApply(
+  kind: OpKind,
+): kind is { stash_apply: { was_pop: boolean; conflicts_present: boolean } } {
+  return typeof kind === 'object' && kind !== null && 'stash_apply' in kind;
+}
+
+/** Returns true if the OpKind represents any in-progress operation (i.e. not 'clean'). */
+export function isOpInProgress(kind: OpKind): boolean {
+  return kind !== 'clean';
 }
 
 // Backend AppError as a tagged union (Rust serde tag = "kind", snake_case).
@@ -179,3 +196,12 @@ export interface GitIdentity {
 }
 
 export type ResetMode = 'soft' | 'mixed' | 'hard';
+
+export interface StashEntry {
+  index: number;
+  message: string;
+  oid: string;
+  short_oid: string;
+  branch: string;
+  time: number;
+}
