@@ -162,11 +162,11 @@
     {#if open}
       <div id="repo-switcher-menu" class="menu" role="menu">
         <ul>
-          {#each grouped as g}
+          {#each grouped as g (g.name)}
             {#if showHeaders}
               <li class="group-head">{g.name}</li>
             {/if}
-            {#each g.repos as r}
+            {#each g.repos as r (r.id)}
               <li>
                 <button
                   class="item"

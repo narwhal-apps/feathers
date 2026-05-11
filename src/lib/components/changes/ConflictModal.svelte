@@ -168,7 +168,7 @@
         <p class="hint hint-top">{stashSubtitle}</p>
       {/if}
       <ul class="files">
-        {#each conflicted as path}
+        {#each conflicted as path (path)}
           {@const name = basename(path)}
           {@const dir = dirname(path)}
           <li>

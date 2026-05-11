@@ -159,7 +159,7 @@
       </button>
     </div>
   </div>
-  {#each payload.files as file}
+  {#each payload.files as file (file.path + ':' + (file.old_path ?? ''))}
     {@const counts = countLines(file)}
     {@const lbl = statusLabel(file.status)}
     {@const dir = dirname(file.path)}
@@ -201,7 +201,7 @@
         <div class="binary">Binary file — diff not shown.</div>
       {:else if mode === 'unified'}
         <div class="body">
-          {#each file.hunks as hunk, hunkIdx}
+          {#each file.hunks as hunk, hunkIdx (hunk.header)}
             <div class="hunk">
               <div class="hunk-header">
                 <span class="hunk-header-text">{hunk.header}</span>
@@ -218,7 +218,7 @@
                 {/if}
               </div>
               <div class="lines">
-                {#each hunk.lines as line, lineIdx}
+                {#each hunk.lines as line, lineIdx ((line.old_no ?? 'a') + ':' + (line.new_no ?? 'a') + ':' + line.kind + ':' + lineIdx)}
                   <div class="line line-{line.kind}">
                     <span class="ln ln-old">{line.old_no ?? ''}</span>
                     <span class="ln ln-new">{line.new_no ?? ''}</span>
@@ -237,7 +237,7 @@
       {:else}
         <!-- Split (side-by-side) view -->
         <div class="body split-body">
-          {#each file.hunks as hunk, hunkIdx}
+          {#each file.hunks as hunk, hunkIdx (hunk.header)}
             {@const rows = pairLines(hunk.lines)}
             <div class="hunk split-hunk">
               <div class="hunk-header">
@@ -255,7 +255,7 @@
                 {/if}
               </div>
               <div class="split-rows">
-                {#each rows as row}
+                {#each rows as row, rowIdx ((row.old?.idx ?? 'a') + ':' + (row.new?.idx ?? 'a') + ':' + rowIdx)}
                   <div class="split-row">
                     <div class="split-side {row.old ? `line-${row.old.line.kind}` : 'line-empty'}">
                       <span class="ln">{row.old?.line.old_no ?? ''}</span>

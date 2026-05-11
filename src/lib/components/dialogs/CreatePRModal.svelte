@@ -93,7 +93,7 @@
       <div class="branches">
         <span class="branch base"><Icon name="GitBranch" size={12} />
           <select bind:value={base} disabled={busy}>
-            {#each (branches.data ?? []).filter((b) => !b.is_remote) as b}
+            {#each (branches.data ?? []).filter((b) => !b.is_remote) as b (b.name)}
               <option value={b.name}>{b.name}</option>
             {/each}
           </select>

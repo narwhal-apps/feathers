@@ -75,7 +75,7 @@
             <p class="hint">No unpushed commits.</p>
           {:else}
             <ul>
-              {#each commits as c}
+              {#each commits as c (c.oid)}
                 <li class:selected={selectedOid === c.oid}>
                   <button class="row" onclick={() => (selectedOid = c.oid)}>
                     <Avatar name={c.author_name} email={c.author_email} size={20} />

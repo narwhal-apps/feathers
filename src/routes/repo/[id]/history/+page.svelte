@@ -224,7 +224,7 @@
   <aside class="commits">
     {#if log.data}
       <ul>
-        {#each log.data.commits as c, idx}
+        {#each log.data.commits as c, idx (c.oid)}
           <li class:selected={selectedOid === c.oid}>
             <button
               class="row"

@@ -316,7 +316,7 @@
           <ul>
             {#if filteredLocal.length > 0}
               <li class="section-head">Local</li>
-              {#each filteredLocal as b}
+              {#each filteredLocal as b (b.name)}
                 {@const tracked = b.ahead != null || b.behind != null}
                 <li>
                   <button
@@ -350,7 +350,7 @@
 
             {#if filteredRemote.length > 0}
               <li class="section-head">Remote</li>
-              {#each filteredRemote as b}
+              {#each filteredRemote as b (b.name)}
                 <li>
                   <button
                     class="item"
