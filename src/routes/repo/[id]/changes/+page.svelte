@@ -480,8 +480,6 @@
           class="stash-btn"
           onclick={() => (stashModalOpen = true)}
           disabled={
-            committing ||
-            busy ||
             opInProgress ||
             ((status.data?.staged.length ?? 0) +
               (status.data?.unstaged.length ?? 0) +
