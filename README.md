@@ -2,7 +2,7 @@
 
 A Tauri 2 + SvelteKit desktop Git client. macOS-only for now.
 
-> Status: Milestone 2 — read-only repo browsing. Open local repos, view status/history/diff. No mutations yet.
+> Status: post-MVP. Open local repos, browse status/history/diff, stage/commit/discard, branch, cherry-pick/revert/reset, stash, push/pull/fetch, GitHub sign-in + PR list/create, settings window.
 
 ## Prerequisites
 
@@ -35,3 +35,9 @@ cd src-tauri && cargo fmt                    # rust format
 ## Roadmap
 
 See `docs/superpowers/specs/2026-05-06-feathers-mvp-design.md` for the full MVP design and `docs/superpowers/plans/` for milestone plans.
+
+## Repository state files we write
+
+Feathers stores its own per-repo state under `.git/feathers/` so that nothing leaks outside the repo's `.git` dir:
+
+- `STASH_APPLY.json` — sidecar marker for an in-flight `stash apply`/`pop`. Used by the Resolve panel to drive Continue/Abort and to drop the stash on a successful pop. Removed automatically after the apply settles. Safe to delete by hand if it ever gets stranded.
