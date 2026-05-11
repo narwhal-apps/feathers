@@ -3,6 +3,7 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import { page } from '$app/stores';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import Avatar from '$lib/components/primitives/Avatar.svelte';
   import SignInModal from '$lib/components/dialogs/SignInModal.svelte';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
@@ -106,20 +107,32 @@
           <Avatar name={github.user.name ?? github.user.login} email={github.user.login} url={github.user.avatar_url} size={20} />
           <span>{github.user.login}</span>
         </span>
-        <button
-          class="primary-sm"
+        <Button
+          variant="primary"
+          size="sm"
+          iconLeft="Plus"
+          label="Create PR"
           onclick={() => (createOpen = true)}
           disabled={!isGithubRepo}
           title={isGithubRepo ? 'Create a pull request from the current branch' : 'Origin is not on github.com'}
-        >
-          <Icon name="Plus" size={12} /> Create PR
-        </button>
-        <button class="ghost" onclick={refreshPRs} disabled={!isGithubRepo} title="Refresh">
-          <Icon name="RefreshCw" size={12} /> Refresh
-        </button>
-        <button class="ghost" onclick={signOut} title="Sign out of GitHub">
-          Sign out
-        </button>
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          iconOnly="RefreshCw"
+          label="Refresh"
+          title="Refresh"
+          onclick={refreshPRs}
+          disabled={!isGithubRepo}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly="LogOut"
+          label="Sign out"
+          title="Sign out of GitHub"
+          onclick={signOut}
+        />
       {/if}
     </div>
   </header>
@@ -133,10 +146,7 @@
       </span>
       <h3>Sign in to GitHub</h3>
       <p>Pull requests, your real avatar, and tokens you didn't have to copy-paste.</p>
-      <button class="primary" onclick={() => (signInOpen = true)}>
-        <Icon name="LogIn" size={14} />
-        <span>Sign in</span>
-      </button>
+      <Button variant="primary" size="lg" iconLeft="LogIn" label="Sign in" onclick={() => (signInOpen = true)} />
     </div>
   {:else if !isGithubRepo}
     <div class="state hint">
@@ -168,18 +178,19 @@
       </p>
       <div class="err-actions">
         {#if restrictedOrg}
-          <button
-            class="primary"
+          <Button
+            variant="primary"
+            iconLeft="ExternalLink"
+            label="Approve in GitHub"
             onclick={() => open(`https://github.com/orgs/${restrictedOrg}/oauth_policies`)}
-          >
-            <Icon name="ExternalLink" size={14} />
-            <span>Approve in GitHub</span>
-          </button>
+          />
         {/if}
-        <button class="ghost-btn" onclick={() => (createOpen = true)}>
-          <Icon name="Plus" size={14} />
-          <span>Create PR anyway</span>
-        </button>
+        <Button
+          variant="secondary"
+          iconLeft="Plus"
+          label="Create PR anyway"
+          onclick={() => (createOpen = true)}
+        />
       </div>
     </div>
   {:else if prs.data && prs.data.length === 0}
@@ -274,41 +285,6 @@
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
   }
-  .ghost {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 26px;
-    padding: 0 10px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: color var(--t-fast), border-color var(--t-fast);
-  }
-  .ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
-  .ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-  .primary-sm {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 26px;
-    padding: 0 10px;
-    background: var(--accent-500);
-    color: var(--accent-on);
-    border: none;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: background var(--t-fast);
-  }
-  .primary-sm:hover:not(:disabled) { background: var(--accent-400); }
-  .primary-sm:disabled { opacity: 0.5; cursor: not-allowed; }
-
   .state {
     display: flex;
     flex-direction: column;
@@ -366,27 +342,6 @@
     gap: 8px;
     margin-top: var(--sp-2);
   }
-  .ghost-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 36px;
-    padding: 0 14px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    color: var(--fg-muted);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    line-height: 1;
-    cursor: pointer;
-    box-sizing: border-box;
-    transition: color var(--t-fast), border-color var(--t-fast);
-  }
-  .ghost-btn :global(svg) { color: var(--fg-subtle); }
-  .ghost-btn:hover { color: var(--fg); border-color: var(--border-strong); }
-  .ghost-btn:hover :global(svg) { color: var(--fg); }
   .state.cta {
     padding: var(--sp-10, 64px) var(--sp-4);
     gap: var(--sp-3);
@@ -417,28 +372,6 @@
     font-size: var(--fs-sm);
     line-height: 1.5;
   }
-  .primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 36px;
-    padding: 0 14px;
-    background: var(--accent-500);
-    color: var(--accent-on);
-    border: 1px solid var(--accent-500);
-    border-radius: var(--r-md);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    line-height: 1;
-    cursor: pointer;
-    box-sizing: border-box;
-    transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
-  }
-  .primary :global(svg) { color: var(--accent-on); }
-  .primary:hover { background: var(--accent-400); border-color: var(--accent-400); }
-  .primary:active { transform: translateY(1px); }
-
   .prs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
   .prs li { padding: 0; }
   .row {
