@@ -8,5 +8,6 @@ pub mod op;
 pub mod remote;
 pub mod repo;
 pub mod stage;
+pub mod stash;
 pub mod status;
 pub mod types;

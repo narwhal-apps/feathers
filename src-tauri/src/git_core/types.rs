@@ -122,3 +122,18 @@ pub struct DiffFile {
 pub struct DiffPayload {
     pub files: Vec<DiffFile>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StashEntry {
+    /// libgit2 stash index — 0 is the newest stash.
+    pub index: usize,
+    /// Either user-supplied OR libgit2's auto "WIP on <branch>: <oid> <subject>".
+    pub message: String,
+    /// Full stash commit oid.
+    pub oid: String,
+    pub short_oid: String,
+    /// Branch parsed from the "WIP on <branch>:" / "On <branch>:" prefix; empty if absent.
+    pub branch: String,
+    /// Committer time, seconds since unix epoch.
+    pub time: i64,
+}
