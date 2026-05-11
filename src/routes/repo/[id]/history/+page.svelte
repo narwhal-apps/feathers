@@ -15,7 +15,7 @@
   import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
   import ResetModal from '$lib/components/history/ResetModal.svelte';
   import Toast from '$lib/components/history/Toast.svelte';
-  import type { BranchInfo, StatusSnapshot, OpKind, OpState } from '$lib/types';
+  import { opKindLabel, type BranchInfo, type StatusSnapshot, type OpKind, type OpState } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
 
@@ -303,14 +303,14 @@
     <button type="button" class="ctx-item" role="menuitem"
       onclick={() => startCherrypick(ctxMenu!.commit)}
       disabled={opKind !== 'clean'}
-      title={opKind === 'clean' ? '' : `${opKind} in progress`}>
+      title={opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`}>
       <Icon name="GitCommitHorizontal" size={12} />
       <span>Cherry-pick</span>
     </button>
     <button type="button" class="ctx-item" role="menuitem"
       onclick={() => startRevert(ctxMenu!.commit)}
       disabled={opKind !== 'clean'}
-      title={opKind === 'clean' ? '' : `${opKind} in progress`}>
+      title={opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`}>
       <Icon name="Undo2" size={12} />
       <span>Revert</span>
     </button>
@@ -321,7 +321,7 @@
     <button type="button" class="ctx-item" role="menuitem"
       onclick={() => startReset(ctxMenu!.commit)}
       disabled={opKind !== 'clean' || ctxMenu.isHead}
-      title={ctxMenu.isHead ? 'Already at this commit' : (opKind === 'clean' ? '' : `${opKind} in progress`)}>
+      title={ctxMenu.isHead ? 'Already at this commit' : (opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`)}>
       <Icon name="History" size={12} />
       <span>Reset to here…</span>
     </button>

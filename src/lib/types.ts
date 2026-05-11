@@ -170,6 +170,25 @@ export function isOpInProgress(kind: OpKind): boolean {
   return kind !== 'clean';
 }
 
+/** Human-readable label for an OpKind, suitable for tooltips and inline error
+ *  messages. Returns short verbs like "merge", "cherry-pick", "stash apply",
+ *  empty string for 'clean'. */
+export function opKindLabel(kind: OpKind): string {
+  if (typeof kind === 'object' && kind !== null) {
+    if ('stash_apply' in kind) return 'stash apply';
+  }
+  switch (kind) {
+    case 'clean': return '';
+    case 'cherry_pick': return 'cherry-pick';
+    case 'apply_mailbox': return 'mailbox';
+    case 'merge':
+    case 'rebase':
+    case 'revert':
+    case 'bisect':
+      return kind;
+  }
+}
+
 // Backend AppError as a tagged union (Rust serde tag = "kind", snake_case).
 export type AppError =
   | { kind: 'repo_not_found'; id: string }
