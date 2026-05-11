@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use crate::git_core::{self, types::DiffPayload};
-use crate::repo_registry::RepoRegistry;
+use crate::repo_registry::{self, RepoRegistry};
 use tauri::State;
 
 #[tauri::command]
@@ -10,8 +10,7 @@ pub async fn diff_workdir(
     registry: State<'_, RepoRegistry>,
 ) -> Result<DiffPayload, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::diff::diff_workdir(&r, paths)
+    repo_registry::with_repo_read(handle, move |r| git_core::diff::diff_workdir(r, paths)).await
 }
 
 #[tauri::command]
@@ -21,8 +20,7 @@ pub async fn diff_index(
     registry: State<'_, RepoRegistry>,
 ) -> Result<DiffPayload, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::diff::diff_index(&r, paths)
+    repo_registry::with_repo_read(handle, move |r| git_core::diff::diff_index(r, paths)).await
 }
 
 #[tauri::command]
@@ -32,6 +30,5 @@ pub async fn diff_commit(
     registry: State<'_, RepoRegistry>,
 ) -> Result<DiffPayload, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::diff::diff_commit(&r, &oid)
+    repo_registry::with_repo_read(handle, move |r| git_core::diff::diff_commit(r, &oid)).await
 }

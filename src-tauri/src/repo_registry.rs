@@ -117,3 +117,58 @@ pub fn short_name(path: &Path) -> String {
         .unwrap_or("")
         .to_string()
 }
+
+/// Run a read-only git2 closure on the blocking thread pool.
+///
+/// Opens a fresh `Repository` from the handle's canonical path inside the
+/// closure — no Mutex lock is taken, so multiple read commands can run in
+/// parallel and aren't serialised behind long-running mutating ops.
+pub async fn with_repo_read<F, T>(handle: Arc<RepoHandle>, f: F) -> Result<T, AppError>
+where
+    F: FnOnce(&Repository) -> Result<T, AppError> + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        let r = Repository::open(&handle.path)?;
+        f(&r)
+    })
+    .await
+    .map_err(|e| AppError::Io {
+        message: format!("task join: {e}"),
+    })?
+}
+
+/// Like `with_repo_read`, but the closure receives a `&mut Repository` for
+/// libgit2 APIs (e.g. `stash_foreach`) that need a mutable handle even
+/// though they don't mutate persistent on-disk state.
+pub async fn with_repo_read_mut<F, T>(handle: Arc<RepoHandle>, f: F) -> Result<T, AppError>
+where
+    F: FnOnce(&mut Repository) -> Result<T, AppError> + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        let mut r = Repository::open(&handle.path)?;
+        f(&mut r)
+    })
+    .await
+    .map_err(|e| AppError::Io {
+        message: format!("task join: {e}"),
+    })?
+}
+
+/// Run a mutating git2 closure on the blocking thread pool while holding
+/// the per-repo Mutex, serialising index writes for the same repository.
+pub async fn with_repo_write<F, T>(handle: Arc<RepoHandle>, f: F) -> Result<T, AppError>
+where
+    F: FnOnce(&mut Repository) -> Result<T, AppError> + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        let mut r = handle.repo.lock();
+        f(&mut r)
+    })
+    .await
+    .map_err(|e| AppError::Io {
+        message: format!("task join: {e}"),
+    })?
+}

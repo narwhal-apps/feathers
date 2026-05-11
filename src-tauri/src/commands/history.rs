@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use crate::git_core::{self, history::ResetMode};
-use crate::repo_registry::RepoRegistry;
+use crate::repo_registry::{self, RepoRegistry};
 use git2::Oid;
 use tauri::State;
 
@@ -16,8 +16,11 @@ pub async fn branch_create_at(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::branch::create_at(&r, &name, parse_oid(&oid)?)
+    let parsed = parse_oid(&oid)?;
+    repo_registry::with_repo_write(handle, move |r| {
+        git_core::branch::create_at(r, &name, parsed)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -27,8 +30,8 @@ pub async fn commit_cherrypick(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::history::cherrypick(&r, parse_oid(&oid)?)
+    let parsed = parse_oid(&oid)?;
+    repo_registry::with_repo_write(handle, move |r| git_core::history::cherrypick(r, parsed)).await
 }
 
 #[tauri::command]
@@ -38,8 +41,8 @@ pub async fn commit_revert(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::history::revert(&r, parse_oid(&oid)?)
+    let parsed = parse_oid(&oid)?;
+    repo_registry::with_repo_write(handle, move |r| git_core::history::revert(r, parsed)).await
 }
 
 #[tauri::command]
@@ -50,6 +53,7 @@ pub async fn commit_reset(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::history::reset(&r, parse_oid(&oid)?, mode)
+    let parsed = parse_oid(&oid)?;
+    repo_registry::with_repo_write(handle, move |r| git_core::history::reset(r, parsed, mode))
+        .await
 }

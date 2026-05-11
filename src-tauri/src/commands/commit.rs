@@ -4,7 +4,7 @@ use crate::git_core::{
     commit::CommitOpts,
     types::{CommitPage, LogOpts},
 };
-use crate::repo_registry::RepoRegistry;
+use crate::repo_registry::{self, RepoRegistry};
 use tauri::State;
 
 #[tauri::command]
@@ -14,8 +14,10 @@ pub async fn commit_log(
     registry: State<'_, RepoRegistry>,
 ) -> Result<CommitPage, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::commit::log(&r, opts.unwrap_or_default())
+    repo_registry::with_repo_read(handle, move |r| {
+        git_core::commit::log(r, opts.unwrap_or_default())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -25,8 +27,10 @@ pub async fn commit_log_unpushed(
     registry: State<'_, RepoRegistry>,
 ) -> Result<CommitPage, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::commit::log_unpushed(&r, max.unwrap_or(50))
+    repo_registry::with_repo_read(handle, move |r| {
+        git_core::commit::log_unpushed(r, max.unwrap_or(50))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -37,8 +41,10 @@ pub async fn commit_create(
     registry: State<'_, RepoRegistry>,
 ) -> Result<String, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::commit::create(&r, &message, opts.unwrap_or_default())
+    repo_registry::with_repo_write(handle, move |r| {
+        git_core::commit::create(r, &message, opts.unwrap_or_default())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -47,6 +53,5 @@ pub async fn commit_undo(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::commit::undo_last(&r)
+    repo_registry::with_repo_write(handle, |r| git_core::commit::undo_last(r)).await
 }

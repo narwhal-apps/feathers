@@ -2,7 +2,7 @@ use crate::error::AppError;
 use crate::git_core::types::StatusSnapshot;
 use crate::git_core::{self, repo as gc_repo};
 use crate::persistence::store::{AppConfig, ConfigStore};
-use crate::repo_registry::{RepoId, RepoRegistry, RepoSummary};
+use crate::repo_registry::{self, RepoId, RepoRegistry, RepoSummary};
 use crate::watcher::WatcherRegistry;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -110,6 +110,5 @@ pub async fn repo_status(
     registry: State<'_, RepoRegistry>,
 ) -> Result<StatusSnapshot, AppError> {
     let handle = registry.get(&id)?;
-    let r = handle.repo.lock();
-    git_core::status::status(&r)
+    repo_registry::with_repo_read(handle, git_core::status::status).await
 }

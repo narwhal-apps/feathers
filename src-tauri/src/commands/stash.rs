@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use crate::git_core::{self, types::DiffPayload, types::FileChange, types::StashEntry};
-use crate::repo_registry::RepoRegistry;
+use crate::repo_registry::{self, RepoRegistry};
 use tauri::State;
 
 #[tauri::command]
@@ -9,8 +9,7 @@ pub async fn stash_list(
     registry: State<'_, RepoRegistry>,
 ) -> Result<Vec<StashEntry>, AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    git_core::stash::list(&mut r)
+    repo_registry::with_repo_read_mut(handle, git_core::stash::list).await
 }
 
 #[tauri::command]
@@ -22,9 +21,11 @@ pub async fn stash_create(
     registry: State<'_, RepoRegistry>,
 ) -> Result<String, AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    let oid = git_core::stash::create(&mut r, message.as_deref(), include_untracked, keep_index)?;
-    Ok(oid.to_string())
+    repo_registry::with_repo_write(handle, move |r| {
+        let oid = git_core::stash::create(r, message.as_deref(), include_untracked, keep_index)?;
+        Ok(oid.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -34,8 +35,7 @@ pub async fn stash_apply(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    git_core::stash::apply(&mut r, index)
+    repo_registry::with_repo_write(handle, move |r| git_core::stash::apply(r, index)).await
 }
 
 #[tauri::command]
@@ -45,8 +45,7 @@ pub async fn stash_pop(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    git_core::stash::pop(&mut r, index)
+    repo_registry::with_repo_write(handle, move |r| git_core::stash::pop(r, index)).await
 }
 
 #[tauri::command]
@@ -56,8 +55,7 @@ pub async fn stash_drop(
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    git_core::stash::drop_at(&mut r, index)
+    repo_registry::with_repo_write(handle, move |r| git_core::stash::drop_at(r, index)).await
 }
 
 #[tauri::command]
@@ -67,8 +65,7 @@ pub async fn stash_show_files(
     registry: State<'_, RepoRegistry>,
 ) -> Result<Vec<FileChange>, AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    git_core::stash::show_files(&mut r, index)
+    repo_registry::with_repo_read_mut(handle, move |r| git_core::stash::show_files(r, index)).await
 }
 
 #[tauri::command]
@@ -79,6 +76,6 @@ pub async fn stash_diff_file(
     registry: State<'_, RepoRegistry>,
 ) -> Result<DiffPayload, AppError> {
     let handle = registry.get(&id)?;
-    let mut r = handle.repo.lock();
-    git_core::stash::diff_file(&mut r, index, &path)
+    repo_registry::with_repo_read_mut(handle, move |r| git_core::stash::diff_file(r, index, &path))
+        .await
 }
