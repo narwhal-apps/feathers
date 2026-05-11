@@ -112,7 +112,14 @@ pub fn op_continue(repo: &Repository) -> Result<(), AppError> {
         RepositoryState::Revert | RepositoryState::RevertSequence => {
             continue_revert(repo)
         }
-        RepositoryState::Clean => Ok(()),
+        RepositoryState::Clean => {
+            // Stash apply uses our sidecar; check for it.
+            if let Some(sc) = crate::git_core::stash::read_sidecar(repo)? {
+                continue_stash_apply(repo, sc)
+            } else {
+                Ok(())
+            }
+        }
         other => Err(AppError::Git {
             message: format!("continue not supported for state {other:?}"),
         }),
@@ -182,6 +189,64 @@ fn continue_revert(repo: &Repository) -> Result<(), AppError> {
     crate::git_core::history::finalize_revert(repo, &source)
 }
 
+fn continue_stash_apply(
+    repo: &Repository,
+    sc: crate::git_core::stash::StashApplySidecar,
+) -> Result<(), AppError> {
+    // The has_conflicts check at the top of op_continue already guards us, so
+    // by the time we get here the index is conflict-free.
+    if sc.was_pop {
+        // Verify the stash at sc.index still has the expected oid before
+        // dropping. If anything changed (another window dropped/created a
+        // stash), we refuse to drop the wrong thing — but we still clear our
+        // sidecar so the user can move on.
+        let actual = stash_oid_at_for_continue(repo, sc.index);
+        match actual {
+            Ok(oid) if oid.to_string() == sc.stash_oid => {
+                // Safe to drop. Re-open as a mutable handle because
+                // stash_drop requires &mut self in git2-rs.
+                let mut repo_mut = git2::Repository::open(
+                    repo.path().parent().unwrap_or(repo.path()),
+                )?;
+                repo_mut.stash_drop(sc.index)?;
+                // If we crash between stash_drop above and delete_sidecar
+                // below, the next op_continue sees the sidecar pointing at a
+                // dropped/shifted stash, hits the mismatch arm, and self-heals
+                // by deleting the sidecar. Noisy but safe.
+            }
+            _ => {
+                crate::git_core::stash::delete_sidecar(repo)?;
+                return Err(AppError::Git {
+                    message: "stash no longer at expected position — drop manually".into(),
+                });
+            }
+        }
+    }
+    crate::git_core::stash::delete_sidecar(repo)?;
+    Ok(())
+}
+
+/// Walk stashes via a freshly-opened mutable handle so we can use
+/// stash_foreach (which requires &mut). Used at op_continue time to verify
+/// the stash at the stored index still has the expected oid.
+///
+/// Re-opening the repo here is safe because git2::Repository is a thin
+/// handle around the on-disk `.git/`; multiple handles coexist fine.
+fn stash_oid_at_for_continue(repo: &Repository, index: usize) -> Result<git2::Oid, AppError> {
+    let mut repo_mut = git2::Repository::open(repo.path().parent().unwrap_or(repo.path()))?;
+    let mut found: Option<git2::Oid> = None;
+    repo_mut.stash_foreach(|i, _msg, oid| {
+        if i == index {
+            found = Some(*oid);
+            return false;
+        }
+        true
+    })?;
+    found.ok_or_else(|| AppError::Git {
+        message: format!("no stash at index {index}"),
+    })
+}
+
 fn read_cherrypick_head(repo: &Repository) -> Result<git2::Oid, AppError> {
     let path = repo.path().join("CHERRY_PICK_HEAD");
     let raw = std::fs::read_to_string(&path).map_err(|e| AppError::Io {
@@ -226,7 +291,17 @@ pub fn op_abort(repo: &Repository) -> Result<(), AppError> {
             repo.cleanup_state()?;
             Ok(())
         }
-        RepositoryState::Clean => Ok(()),
+        RepositoryState::Clean => {
+            // Stash apply: discard in-progress conflict resolution by
+            // hard-resetting back to HEAD, then clear sidecar.
+            // Stash itself is untouched.
+            if crate::git_core::stash::read_sidecar(repo)?.is_some() {
+                let head = repo.head()?.peel(git2::ObjectType::Commit)?;
+                repo.reset(&head, ResetType::Hard, None)?;
+                crate::git_core::stash::delete_sidecar(repo)?;
+            }
+            Ok(())
+        }
         other => Err(AppError::Git {
             message: format!("abort not supported for state {other:?}"),
         }),
