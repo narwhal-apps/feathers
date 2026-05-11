@@ -6,6 +6,11 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
+  import {
+    useRepoStatus,
+    useRepoBranches,
+    useRepoOpState,
+  } from '$lib/stores/repo-context';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
@@ -18,14 +23,10 @@
   import CreateStashModal from '$lib/components/dialogs/CreateStashModal.svelte';
   import { isOpInProgress } from '$lib/types';
   import type {
-    StatusSnapshot,
     DiffPayload,
     DiffFile,
     FileStatus,
-    BranchInfo,
-    OpState,
     AppError,
-    StashEntry,
     FileChange,
   } from '$lib/types';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
@@ -34,16 +35,10 @@
 
   const id = $derived($page.params.id ?? '');
 
-  const status = createQuery<StatusSnapshot>(
-    () => queryKeys.repoStatus(id),
-    () => invoke<StatusSnapshot>('repo_status', { id }),
-  );
-
-  // Branch + remote URL for the per-file "open on remote" link.
-  const branches = createQuery<BranchInfo[] | null>(
-    () => queryKeys.repoBranches(id),
-    () => invoke<BranchInfo[]>('branch_list', { id }),
-  );
+  // Status / branches / op-state come from the repo layout context — one
+  // subscription shared across the layout + every child route.
+  const status = useRepoStatus();
+  const branches = useRepoBranches();
   const remoteUrl = createQuery<string | null>(
     () => queryKeys.repoRemoteUrl(id),
     () => invoke<string | null>('repo_remote_url', { id }),
@@ -59,10 +54,7 @@
   }
 
   // Conflict handling.
-  const opState = createQuery<OpState>(
-    () => queryKeys.repoOpState(id),
-    () => invoke<OpState>('repo_op_state', { id }),
-  );
+  const opState = useRepoOpState();
   const conflictedCount = $derived(status.data?.conflicted.length ?? 0);
   const activeRepoPath = $derived(repos.activeRepo?.path ?? null);
   const opInProgress = $derived(opState.data != null && isOpInProgress(opState.data.kind));

@@ -4,7 +4,8 @@
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
-  import type { StatusSnapshot } from '$lib/types';
+  import { provideRepoQueries } from '$lib/stores/repo-context';
+  import type { StatusSnapshot, BranchInfo, OpState } from '$lib/types';
 
   let { children } = $props();
 
@@ -16,10 +17,24 @@
   const id = $derived($page.params.id ?? '');
   const active = $derived($page.url.pathname.split('/')[3] ?? 'changes');
 
+  // Single subscription for status / branches / op-state, shared with every
+  // child route via Svelte context. Without this, each consumer page (changes,
+  // history, …) calls createQuery independently and pays the notify cost N
+  // times even though the cache entry is identical.
   const status = createQuery<StatusSnapshot | null>(
     () => id ? queryKeys.repoStatus(id) : ['noop'],
     () => id ? invoke<StatusSnapshot>('repo_status', { id }) : Promise.resolve(null),
   );
+  const branches = createQuery<BranchInfo[] | null>(
+    () => id ? queryKeys.repoBranches(id) : ['noop'],
+    () => id ? invoke<BranchInfo[]>('branch_list', { id }) : Promise.resolve(null),
+  );
+  const opState = createQuery<OpState | null>(
+    () => id ? queryKeys.repoOpState(id) : ['noop'],
+    () => id ? invoke<OpState>('repo_op_state', { id }) : Promise.resolve(null),
+  );
+
+  provideRepoQueries({ status, branches, opState });
 
   const changesCount = $derived.by(() => {
     const s = status.data;

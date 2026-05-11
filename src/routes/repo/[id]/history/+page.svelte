@@ -4,6 +4,11 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
+  import {
+    useRepoStatus,
+    useRepoBranches,
+    useRepoOpState,
+  } from '$lib/stores/repo-context';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
@@ -15,7 +20,7 @@
   import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
   import ResetModal from '$lib/components/history/ResetModal.svelte';
   import Toast from '$lib/components/history/Toast.svelte';
-  import { opKindLabel, type BranchInfo, type StatusSnapshot, type OpKind, type OpState } from '$lib/types';
+  import { opKindLabel, type OpKind } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
 
@@ -26,19 +31,11 @@
 
   let selectedOid = $state<string | null>(null);
 
-  // Used by Open-on-GitHub disabled state and ResetModal's lossy-count.
-  const branches = createQuery<BranchInfo[]>(
-    () => queryKeys.repoBranches(id),
-    () => invoke<BranchInfo[]>('branch_list', { id }),
-  );
-  const status = createQuery<StatusSnapshot>(
-    () => queryKeys.repoStatus(id),
-    () => invoke<StatusSnapshot>('repo_status', { id }),
-  );
-  const opState = createQuery<OpState>(
-    () => queryKeys.repoOpState(id),
-    () => invoke<OpState>('repo_op_state', { id }),
-  );
+  // Branches / status / op-state come from the repo layout context — single
+  // shared subscription instead of one per consumer page.
+  const branches = useRepoBranches();
+  const status = useRepoStatus();
+  const opState = useRepoOpState();
 
   const currentBranch = $derived(branches.data?.find((b) => b.is_head)?.name ?? 'HEAD');
   const opKind = $derived<OpKind>(opState.data?.kind ?? 'clean');
