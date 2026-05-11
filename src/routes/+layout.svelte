@@ -11,6 +11,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Titlebar from '$lib/components/shell/Titlebar.svelte';
+  import DialogHost from '$lib/components/primitives/DialogHost.svelte';
   import { queryClient } from '$lib/query/client';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
@@ -152,6 +153,8 @@
 <main class="page" class:full={isSettings}>
   {@render children?.()}
 </main>
+
+<DialogHost />
 
 <style>
   :global(html, body) { height: 100%; }
