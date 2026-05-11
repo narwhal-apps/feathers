@@ -420,7 +420,6 @@
     line-height: 1.5;
   }
   .primary {
-    margin-top: var(--sp-2);
     display: inline-flex;
     align-items: center;
     justify-content: center;
