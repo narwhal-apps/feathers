@@ -430,7 +430,6 @@
                       title="Open in editor"
                       aria-label="Open {row.path} in editor"
                       onclick={() => openInEditor(row.path)}
-                      disabled={busy}
                     >
                       <Icon name="ExternalLink" size={12} />
                     </button>
@@ -439,7 +438,6 @@
                       title="Mark resolved"
                       aria-label="Mark {row.path} resolved"
                       onclick={() => markResolved([row.path])}
-                      disabled={busy}
                     >
                       <Icon name="Check" size={12} />
                     </button>
@@ -449,7 +447,6 @@
                       title="Discard"
                       aria-label="Discard {row.path}"
                       onclick={() => discardPaths([row.path], row.path)}
-                      disabled={busy}
                     >
                       <Icon name="Undo2" size={12} />
                     </button>
