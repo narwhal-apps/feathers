@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { github } from '$lib/stores/github.svelte';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
 
@@ -56,10 +57,7 @@
       <div class="login">@{github.user.login}</div>
       {#if github.user.name}<div class="name">{github.user.name}</div>{/if}
     </div>
-    <button class="btn ghost" onclick={signOut}>
-      <Icon name="LogOut" size={13} />
-      Sign out
-    </button>
+    <Button variant="ghost" iconLeft="LogOut" label="Sign out" onclick={signOut} />
   </div>
 {:else if stage === 'waiting' && code}
   <div class="flow">
@@ -101,13 +99,13 @@
       <strong>Sign-in failed</strong>
       <span>{errorMsg}</span>
     </div>
-    <button class="btn" onclick={startSignIn}>Try again</button>
+    <Button onclick={startSignIn} label="Try again" />
   </div>
 {:else}
   <div class="signed-out">
     <Icon name="Github" size={32} />
     <p>Sign in to see your pull requests and create new ones.</p>
-    <button class="btn primary" onclick={startSignIn}>Sign in with GitHub</button>
+    <Button variant="primary" iconLeft="LogIn" label="Sign in with GitHub" onclick={startSignIn} />
   </div>
 {/if}
 
@@ -125,20 +123,6 @@
   .who { flex: 1; min-width: 0; }
   .login { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: var(--weight-medium); }
   .name { color: var(--fg-subtle); font-size: var(--fs-xs); }
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    background: var(--bg-elev-2);
-    color: var(--fg);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-  .btn:hover { background: var(--bg-elev-3); }
-  .btn.ghost { background: transparent; }
-  .btn.primary { background: var(--accent-bg-medium); color: var(--accent-fg); border-color: transparent; }
   .signed-out {
     display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
     padding: var(--sp-5);
