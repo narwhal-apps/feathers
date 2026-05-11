@@ -6,7 +6,7 @@
   import { repos } from '$lib/stores/repos.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
-  import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import Kbd from '$lib/components/primitives/Kbd.svelte';
   import type { BranchInfo } from '$lib/types';
 
@@ -63,10 +63,7 @@
         </p>
         <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
       </div>
-      <button type="button" class="btn primary-btn" onclick={() => ui.createPr()}>
-        <Icon name="GitPullRequest" size={12} />
-        Open pull request
-      </button>
+      <Button variant="primary" iconLeft="GitPullRequest" label="Open pull request" onclick={() => ui.createPr()} />
     </article>
   {/if}
 
@@ -79,10 +76,7 @@
         </p>
         <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'P']} /></div>
       </div>
-      <button type="button" class="btn" onclick={() => ui.push()}>
-        <Icon name="ArrowUp" size={12} />
-        Push
-      </button>
+      <Button variant="secondary" iconLeft="ArrowUp" label="Push" onclick={() => ui.push()} />
     </article>
   {/if}
 
@@ -93,10 +87,7 @@
         <p>Cursor, VS Code, Zed, or whatever is set as default.</p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'A']} /></div>
       </div>
-      <button type="button" class="btn" onclick={openInEditor}>
-        <Icon name="ExternalLink" size={12} />
-        Open
-      </button>
+      <Button variant="secondary" iconLeft="ExternalLink" label="Open" onclick={openInEditor} />
     </article>
   {/if}
 
@@ -107,10 +98,7 @@
         <p><code>{webBase}</code></p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'G']} /></div>
       </div>
-      <button type="button" class="btn" onclick={openOnGithub}>
-        <Icon name="ExternalLink" size={12} />
-        View
-      </button>
+      <Button variant="secondary" iconLeft="ExternalLink" label="View" onclick={openOnGithub} />
     </article>
   {/if}
 
@@ -176,32 +164,6 @@
     font-size: var(--fs-2xs);
     line-height: 1;
   }
-
-  .btn {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: border-color var(--t-fast), background var(--t-fast);
-  }
-  .btn:hover { border-color: var(--border-strong); background: var(--bg-elev-2); }
-  .btn :global(svg) { color: var(--fg-subtle); }
-  .btn.primary-btn {
-    background: var(--accent-500);
-    color: var(--accent-on);
-    border-color: transparent;
-  }
-  .btn.primary-btn :global(svg) { color: var(--accent-on); }
-  .btn.primary-btn:hover { background: var(--accent-400); }
 
   .more {
     margin-top: 8px;

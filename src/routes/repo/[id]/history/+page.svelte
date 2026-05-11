@@ -11,6 +11,7 @@
   } from '$lib/stores/repo-context';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
@@ -364,13 +365,14 @@
     {/snippet}
 
     {#snippet foot()}
-      <button type="button" class="btn ghost" onclick={closeAmend} disabled={amending}>Cancel</button>
-      <button
-        type="button"
-        class="btn primary"
+      <Button variant="ghost" label="Cancel" onclick={closeAmend} disabled={amending} />
+      <Button
+        variant="primary"
+        label={amending ? 'Amending…' : 'Amend'}
+        loading={amending}
         onclick={submitAmend}
         disabled={amending || !amendMessage.trim() || amendMessage.trim() === target.summary}
-      >{amending ? 'Amending…' : 'Amend'}</button>
+      />
     {/snippet}
   </Modal>
 {/if}
@@ -510,25 +512,6 @@
     transition: border-color var(--t-fast);
   }
   .input.message:focus { border-color: var(--accent-500); }
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 
   .ctx-divider {
     height: 1px;
