@@ -113,15 +113,15 @@
         ? Promise.resolve([] as FileChange[])
         : invoke<FileChange[]>('stash_show_files', { id, index: selectedStashIndex }),
   );
-  const stashDiff = createQuery<string>(
+  const stashDiff = createQuery<DiffPayload>(
     () =>
       selectedStashIndex == null || selected == null
         ? ['noop']
         : queryKeys.repoStashDiff(id, selectedStashIndex, selected),
     () =>
       selectedStashIndex == null || selected == null
-        ? Promise.resolve('')
-        : invoke<string>('stash_diff_file', {
+        ? Promise.resolve({ files: [] } as DiffPayload)
+        : invoke<DiffPayload>('stash_diff_file', {
             id,
             index: selectedStashIndex,
             path: selected,
@@ -539,10 +539,10 @@
         <div class="hint">Loading diff…</div>
       {:else if stashDiff.error}
         <div class="err">{String(stashDiff.error)}</div>
-      {:else if (stashDiff.data ?? '').trim() === ''}
+      {:else if stashDiff.data && stashDiff.data.files.length === 0}
         <div class="hint">No changes for this file in the stash.</div>
-      {:else}
-        <pre class="patch">{stashDiff.data}</pre>
+      {:else if stashDiff.data}
+        <DiffView payload={stashDiff.data} />
       {/if}
     {:else if selected == null}
       <EmptyDiffHints {id} />
@@ -964,15 +964,4 @@
   }
   .stash-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .stash-btn :global(svg) { color: var(--fg-subtle); }
-  .patch {
-    margin: 0;
-    padding: var(--sp-3);
-    background: var(--bg);
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    line-height: 1.45;
-    white-space: pre;
-    overflow: auto;
-  }
 </style>

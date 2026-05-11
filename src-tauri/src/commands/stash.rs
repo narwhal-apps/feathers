@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::git_core::{self, types::FileChange, types::StashEntry};
+use crate::git_core::{self, types::DiffPayload, types::FileChange, types::StashEntry};
 use crate::repo_registry::RepoRegistry;
 use tauri::State;
 
@@ -77,7 +77,7 @@ pub async fn stash_diff_file(
     index: usize,
     path: String,
     registry: State<'_, RepoRegistry>,
-) -> Result<String, AppError> {
+) -> Result<DiffPayload, AppError> {
     let handle = registry.get(&id)?;
     let mut r = handle.repo.lock();
     git_core::stash::diff_file(&mut r, index, &path)

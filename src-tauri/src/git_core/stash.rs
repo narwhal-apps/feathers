@@ -1,7 +1,8 @@
 use crate::error::AppError;
+use crate::git_core::diff::diff_to_payload;
 use crate::git_core::op;
-use crate::git_core::types::{FileChange, FileStatus, StashEntry};
-use git2::{Delta, DiffOptions, Oid, Patch, Repository, StashFlags};
+use crate::git_core::types::{DiffPayload, FileChange, FileStatus, StashEntry};
+use git2::{Delta, DiffOptions, Oid, Repository, StashFlags};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -199,24 +200,15 @@ pub fn show_files(repo: &mut Repository, index: usize) -> Result<Vec<FileChange>
     Ok(out)
 }
 
-/// Render a `git2::Diff` to a unified-diff string. Returns "" when the diff has
-/// no deltas or when libgit2 declines to produce a patch.
-fn diff_to_patch_string(diff: &git2::Diff<'_>) -> Result<String, AppError> {
-    if diff.deltas().len() == 0 {
-        return Ok(String::new());
-    }
-    let Some(mut p) = Patch::from_diff(diff, 0)? else {
-        return Ok(String::new());
-    };
-    let buf = p.to_buf()?;
-    Ok(String::from_utf8_lossy(&buf).into_owned())
-}
-
-/// Return a unified-diff string for one path inside a stash. Returns "" if the
-/// path doesn't appear in the stash diff. For stashes created with
-/// `--include-untracked`, falls through to parent(2) (the untracked tree) when
-/// the tracked diff has no entry for the path.
-pub fn diff_file(repo: &mut Repository, index: usize, path: &str) -> Result<String, AppError> {
+/// Return a structured diff payload for one path inside a stash. Returns an
+/// empty payload (`files: []`) if the path doesn't appear in the stash diff.
+/// For stashes created with `--include-untracked`, falls through to parent(2)
+/// (the untracked tree) when the tracked diff has no entry for the path.
+pub fn diff_file(
+    repo: &mut Repository,
+    index: usize,
+    path: &str,
+) -> Result<DiffPayload, AppError> {
     let oid = stash_oid_at(repo, index)?;
     let stash_commit = repo.find_commit(oid)?;
     let stash_tree = stash_commit.tree()?;
@@ -226,9 +218,11 @@ pub fn diff_file(repo: &mut Repository, index: usize, path: &str) -> Result<Stri
     let mut opts = DiffOptions::new();
     opts.pathspec(path);
     let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&stash_tree), Some(&mut opts))?;
-    let s = diff_to_patch_string(&diff)?;
-    if !s.is_empty() {
-        return Ok(s);
+    if diff.deltas().len() > 0 {
+        let payload = diff_to_payload(&diff)?;
+        if !payload.files.is_empty() {
+            return Ok(payload);
+        }
     }
 
     // Untracked files (when stashed with INCLUDE_UNTRACKED) live on parent(2).
@@ -240,13 +234,15 @@ pub fn diff_file(repo: &mut Repository, index: usize, path: &str) -> Result<Stri
         u_opts.include_untracked(true);
         let u_diff =
             repo.diff_tree_to_tree(None, Some(&untracked_tree), Some(&mut u_opts))?;
-        let s = diff_to_patch_string(&u_diff)?;
-        if !s.is_empty() {
-            return Ok(s);
+        if u_diff.deltas().len() > 0 {
+            let payload = diff_to_payload(&u_diff)?;
+            if !payload.files.is_empty() {
+                return Ok(payload);
+            }
         }
     }
 
-    Ok(String::new())
+    Ok(DiffPayload { files: vec![] })
 }
 
 /// Sidecar describing an in-flight `stash_apply` that may have left conflicts

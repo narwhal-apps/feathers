@@ -19,7 +19,7 @@ pub fn diff_workdir(
     }
     let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
     let diff = repo.diff_tree_to_workdir_with_index(head_tree.as_ref(), Some(&mut opts))?;
-    serialize(&diff)
+    diff_to_payload(&diff)
 }
 
 pub fn diff_index(repo: &Repository, paths: Option<Vec<String>>) -> Result<DiffPayload, AppError> {
@@ -31,7 +31,7 @@ pub fn diff_index(repo: &Repository, paths: Option<Vec<String>>) -> Result<DiffP
     }
     let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
     let diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))?;
-    serialize(&diff)
+    diff_to_payload(&diff)
 }
 
 pub fn diff_commit(repo: &Repository, oid_str: &str) -> Result<DiffPayload, AppError> {
@@ -45,7 +45,7 @@ pub fn diff_commit(repo: &Repository, oid_str: &str) -> Result<DiffPayload, AppE
     };
     let mut opts = base_opts();
     let diff = repo.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
-    serialize(&diff)
+    diff_to_payload(&diff)
 }
 
 fn base_opts() -> DiffOptions {
@@ -60,7 +60,7 @@ fn base_opts() -> DiffOptions {
     o
 }
 
-fn serialize(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
+pub(crate) fn diff_to_payload(diff: &Diff<'_>) -> Result<DiffPayload, AppError> {
     let files: RefCell<Vec<DiffFile>> = RefCell::new(vec![]);
     let current_file: RefCell<Option<DiffFile>> = RefCell::new(None);
     let current_hunk: RefCell<Option<DiffHunk>> = RefCell::new(None);

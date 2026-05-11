@@ -189,40 +189,64 @@ fn show_files_out_of_range_returns_git_error() {
 
 #[test]
 fn diff_file_returns_unified_diff_for_a_path() {
+    use feathers_app_lib::git_core::types::DiffLineKind;
+
     let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
     let mut r = repo::open(dir.path()).unwrap();
     common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
     stash::create(&mut r, None, false, false).unwrap();
 
-    let patch = stash::diff_file(&mut r, 0, "a.txt").unwrap();
-    assert!(patch.contains("---"));
-    assert!(patch.contains("+++"));
-    assert!(patch.contains("-alpha"));
-    assert!(patch.contains("+alpha edited"));
+    let payload = stash::diff_file(&mut r, 0, "a.txt").unwrap();
+    assert_eq!(payload.files.len(), 1);
+    assert_eq!(payload.files[0].path, "a.txt");
+    let mut found_del = false;
+    let mut found_add = false;
+    for hunk in &payload.files[0].hunks {
+        for line in &hunk.lines {
+            if matches!(line.kind, DiffLineKind::Del) && line.text.contains("alpha") {
+                found_del = true;
+            }
+            if matches!(line.kind, DiffLineKind::Add) && line.text.contains("alpha edited") {
+                found_add = true;
+            }
+        }
+    }
+    assert!(found_del, "expected a Del line containing 'alpha'");
+    assert!(found_add, "expected an Add line containing 'alpha edited'");
 }
 
 #[test]
-fn diff_file_for_unknown_path_returns_empty_string() {
+fn diff_file_for_unknown_path_returns_empty_payload() {
     let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
     let mut r = repo::open(dir.path()).unwrap();
     common::fixtures::write_file(dir.path(), "a.txt", "alpha edited\n");
     stash::create(&mut r, None, false, false).unwrap();
 
-    let patch = stash::diff_file(&mut r, 0, "does/not/exist.txt").unwrap();
-    assert_eq!(patch, "");
+    let payload = stash::diff_file(&mut r, 0, "does/not/exist.txt").unwrap();
+    assert!(payload.files.is_empty());
 }
 
 #[test]
 fn diff_file_returns_unified_diff_for_untracked_file_in_stash() {
+    use feathers_app_lib::git_core::types::DiffLineKind;
+
     let dir = common::fixtures::seeded_repo(&[("a.txt", "alpha\n")]);
     let mut r = repo::open(dir.path()).unwrap();
     common::fixtures::write_file(dir.path(), "newfile.txt", "brand new\n");
     stash::create(&mut r, None, true, false).unwrap();
 
-    let patch = stash::diff_file(&mut r, 0, "newfile.txt").unwrap();
-    // Untracked-file diff should show the file being created.
-    assert!(patch.contains("+++"));
-    assert!(patch.contains("+brand new"));
+    let payload = stash::diff_file(&mut r, 0, "newfile.txt").unwrap();
+    assert_eq!(payload.files.len(), 1);
+    assert_eq!(payload.files[0].path, "newfile.txt");
+    let mut found_add = false;
+    for hunk in &payload.files[0].hunks {
+        for line in &hunk.lines {
+            if matches!(line.kind, DiffLineKind::Add) && line.text.contains("brand new") {
+                found_add = true;
+            }
+        }
+    }
+    assert!(found_add, "expected an Add line containing 'brand new'");
 }
 
 #[test]
