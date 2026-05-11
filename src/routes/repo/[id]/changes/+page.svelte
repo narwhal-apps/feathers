@@ -414,11 +414,16 @@
               {/key}
             </span>
             {#if !showingStash}
-              <button
-                class="bulk danger"
-                onclick={discardAll}
-                title="Discard all changes">Discard all</button
-              >
+              <span class="discard-all">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconLeft="Undo2"
+                  label="Discard all"
+                  onclick={discardAll}
+                  title="Discard all changes"
+                />
+              </span>
             {/if}
           </header>
           <ul>
@@ -710,25 +715,9 @@
     from { transform: translateY(60%); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
   }
-  .bulk {
-    color: var(--fg-subtle);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    transition: color var(--t-fast);
-  }
-  .bulk:hover:not(:disabled) {
-    color: var(--accent-fg);
-  }
-  .bulk:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .bulk.danger {
+  .discard-all {
     margin-left: auto;
-  }
-  .bulk.danger:hover:not(:disabled) {
-    color: var(--removed);
+    display: inline-flex;
   }
 
   .files ul {

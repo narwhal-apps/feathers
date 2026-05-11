@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
@@ -463,13 +464,14 @@
     {/snippet}
 
     {#snippet foot()}
-      <button type="button" class="btn ghost" onclick={closeModal} disabled={busy}>Cancel</button>
-      <button
-        type="button"
-        class="btn primary"
+      <Button variant="ghost" label="Cancel" onclick={closeModal} disabled={busy} />
+      <Button
+        variant="primary"
+        label={busy ? 'Creating…' : 'Create branch'}
+        loading={busy}
         onclick={createBranch}
         disabled={busy || !newName.trim()}
-      >{busy ? 'Creating…' : 'Create branch'}</button>
+      />
     {/snippet}
   </Modal>
 {/if}
@@ -524,13 +526,14 @@
     {/snippet}
 
     {#snippet foot()}
-      <button type="button" class="btn ghost" onclick={closeRename} disabled={busy}>Cancel</button>
-      <button
-        type="button"
-        class="btn primary"
+      <Button variant="ghost" label="Cancel" onclick={closeRename} disabled={busy} />
+      <Button
+        variant="primary"
+        label={busy ? 'Renaming…' : 'Rename'}
+        loading={busy}
         onclick={submitRename}
         disabled={busy || !renameName.trim() || renameName.trim() === target.name}
-      >{busy ? 'Renaming…' : 'Rename'}</button>
+      />
     {/snippet}
   </Modal>
 {/if}
@@ -837,29 +840,6 @@
   }
   .seg-static :global(svg) { color: var(--accent-fg); flex-shrink: 0; }
   .seg-static .seg-tag { color: var(--accent-fg); opacity: 0.85; }
-
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary {
-    background: var(--accent-500);
-    color: var(--accent-on);
-  }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 
   /* Right-click context menu */
   .ctx-menu {
