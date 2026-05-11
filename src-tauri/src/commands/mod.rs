@@ -11,4 +11,5 @@ pub mod remote;
 pub mod repo;
 pub mod settings;
 pub mod stage;
+pub mod stash;
 pub mod window;

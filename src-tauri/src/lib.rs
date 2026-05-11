@@ -113,6 +113,13 @@ pub fn run() {
             commands::history::commit_cherrypick,
             commands::history::commit_revert,
             commands::history::commit_reset,
+            commands::stash::stash_list,
+            commands::stash::stash_create,
+            commands::stash::stash_apply,
+            commands::stash::stash_pop,
+            commands::stash::stash_drop,
+            commands::stash::stash_show_files,
+            commands::stash::stash_diff_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
