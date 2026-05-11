@@ -123,7 +123,12 @@
         message: next,
         opts: { amend: true },
       });
-      queryClient.invalidate(['repo', id]);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(id),
+        ['repo', id, 'log'],
+        queryKeys.repoLogUnpushed(id),
+        queryKeys.repoBranches(id),
+      ]);
       closeAmend();
     } catch (err) {
       const e = err as AppError;

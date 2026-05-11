@@ -70,7 +70,11 @@
     busy = `apply:${s.index}`;
     try {
       await invoke('stash_apply', { id: repoId, index: s.index });
-      queryClient.invalidate(['repo', repoId]);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(repoId),
+        queryKeys.repoOpState(repoId),
+        ['repo', repoId, 'diff'],
+      ]);
     } catch (err) {
       flashError(formatError(err));
     } finally {
@@ -83,7 +87,12 @@
     busy = `pop:${s.index}`;
     try {
       await invoke('stash_pop', { id: repoId, index: s.index });
-      queryClient.invalidate(['repo', repoId]);
+      queryClient.invalidateMany([
+        queryKeys.repoStashes(repoId),
+        queryKeys.repoStatus(repoId),
+        queryKeys.repoOpState(repoId),
+        ['repo', repoId, 'diff'],
+      ]);
       // The popped stash may no longer exist; clear selection if it was selected.
       if (selectedIndex === s.index) onSelect(null);
     } catch (err) {
@@ -100,7 +109,7 @@
     busy = `drop:${s.index}`;
     try {
       await invoke('stash_drop', { id: repoId, index: s.index });
-      queryClient.invalidate(['repo', repoId]);
+      queryClient.invalidate(queryKeys.repoStashes(repoId));
       if (selectedIndex === s.index) onSelect(null);
     } catch (err) {
       flashError(formatError(err));

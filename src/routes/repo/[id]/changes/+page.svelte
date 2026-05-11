@@ -220,7 +220,12 @@
       await withBusy(async () => {
         await invoke('commit_create', { id, message: message.trim() });
         message = '';
-        queryClient.invalidate(['repo', id]);
+        queryClient.invalidateMany([
+          queryKeys.repoStatus(id),
+          ['repo', id, 'log'],
+          queryKeys.repoLogUnpushed(id),
+          queryKeys.repoBranches(id),
+        ]);
       });
     } finally {
       committing = false;

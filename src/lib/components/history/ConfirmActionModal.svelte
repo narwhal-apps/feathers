@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
+  import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo, AppError } from '$lib/types';
 
   type Kind = 'cherrypick' | 'revert';
@@ -45,7 +46,14 @@
     errorMsg = null;
     try {
       await invoke(cmd, { id: repoId, oid: commit.oid });
-      queryClient.invalidate(['repo', repoId]);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(repoId),
+        ['repo', repoId, 'log'],
+        queryKeys.repoLogUnpushed(repoId),
+        queryKeys.repoBranches(repoId),
+        queryKeys.repoOpState(repoId),
+        ['repo', repoId, 'diff'],
+      ]);
       onClose();
     } catch (err) {
       errorMsg = formatError(err);

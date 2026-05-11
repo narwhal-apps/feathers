@@ -68,6 +68,15 @@ export class QueryClient {
     }
   }
 
+  // Convenience: invalidate multiple keys in one call. Usage:
+  //   queryClient.invalidateMany([
+  //     queryKeys.repoStatus(id),
+  //     queryKeys.repoLog(id),
+  //   ]);
+  invalidateMany(prefixes: Key[]): void {
+    for (const p of prefixes) this.invalidate(p);
+  }
+
   private fetch(k: string): void {
     const entry = this.cache.get(k);
     if (!entry || !entry.fetcher) return;

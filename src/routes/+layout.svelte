@@ -58,7 +58,14 @@
   $effect(() => {
     if (!browser) return;
     const stop = listen<{ id: string }>('repo_changed', (e) => {
-      queryClient.invalidate(['repo', e.payload.id]);
+      // Workdir/index changes never bump branches or log — narrow to the
+      // two views that actually update on FS events. The watcher fix (perf
+      // #2) will refine further once the event payload distinguishes refs
+      // from workdir.
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(e.payload.id),
+        queryKeys.repoOpState(e.payload.id),
+      ]);
     });
     return () => { stop.then((unlisten) => unlisten()); };
   });

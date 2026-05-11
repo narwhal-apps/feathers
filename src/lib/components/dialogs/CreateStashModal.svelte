@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
+  import { queryKeys } from '$lib/query/keys';
   import type { AppError, StatusSnapshot } from '$lib/types';
 
   let {
@@ -46,7 +47,11 @@
         includeUntracked,
         keepIndex,
       });
-      queryClient.invalidate(['repo', repoId]);
+      queryClient.invalidateMany([
+        queryKeys.repoStashes(repoId),
+        queryKeys.repoStatus(repoId),
+        ['repo', repoId, 'diff'],
+      ]);
       onClose();
     } catch (err) {
       errorMsg = formatError(err);

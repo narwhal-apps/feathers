@@ -5,6 +5,7 @@
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
+  import { queryKeys } from '$lib/query/keys';
   import { isStashApply } from '$lib/types';
   import type { OpKind, AppError } from '$lib/types';
 
@@ -80,7 +81,11 @@
     busy = `resolve:${path}`;
     try {
       await invoke('stage_files', { id, paths: [path] });
-      queryClient.invalidate(['repo', id]);
+      // Marking a conflicted file resolved updates status + diffs.
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(id),
+        ['repo', id, 'diff'],
+      ]);
     } catch (err) {
       reportError(`Failed to mark ${path} resolved`, err);
     } finally {
@@ -109,7 +114,14 @@
     busy = 'continue';
     try {
       await invoke('repo_op_continue', { id });
-      queryClient.invalidate(['repo', id]);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(id),
+        queryKeys.repoOpState(id),
+        queryKeys.repoBranches(id),
+        ['repo', id, 'log'],
+        queryKeys.repoStashes(id),
+        ['repo', id, 'diff'],
+      ]);
     } catch (err) {
       reportError(`Failed to continue ${label}`, err);
     } finally {
@@ -127,7 +139,14 @@
     busy = 'abort';
     try {
       await invoke('repo_op_abort', { id });
-      queryClient.invalidate(['repo', id]);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(id),
+        queryKeys.repoOpState(id),
+        queryKeys.repoBranches(id),
+        ['repo', id, 'log'],
+        queryKeys.repoStashes(id),
+        ['repo', id, 'diff'],
+      ]);
     } catch (err) {
       reportError(`Failed to abort ${label}`, err);
     } finally {

@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
+  import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo, AppError } from '$lib/types';
 
   let {
@@ -41,7 +42,12 @@
     errorMsg = null;
     try {
       await invoke('branch_create_at', { id: repoId, name: name.trim(), oid: commit.oid });
-      queryClient.invalidate(['repo', repoId]);
+      queryClient.invalidateMany([
+        queryKeys.repoBranches(repoId),
+        ['repo', repoId, 'log'],
+        queryKeys.repoStatus(repoId),
+        queryKeys.repoOpState(repoId),
+      ]);
       onClose();
       await goto(`/repo/${repoId}/changes/`);
     } catch (err) {

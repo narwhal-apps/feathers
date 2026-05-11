@@ -108,8 +108,14 @@
     busy = true;
     try {
       await invoke('branch_checkout', { id: active.id, name: b.name });
-      // Branch + status + log + workdir diff all change after checkout.
-      queryClient.invalidate(['repo', active.id]);
+      // Branch + status + log + op-state + workdir diff all change after checkout.
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(active.id),
+        queryKeys.repoBranches(active.id),
+        ['repo', active.id, 'log'],
+        queryKeys.repoOpState(active.id),
+        ['repo', active.id, 'diff'],
+      ]);
       close();
     } catch (err) {
       const e = err as AppError;
@@ -145,7 +151,15 @@
         from: fromName,
         checkout: true,
       });
-      queryClient.invalidate(['repo', active.id]);
+      // Create + checkout: branches list changes, status/op-state shift to
+      // the new branch, and log + workdir diff may differ.
+      queryClient.invalidateMany([
+        queryKeys.repoBranches(active.id),
+        queryKeys.repoStatus(active.id),
+        ['repo', active.id, 'log'],
+        queryKeys.repoOpState(active.id),
+        ['repo', active.id, 'diff'],
+      ]);
       closeModal();
     } catch (err) {
       reportError('Failed to create branch', err);
@@ -185,7 +199,7 @@
         oldName: renameTarget.name,
         newName: next,
       });
-      queryClient.invalidate(['repo', active.id]);
+      queryClient.invalidate(queryKeys.repoBranches(active.id));
       closeRename();
     } catch (err) {
       reportError('Failed to rename branch', err);

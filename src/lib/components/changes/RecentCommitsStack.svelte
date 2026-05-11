@@ -33,7 +33,12 @@
     undoing = true;
     try {
       await invoke('commit_undo', { id });
-      queryClient.invalidate(['repo', id]);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(id),
+        ['repo', id, 'log'],
+        queryKeys.repoLogUnpushed(id),
+        queryKeys.repoBranches(id),
+      ]);
     } catch (err) {
       const e = err as AppError;
       const msg =

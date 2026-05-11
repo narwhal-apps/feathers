@@ -100,8 +100,30 @@
       await fn();
       // Fetch & pull both consult the remote → mark the timestamp.
       if (kind === 'fetch' || kind === 'pull') repos.markFetched(active.id);
-      // Anything that touches refs can change branches/log/status.
-      queryClient.invalidate(['repo', active.id]);
+      // Narrow per-op so we only refetch what actually changed.
+      const id = active.id;
+      if (kind === 'fetch') {
+        queryClient.invalidateMany([
+          queryKeys.repoBranches(id),
+          ['repo', id, 'log'],
+          queryKeys.repoLogUnpushed(id),
+        ]);
+      } else if (kind === 'pull') {
+        queryClient.invalidateMany([
+          queryKeys.repoStatus(id),
+          queryKeys.repoBranches(id),
+          ['repo', id, 'log'],
+          queryKeys.repoLogUnpushed(id),
+          queryKeys.repoOpState(id),
+          ['repo', id, 'diff'],
+        ]);
+      } else {
+        // push / publish — only the remote-tracking refs and unpushed log change.
+        queryClient.invalidateMany([
+          queryKeys.repoBranches(id),
+          queryKeys.repoLogUnpushed(id),
+        ]);
+      }
     } catch (err) {
       reportError(`Failed to ${kind}`, err);
     } finally {
