@@ -139,7 +139,7 @@
   });
 </script>
 
-{#if stashes.loading || stashes.error || (stashes.data && stashes.data.length > 0)}
+{#if (stashes.data?.length ?? 0) > 0}
   <section class="stashes" aria-label="Stashes">
     <header class="head">
       <button class="toggle" onclick={() => (collapsed = !collapsed)} aria-expanded={!collapsed}>
@@ -157,13 +157,8 @@
         </div>
       {/if}
 
-      {#if stashes.loading}
-        <p class="hint">Loading…</p>
-      {:else if stashes.error}
-        <p class="err">Failed to load stashes: {String(stashes.error)}</p>
-      {:else}
-        <ul>
-          {#each stashes.data ?? [] as s}
+      <ul>
+        {#each stashes.data ?? [] as s (s.oid)}
             <li
               class:selected={selectedIndex === s.index}
             >
@@ -205,9 +200,8 @@
                 </button>
               </div>
             </li>
-          {/each}
-        </ul>
-      {/if}
+        {/each}
+      </ul>
     {/if}
   </section>
 {/if}
