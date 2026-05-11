@@ -8,6 +8,8 @@
   import { queryKeys } from '$lib/query/keys';
   import { ui } from '$lib/stores/ui.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
   import type { BranchInfo, AppError } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -95,12 +97,7 @@
   }
 
   function reportError(prefix: string, err: unknown) {
-    const e = err as AppError;
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   async function pick(b: BranchInfo) {
@@ -121,16 +118,14 @@
     } catch (err) {
       const e = err as AppError;
       if (e.kind === 'dirty') {
-        alert(
+        const text =
           `Cannot switch branches — working tree has uncommitted changes:\n\n` +
-            e.paths.slice(0, 10).join('\n') +
-            (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '') +
-            `\n\nCommit, stash, or discard them first.`,
-        );
-      } else if (e.kind === 'git') {
-        alert(`Failed to switch: ${e.message}`);
+          e.paths.slice(0, 10).join('\n') +
+          (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '') +
+          `\n\nCommit, stash, or discard them first.`;
+        notify(text, { kind: 'error', durationMs: 0 });
       } else {
-        alert(`Failed to switch: ${JSON.stringify(err)}`);
+        notify(`Failed to switch: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
       }
     } finally {
       busy = false;
@@ -211,7 +206,13 @@
 
   async function confirmDelete(b: BranchInfo) {
     closeCtxMenu();
-    if (!confirm(`Delete branch "${b.name}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete branch',
+      message: `Delete branch "${b.name}"?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await runDelete(b.name, false);
   }
   async function runDelete(name: string, force: boolean) {
@@ -224,10 +225,15 @@
       const e = err as AppError;
       if (e.kind === 'unmerged') {
         busy = false;
-        const ok = confirm(
+        const text =
           `Branch "${name}" has commits that aren't merged into HEAD.\n\n` +
-            `Force delete and lose those commits?`,
-        );
+          `Force delete and lose those commits?`;
+        const ok = await confirm({
+          title: 'Force delete?',
+          message: text,
+          confirmLabel: 'Force delete',
+          danger: true,
+        });
         if (ok) await runDelete(name, true);
         return;
       }
