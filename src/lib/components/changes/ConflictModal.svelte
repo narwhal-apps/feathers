@@ -8,6 +8,8 @@
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { isStashApply } from '$lib/types';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
   import type { OpKind, AppError } from '$lib/types';
 
   let {
@@ -73,7 +75,7 @@
     try {
       await openPath(abs);
     } catch (err) {
-      alert(`Failed to open ${rel}: ${String(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
 
@@ -97,17 +99,13 @@
   function reportError(prefix: string, err: unknown) {
     const e = err as AppError;
     if (e?.kind === 'merge_conflict') {
-      alert(
+      const text =
         `${prefix}: ${e.paths.length} file${e.paths.length === 1 ? '' : 's'} still conflicted.\n\n` +
-          e.paths.slice(0, 10).join('\n'),
-      );
+        e.paths.slice(0, 10).join('\n');
+      notify(text, { kind: 'error', durationMs: 0 });
       return;
     }
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   async function doContinue() {
@@ -135,7 +133,12 @@
     const confirmMsg = isStash
       ? 'Aborting will discard your in-progress resolution. The stash itself remains.'
       : `Abort ${label}? Working tree will be reset.`;
-    const ok = confirm(confirmMsg);
+    const ok = await confirm({
+      title: 'Abort',
+      message: confirmMsg,
+      confirmLabel: 'Abort',
+      danger: true,
+    });
     if (!ok) return;
     busy = 'abort';
     try {

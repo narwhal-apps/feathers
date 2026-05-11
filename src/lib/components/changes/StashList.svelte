@@ -6,6 +6,7 @@
   import { queryKeys } from '$lib/query/keys';
   import type { StashEntry } from '$lib/types';
   import { formatError } from '$lib/utils/error';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
 
   let {
     repoId,
@@ -32,16 +33,9 @@
 
   let collapsed = $state(false);
   let busy = $state<null | string>(null); // a key like 'apply:0' to disable just one row
-  let actionError = $state<string | null>(null);
 
   // Right-click context menu state.
   let ctxMenu = $state<{ stash: StashEntry; x: number; y: number } | null>(null);
-
-
-  function flashError(msg: string): void {
-    actionError = msg;
-    setTimeout(() => { if (actionError === msg) actionError = null; }, 5000);
-  }
 
   function relativeTime(unix: number): string {
     const seconds = Math.floor(Date.now() / 1000) - unix;
@@ -71,7 +65,7 @@
         ['repo', repoId, 'diff'],
       ]);
     } catch (err) {
-      flashError(formatError(err));
+      notify(formatError(err), { kind: 'error', durationMs: 5000 });
     } finally {
       busy = null;
     }
@@ -91,7 +85,7 @@
       // The popped stash may no longer exist; clear selection if it was selected.
       if (selectedIndex === s.index) onSelect(null);
     } catch (err) {
-      flashError(formatError(err));
+      notify(formatError(err), { kind: 'error', durationMs: 5000 });
     } finally {
       busy = null;
     }
@@ -100,14 +94,20 @@
   async function doDrop(s: StashEntry): Promise<void> {
     closeCtxMenu();
     if (disabled || busy) return;
-    if (!confirm(`Drop stash "${shortMessage(s)}"?\n\nThis cannot be undone via the UI.`)) return;
+    const ok = await confirm({
+      title: 'Drop stash',
+      message: `Drop stash "${shortMessage(s)}"?\n\nThis cannot be undone via the UI.`,
+      confirmLabel: 'Drop',
+      danger: true,
+    });
+    if (!ok) return;
     busy = `drop:${s.index}`;
     try {
       await invoke('stash_drop', { id: repoId, index: s.index });
       queryClient.invalidate(queryKeys.repoStashes(repoId));
       if (selectedIndex === s.index) onSelect(null);
     } catch (err) {
-      flashError(formatError(err));
+      notify(formatError(err), { kind: 'error', durationMs: 5000 });
     } finally {
       busy = null;
     }
@@ -154,13 +154,6 @@
     </header>
 
     {#if !collapsed}
-      {#if actionError}
-        <div class="strip" role="alert">
-          {actionError}
-          <button class="dismiss" onclick={() => (actionError = null)} aria-label="Dismiss">×</button>
-        </div>
-      {/if}
-
       <ul>
         {#each stashes.data ?? [] as s (s.oid)}
             <li
@@ -273,22 +266,6 @@
     color: var(--fg-muted);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-  }
-  .strip {
-    margin: 4px 10px;
-    padding: 6px 10px;
-    background: color-mix(in srgb, #c00 12%, var(--bg-elev-1));
-    border: 1px solid color-mix(in srgb, #c00 30%, var(--border));
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-size: var(--fs-2xs);
-    display: flex;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .strip .dismiss {
-    background: transparent; border: none; color: var(--fg-muted);
-    font-size: 14px; line-height: 1; cursor: pointer; padding: 0 2px;
   }
   ul { list-style: none; margin: 0; padding: 0; }
   li {

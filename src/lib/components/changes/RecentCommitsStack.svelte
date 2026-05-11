@@ -6,7 +6,9 @@
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
-  import type { CommitPage, AppError } from '$lib/types';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
+  import type { CommitPage } from '$lib/types';
 
   let { id, onOpen }: { id: string; onOpen: () => void } = $props();
 
@@ -25,10 +27,14 @@
   async function undo(e: MouseEvent) {
     e.stopPropagation();
     if (!top) return;
-    const ok = confirm(
-      `Undo last commit?\n\n"${top.summary}"\n\n` +
+    const ok = await confirm({
+      title: 'Undo last commit',
+      message:
+        `Undo last commit?\n\n"${top.summary}"\n\n` +
         `The commit will be removed from history and its changes will reappear as staged.`,
-    );
+      confirmLabel: 'Undo',
+      danger: true,
+    });
     if (!ok) return;
     undoing = true;
     try {
@@ -40,12 +46,7 @@
         queryKeys.repoBranches(id),
       ]);
     } catch (err) {
-      const e = err as AppError;
-      const msg =
-        typeof e === 'object' && e !== null && 'message' in e
-          ? (e as { message: string }).message
-          : JSON.stringify(err);
-      alert(`Failed to undo: ${msg}`);
+      notify(`Failed to undo: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
     } finally {
       undoing = false;
     }
