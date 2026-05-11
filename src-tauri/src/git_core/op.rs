@@ -21,6 +21,7 @@ pub enum OpKind {
     Revert,
     Bisect,
     ApplyMailbox,
+    StashApply { was_pop: bool, conflicts_present: bool },
 }
 
 impl OpKind {
@@ -44,9 +45,33 @@ impl OpKind {
 }
 
 pub fn state(repo: &Repository) -> Result<OpState, AppError> {
-    let kind = OpKind::from_state(repo.state());
+    let raw_state = repo.state();
     let conflicted = collect_conflicted_paths(repo)?;
-    Ok(OpState { kind, conflicted })
+
+    // Real repository operation wins: a real merge/rebase/cherry-pick/revert
+    // takes precedence over our stash sidecar.
+    if !matches!(raw_state, RepositoryState::Clean) {
+        let kind = OpKind::from_state(raw_state);
+        return Ok(OpState { kind, conflicted });
+    }
+
+    // Otherwise check our stash sidecar.
+    if let Some(sc) = crate::git_core::stash::read_sidecar(repo)? {
+        let conflicts_present = !conflicted.is_empty();
+        let _ = sc.stash_oid; // sidecar's stash_oid only needed at continue time
+        return Ok(OpState {
+            kind: OpKind::StashApply {
+                was_pop: sc.was_pop,
+                conflicts_present,
+            },
+            conflicted,
+        });
+    }
+
+    Ok(OpState {
+        kind: OpKind::Clean,
+        conflicted,
+    })
 }
 
 fn collect_conflicted_paths(repo: &Repository) -> Result<Vec<String>, AppError> {

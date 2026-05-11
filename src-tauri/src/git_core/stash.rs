@@ -1,6 +1,9 @@
 use crate::error::AppError;
 use crate::git_core::types::{FileChange, FileStatus, StashEntry};
 use git2::{Delta, DiffOptions, Oid, Patch, Repository, StashFlags};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 
 /// List all stashes, newest first (index 0 = newest).
 pub fn list(repo: &mut Repository) -> Result<Vec<StashEntry>, AppError> {
@@ -243,4 +246,80 @@ pub fn diff_file(repo: &mut Repository, index: usize, path: &str) -> Result<Stri
     }
 
     Ok(String::new())
+}
+
+/// Sidecar describing an in-flight `stash_apply` that may have left conflicts
+/// in the index. Lives at `.git/feathers/STASH_APPLY.json`. The presence of
+/// this file (combined with libgit2's RepositoryState being Clean) is how
+/// `op::state()` detects we're mid-stash-apply.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StashApplySidecar {
+    pub index: usize,
+    pub was_pop: bool,
+    pub stash_oid: String,
+}
+
+const SIDECAR_DIR: &str = "feathers";
+const SIDECAR_FILE: &str = "STASH_APPLY.json";
+
+fn sidecar_path(repo: &Repository) -> PathBuf {
+    repo.path().join(SIDECAR_DIR).join(SIDECAR_FILE)
+}
+
+pub(crate) fn write_sidecar(repo: &Repository, sc: &StashApplySidecar) -> Result<(), AppError> {
+    let dir = repo.path().join(SIDECAR_DIR);
+    fs::create_dir_all(&dir).map_err(|e| AppError::Io {
+        message: format!("create {SIDECAR_DIR} dir: {e}"),
+    })?;
+    let raw = serde_json::to_string(sc).map_err(|e| AppError::Io {
+        message: format!("serialize sidecar: {e}"),
+    })?;
+    fs::write(sidecar_path(repo), raw).map_err(|e| AppError::Io {
+        message: format!("write sidecar: {e}"),
+    })?;
+    Ok(())
+}
+
+pub(crate) fn read_sidecar(repo: &Repository) -> Result<Option<StashApplySidecar>, AppError> {
+    let path = sidecar_path(repo);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path).map_err(|e| AppError::Io {
+        message: format!("read sidecar: {e}"),
+    })?;
+    let sc: StashApplySidecar = serde_json::from_str(&raw).map_err(|e| AppError::Io {
+        message: format!("parse sidecar: {e}"),
+    })?;
+    Ok(Some(sc))
+}
+
+pub(crate) fn delete_sidecar(repo: &Repository) -> Result<(), AppError> {
+    let path = sidecar_path(repo);
+    if !path.exists() {
+        return Ok(());
+    }
+    fs::remove_file(&path).map_err(|e| AppError::Io {
+        message: format!("delete sidecar: {e}"),
+    })?;
+    Ok(())
+}
+
+/// Test-only convenience to plant a sidecar without going through apply.
+/// Public so integration tests in `tests/` can call it; otherwise unused.
+#[doc(hidden)]
+pub fn write_sidecar_for_test(
+    repo: &Repository,
+    index: usize,
+    was_pop: bool,
+    stash_oid: &str,
+) -> Result<(), AppError> {
+    write_sidecar(
+        repo,
+        &StashApplySidecar {
+            index,
+            was_pop,
+            stash_oid: stash_oid.to_string(),
+        },
+    )
 }
