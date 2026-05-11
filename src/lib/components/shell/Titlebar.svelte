@@ -213,7 +213,7 @@
     {/if}
     <Button
       label={busy === 'fetch' ? 'Fetching…' : 'Fetch'}
-      icon="ArrowDownToLine"
+      iconLeft="ArrowDownToLine"
       variant="ghost"
       size="sm"
       disabled={!active || busy !== null}
@@ -222,7 +222,7 @@
     {#if hasUpstream}
       <Button
         label={busy === 'pull' ? 'Pulling…' : 'Pull'}
-        icon="ArrowDown"
+        iconLeft="ArrowDown"
         badge={behind > 0 ? behind : undefined}
         variant="ghost"
         size="sm"
@@ -234,7 +234,7 @@
       />
       <Button
         label={busy === 'push' ? 'Pushing…' : 'Push'}
-        icon="ArrowUp"
+        iconLeft="ArrowUp"
         badge={ahead > 0 ? ahead : undefined}
         variant="primary"
         size="sm"
@@ -247,7 +247,7 @@
     {:else if active && head}
       <Button
         label={busy === 'publish' ? 'Publishing…' : 'Publish branch'}
-        icon="CloudUpload"
+        iconLeft="CloudUpload"
         variant="primary"
         size="sm"
         disabled={busy !== null}
@@ -258,7 +258,7 @@
     {#if canCreatePr && head}
       <Button
         label="Create PR"
-        icon="GitPullRequest"
+        iconLeft="GitPullRequest"
         variant="ghost"
         size="sm"
         disabled={busy !== null}
