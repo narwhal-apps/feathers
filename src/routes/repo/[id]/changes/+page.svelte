@@ -14,6 +14,7 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
   import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { loadStorageInt } from '$lib/utils/storage';
@@ -384,20 +385,23 @@
       />
       {#if status.data}
         {#if conflictedCount > 0 && !opInProgress}
-          <aside class="conflict-banner" role="alert">
-            <div class="conflict-head">
-              <Icon name="AlertTriangle" size={14} />
-              <span>{conflictedCount} conflicted file{conflictedCount === 1 ? '' : 's'}</span>
-            </div>
-            <p>Resolve each file in your editor, then mark it resolved.</p>
-            <div class="conflict-actions">
-              <button
-                class="conflict-bulk"
-                onclick={() => markResolved(status.data!.conflicted.map((f) => f.path))}
-                disabled={busy}
-              >Mark all resolved</button>
-            </div>
-          </aside>
+          <div class="conflict-wrap">
+            <Banner
+              tone="error"
+              title="{conflictedCount} conflicted file{conflictedCount === 1 ? '' : 's'}"
+            >
+              Resolve each file in your editor, then mark it resolved.
+              {#snippet actions()}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  label="Mark all resolved"
+                  onclick={() => markResolved(status.data!.conflicted.map((f) => f.path))}
+                  disabled={busy}
+                />
+              {/snippet}
+            </Banner>
+          </div>
         {/if}
         {#if allChanges.length === 0}
           <EmptyState
@@ -470,31 +474,35 @@
                 </button>
                 {#if !showingStash}
                   {#if row.status === 'conflicted'}
-                    <button
-                      class="action"
-                      title="Open in editor"
-                      aria-label="Open {row.path} in editor"
-                      onclick={() => openInEditor(row.path)}
-                    >
-                      <Icon name="ExternalLink" size={12} />
-                    </button>
-                    <button
-                      class="action ok"
-                      title="Mark resolved"
-                      aria-label="Mark {row.path} resolved"
-                      onclick={() => markResolved([row.path])}
-                    >
-                      <Icon name="Check" size={12} />
-                    </button>
+                    <span class="row-actions always">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly="ExternalLink"
+                        label="Open {row.path} in editor"
+                        title="Open in editor"
+                        onclick={() => openInEditor(row.path)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly="Check"
+                        label="Mark {row.path} resolved"
+                        title="Mark resolved"
+                        onclick={() => markResolved([row.path])}
+                      />
+                    </span>
                   {:else}
-                    <button
-                      class="action danger"
-                      title="Discard"
-                      aria-label="Discard {row.path}"
-                      onclick={() => discardPaths([row.path], row.path)}
-                    >
-                      <Icon name="Undo2" size={12} />
-                    </button>
+                    <span class="row-actions">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly="Undo2"
+                        label="Discard {row.path}"
+                        title="Discard"
+                        onclick={() => discardPaths([row.path], row.path)}
+                      />
+                    </span>
                   {/if}
                 {/if}
                 <span
@@ -517,8 +525,11 @@
 
     <footer class="composer">
       <div class="toolbar">
-        <button
-          class="stash-btn"
+        <Button
+          variant="ghost"
+          size="sm"
+          iconLeft="Archive"
+          label="Stash…"
           onclick={() => (stashModalOpen = true)}
           disabled={
             opInProgress ||
@@ -527,10 +538,7 @@
               (status.data?.untracked.length ?? 0)) === 0
           }
           title={opInProgress ? 'Operation in progress' : 'Stash all working-tree changes'}
-        >
-          <Icon name="Archive" size={12} />
-          <span>Stash…</span>
-        </button>
+        />
       </div>
 
       <RecentCommitsStack {id} onOpen={() => (commitsModalOpen = true)} />
@@ -649,49 +657,7 @@
     padding: var(--sp-2) 0;
   }
 
-  .conflict-banner {
-    margin: 4px 10px 8px;
-    padding: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--removed) 35%, transparent);
-    border-radius: var(--r-md);
-    background: color-mix(in srgb, var(--removed) 10%, transparent);
-    color: var(--fg);
-  }
-  .conflict-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--removed);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-  }
-  .conflict-head :global(svg) { color: var(--removed); flex-shrink: 0; }
-  .conflict-banner p {
-    margin: 4px 0 8px;
-    color: var(--fg-muted);
-    font-size: var(--fs-xs);
-    line-height: 1.4;
-  }
-  .conflict-actions { display: flex; gap: 6px; }
-  .conflict-bulk {
-    height: 24px;
-    padding: 0 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    cursor: pointer;
-    transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
-  }
-  .conflict-bulk:hover:not(:disabled) {
-    color: var(--added);
-    background: color-mix(in srgb, var(--added) 14%, transparent);
-    border-color: color-mix(in srgb, var(--added) 28%, transparent);
-  }
-  .conflict-bulk:disabled { opacity: 0.5; cursor: not-allowed; }
+  .conflict-wrap { margin: 4px 10px 8px; }
 
   .group-header {
     display: flex;
@@ -819,42 +785,19 @@
     text-align: left;
   }
 
-  .files li button.action {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    display: flex;
+  /* Per-row action chips — hidden until hover/focus, except .always
+     (used on conflicted rows so resolution affordances are obvious). */
+  .row-actions {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    background: transparent;
-    border: none;
+    gap: 4px;
+    flex-shrink: 0;
     opacity: 0;
-    transition:
-      opacity var(--t-fast),
-      color var(--t-fast),
-      background var(--t-fast);
+    transition: opacity var(--t-fast);
   }
-  .files li:hover button.action {
-    opacity: 1;
-  }
-  .files li button.action.danger:hover:not(:disabled) {
-    color: var(--removed);
-    background: color-mix(in srgb, var(--removed) 14%, transparent);
-  }
-  .files li button.action.ok:hover:not(:disabled) {
-    color: var(--added);
-    background: color-mix(in srgb, var(--added) 14%, transparent);
-  }
-  /* Conflicted-row actions stay visible (not hover-revealed) so they're
-     impossible to miss while resolving. */
-  .files li button.action[title="Open in editor"],
-  .files li button.action[title="Mark resolved"] { opacity: 1; }
-  .files li button.action:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+  .row-actions.always { opacity: 1; }
+  .files li:hover .row-actions,
+  .files li:focus-within .row-actions { opacity: 1; }
 
   .status-pill {
     flex-shrink: 0;
@@ -966,24 +909,4 @@
     gap: 6px;
     margin-bottom: var(--sp-2);
   }
-  .stash-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 26px;
-    padding: 0 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-  .stash-btn:hover:not(:disabled) {
-    color: var(--fg);
-    border-color: var(--border-strong);
-  }
-  .stash-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .stash-btn :global(svg) { color: var(--fg-subtle); }
 </style>

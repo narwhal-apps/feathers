@@ -1,12 +1,14 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import ContextMenu from '$lib/components/primitives/ContextMenu.svelte';
   import ContextMenuItem from '$lib/components/primitives/ContextMenuItem.svelte';
   import ContextMenuDivider from '$lib/components/primitives/ContextMenuDivider.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
+  import { relTime } from '$lib/utils/time';
   import type { StashEntry } from '$lib/types';
   import { formatError } from '$lib/utils/error';
   import { confirm, notify } from '$lib/utils/dialog.svelte';
@@ -39,14 +41,6 @@
 
   // Right-click context menu state.
   let ctxMenu = $state<{ stash: StashEntry; x: number; y: number } | null>(null);
-
-  function relativeTime(unix: number): string {
-    const seconds = Math.floor(Date.now() / 1000) - unix;
-    if (seconds < 60) return 'just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
-  }
 
   function shortMessage(s: StashEntry): string {
     // Strip the "WIP on <branch>: " prefix if present so the row reads cleaner.
@@ -160,34 +154,34 @@
               >
                 <Icon name="Archive" size={12} />
                 <span class="msg">{shortMessage(s)}</span>
-                <span class="meta">on {s.branch || '?'} · {relativeTime(s.time)}</span>
+                <span class="meta">on {s.branch || '?'} · {relTime(s.time)}</span>
               </button>
               <div class="actions">
-                <button
-                  class="act"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  label="Apply"
                   onclick={() => doApply(s)}
                   disabled={disabled || busy !== null}
                   title="Apply (keeps stash)"
-                >
-                  Apply
-                </button>
-                <button
-                  class="act primary"
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  label="Pop"
                   onclick={() => doPop(s)}
                   disabled={disabled || busy !== null}
                   title="Apply and drop"
-                >
-                  Pop
-                </button>
-                <button
-                  class="act danger"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly="Trash2"
+                  label="Drop"
                   onclick={() => doDrop(s)}
                   disabled={disabled || busy !== null}
                   title="Drop without applying"
-                  aria-label="Drop"
-                >
-                  <Icon name="Trash2" size={12} />
-                </button>
+                />
               </div>
             </li>
         {/each}
@@ -302,30 +296,15 @@
     flex: 1;
   }
 
-  .actions { display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity var(--t-fast); }
-  li:hover .actions { opacity: 1; }
-  .act {
-    display: inline-flex;
+  .actions {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    height: 22px;
-    padding: 0 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    box-sizing: border-box;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--t-fast);
   }
-  .act:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
-  .act.primary { background: var(--accent-500); color: var(--accent-on); border-color: var(--accent-500); }
-  .act.danger { color: var(--fg-muted); width: 22px; padding: 0; }
-  .act.danger:hover:not(:disabled) {
-    color: var(--removed);
-    background: color-mix(in srgb, var(--removed) 14%, transparent);
-    border-color: color-mix(in srgb, var(--removed) 30%, transparent);
-  }
-  .act:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Reveal action buttons on hover OR when keyboard focus enters the row,
+     so they're reachable via Tab. */
+  li:hover .actions,
+  li:focus-within .actions { opacity: 1; }
 </style>

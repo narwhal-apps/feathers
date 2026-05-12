@@ -2,7 +2,6 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Button from '$lib/components/primitives/Button.svelte';
-  import Icon from '$lib/components/primitives/Icon.svelte';
   import Avatar from '$lib/components/primitives/Avatar.svelte';
   import RepoSwitcher from '$lib/components/shell/RepoSwitcher.svelte';
   import BranchSwitcher from '$lib/components/shell/BranchSwitcher.svelte';
@@ -90,14 +89,14 @@
   <div class="cluster" data-tauri-drag-region>
     <RepoSwitcher />
     {#if active && webBase}
-      <button
-        class="repo-link"
-        onclick={() => openUrl(webBase)}
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly="ExternalLink"
+        label="Open repository on remote"
         title="Open repository on remote — {webBase}"
-        aria-label="Open repository on remote"
-      >
-        <Icon name="ExternalLink" size={12} />
-      </button>
+        onclick={() => openUrl(webBase)}
+      />
     {/if}
     {#if active}
       <span class="separator" aria-hidden="true" data-tauri-drag-region></span>
@@ -212,27 +211,6 @@
     border-radius: var(--r-pill);
     background: var(--fg-faint);
     margin: 0 var(--sp-1);
-  }
-  .repo-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition:
-      color var(--t-fast),
-      background var(--t-fast),
-      border-color var(--t-fast);
-  }
-  .repo-link:hover {
-    color: var(--accent-fg);
-    background: var(--accent-bg-soft);
-    border-color: var(--accent-bg-strong);
   }
   .spacer {
     flex: 1;
