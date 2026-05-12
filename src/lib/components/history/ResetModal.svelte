@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo, ResetMode, StatusSnapshot } from '$lib/types';
@@ -34,6 +33,18 @@
     mode !== 'hard' || typedConfirm.trim() === commit.short_sha,
   );
 
+  const resetActions = $derived(() => {
+    const btn = {
+      label: working ? 'Resetting…' : 'Reset',
+      onclick: go,
+      loading: working,
+      disabled: !canConfirm || working,
+    };
+    return mode === 'hard'
+      ? { secondary: { label: 'Cancel', onclick: onClose, disabled: working }, danger: btn }
+      : { secondary: { label: 'Cancel', onclick: onClose, disabled: working }, primary: btn };
+  });
+
   async function go(): Promise<void> {
     if (working || !canConfirm) return;
     working = true;
@@ -57,7 +68,7 @@
   }
 </script>
 
-<Modal title="Reset to commit" onClose={onClose} width="sm">
+<Modal title="Reset to commit" onClose={onClose} width="sm" actions={resetActions()}>
   {#snippet body()}
     <div class="card">
       <span class="sha">{commit.short_sha}</span>
@@ -110,16 +121,6 @@
     {/if}
 
     {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
-  {/snippet}
-  {#snippet foot()}
-    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={working} />
-    <Button
-      variant={mode === 'hard' ? 'danger' : 'primary'}
-      label={working ? 'Resetting…' : 'Reset'}
-      loading={working}
-      onclick={go}
-      disabled={!canConfirm || working}
-    />
   {/snippet}
 </Modal>
 
