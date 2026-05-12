@@ -160,8 +160,11 @@
     const req = ui.pushRequest;
     if (req != null && req !== lastPushReq) {
       lastPushReq = req;
-      // Push is meaningful only when there's something to push.
-      if (active && hasUpstream && ahead > 0 && busy == null) doPush();
+      if (!active || busy != null) return;
+      // Mirror the titlebar buttons: push if upstream + ahead, otherwise
+      // publish the branch.
+      if (hasUpstream && ahead > 0) doPush();
+      else if (!hasUpstream && head) doPublish();
     }
   });
   let lastCreatePrReq: number | null = null;
@@ -250,7 +253,7 @@
         size="sm"
         disabled={busy !== null}
         onclick={doPublish}
-        title="Push {head.name} to origin and set it as the upstream"
+        title="Push {head.name} to origin and set it as the upstream (⌘P)"
       />
     {/if}
     {#if canCreatePr && head}
