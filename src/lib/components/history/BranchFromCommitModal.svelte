@@ -2,7 +2,6 @@
   import { invoke } from '@tauri-apps/api/core';
   import { goto } from '$app/navigation';
   import Modal from '$lib/components/primitives/Modal.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo } from '$lib/types';
@@ -55,7 +54,20 @@
   }
 </script>
 
-<Modal title="Create branch from commit" onClose={onClose} width="sm">
+<Modal
+  title="Create branch from commit"
+  onClose={onClose}
+  width="sm"
+  actions={{
+    secondary: { label: 'Cancel', onclick: onClose, disabled: saving },
+    primary: {
+      label: saving ? 'Creating…' : 'Create + checkout',
+      onclick: submit,
+      loading: saving,
+      disabled: !isValid || saving,
+    },
+  }}
+>
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <div class="meta">
@@ -75,16 +87,6 @@
       </label>
       {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
     </form>
-  {/snippet}
-  {#snippet foot()}
-    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={saving} />
-    <Button
-      variant="primary"
-      label={saving ? 'Creating…' : 'Create + checkout'}
-      loading={saving}
-      onclick={submit}
-      disabled={!isValid || saving}
-    />
   {/snippet}
 </Modal>
 
