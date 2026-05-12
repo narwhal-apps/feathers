@@ -2,7 +2,6 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { github } from '$lib/stores/github.svelte';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
@@ -14,6 +13,12 @@
   let code = $state<DeviceCodeResponse | null>(null);
   let errorMsg = $state<string | null>(null);
   let copied = $state(false);
+
+  const footerActions = $derived(
+    stage === 'error'
+      ? { secondary: { label: 'Close', onclick: onClose } }
+      : undefined,
+  );
 
   $effect(() => {
     let cancelled = false;
@@ -55,7 +60,7 @@
   }
 </script>
 
-<Modal title="Sign in to GitHub" onClose={onClose} width="sm">
+<Modal title="Sign in to GitHub" onClose={onClose} width="sm" actions={footerActions}>
   {#snippet body()}
     {#if stage === 'starting'}
       <p class="hint">Requesting device code…</p>
@@ -110,12 +115,6 @@
           <span>{errorMsg}</span>
         </div>
       </div>
-    {/if}
-  {/snippet}
-
-  {#snippet foot()}
-    {#if stage === 'error'}
-      <Button variant="ghost" label="Close" onclick={onClose} />
     {/if}
   {/snippet}
 </Modal>
