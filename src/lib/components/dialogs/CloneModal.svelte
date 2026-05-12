@@ -2,7 +2,6 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { goto } from '$app/navigation';
   import Icon from '$lib/components/primitives/Icon.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import type { AppError } from '$lib/types';
@@ -73,7 +72,20 @@
   $effect(() => { urlEl?.focus(); });
 </script>
 
-<Modal title="Clone repository" onClose={close} width="md">
+<Modal
+  title="Clone repository"
+  onClose={close}
+  width="md"
+  actions={{
+    secondary: { label: 'Cancel', onclick: close, disabled: busy },
+    primary: {
+      label: busy ? 'Cloning…' : 'Clone',
+      onclick: submit,
+      loading: busy,
+      disabled: !ready,
+    },
+  }}
+>
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <label class="field">
@@ -139,17 +151,6 @@
         </div>
       {/if}
     </form>
-  {/snippet}
-
-  {#snippet foot()}
-    <Button variant="ghost" label="Cancel" onclick={close} disabled={busy} />
-    <Button
-      variant="primary"
-      label={busy ? 'Cloning…' : 'Clone'}
-      loading={busy}
-      onclick={submit}
-      disabled={!ready}
-    />
   {/snippet}
 </Modal>
 
