@@ -62,6 +62,8 @@
   // as `repo_changed` events from the per-repo FS watcher. The watcher tags
   // each batch with a `kind` hint:
   //   - 'workdir' — working-tree edits, `.git/index`, etc. → status+op-state
+  //                 + workdir/index diffs (the currently-selected file's
+  //                 diff has to refetch when the file changes on disk).
   //   - 'refs'    — branch/HEAD/MERGE_HEAD/FETCH_HEAD/stash sidecar changes
   //                 → also branches + log + log-unpushed.
   // The watcher already drops pure-noise batches (e.g. `.git/objects/`).
@@ -72,6 +74,10 @@
       const keys: (readonly (string | number | null)[])[] = [
         queryKeys.repoStatus(id),
         queryKeys.repoOpState(id),
+        // Prefix matches every workdir/index diff in the cache. Commit
+        // diffs (immutable) sit under a different prefix and don't refetch.
+        ['repo', id, 'diff', 'workdir'],
+        ['repo', id, 'diff', 'index'],
       ];
       if (kind === 'refs') {
         keys.push(queryKeys.repoBranches(id));
