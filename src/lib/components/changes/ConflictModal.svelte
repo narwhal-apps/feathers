@@ -56,6 +56,32 @@
 
   const allResolved = $derived(conflicted.length === 0);
 
+  const conflictActions = $derived(
+    isStashRecovery
+      ? {
+          primary: {
+            label: busy === 'continue' ? 'Finishing…' : 'Finish stash apply',
+            onclick: doContinue,
+            loading: busy === 'continue',
+            disabled: busy !== null,
+          },
+        }
+      : {
+          danger: {
+            label: busy === 'abort' ? 'Aborting…' : `Abort ${label}`,
+            onclick: doAbort,
+            loading: busy === 'abort',
+            disabled: busy !== null,
+          },
+          primary: {
+            label: busy === 'continue' ? 'Continuing…' : `Continue ${label}`,
+            onclick: doContinue,
+            loading: busy === 'continue',
+            disabled: busy !== null || !allResolved,
+          },
+        },
+  );
+
   function basename(p: string): string {
     const i = p.lastIndexOf('/');
     return i < 0 ? p : p.slice(i + 1);
@@ -159,7 +185,11 @@
   }
 </script>
 
-<Modal title={isStashRecovery ? 'Finish stash apply' : `Resolve ${label} conflicts`} width="md">
+<Modal
+  title={isStashRecovery ? 'Finish stash apply' : `Resolve ${label} conflicts`}
+  width="md"
+  actions={conflictActions}
+>
   {#snippet body()}
     {#if isStashRecovery}
       <div class="status">
@@ -228,33 +258,6 @@
       <p class="hint">
         Open each file, fix the conflict markers (<code>{'<<<<<<<'}</code>, <code>{'======='}</code>, <code>{'>>>>>>>'}</code>), save, then mark it resolved.
       </p>
-    {/if}
-  {/snippet}
-
-  {#snippet foot()}
-    {#if isStashRecovery}
-      <Button
-        variant="primary"
-        label={busy === 'continue' ? 'Finishing…' : 'Finish stash apply'}
-        loading={busy === 'continue'}
-        onclick={doContinue}
-        disabled={busy !== null}
-      />
-    {:else}
-      <Button
-        variant="danger"
-        label={busy === 'abort' ? 'Aborting…' : `Abort ${label}`}
-        loading={busy === 'abort'}
-        onclick={doAbort}
-        disabled={busy !== null}
-      />
-      <Button
-        variant="primary"
-        label={busy === 'continue' ? 'Continuing…' : `Continue ${label}`}
-        loading={busy === 'continue'}
-        onclick={doContinue}
-        disabled={busy !== null || !allResolved}
-      />
     {/if}
   {/snippet}
 </Modal>
