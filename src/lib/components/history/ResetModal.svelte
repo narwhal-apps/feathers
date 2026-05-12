@@ -33,7 +33,7 @@
     mode !== 'hard' || typedConfirm.trim() === commit.short_sha,
   );
 
-  const resetActions = $derived(() => {
+  const resetActions = $derived.by(() => {
     const btn = {
       label: working ? 'Resetting…' : 'Reset',
       onclick: go,
@@ -68,7 +68,7 @@
   }
 </script>
 
-<Modal title="Reset to commit" onClose={onClose} width="sm" actions={resetActions()}>
+<Modal title="Reset to commit" onClose={onClose} width="sm" actions={resetActions}>
   {#snippet body()}
     <div class="card">
       <span class="sha">{commit.short_sha}</span>
