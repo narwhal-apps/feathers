@@ -540,14 +540,14 @@
     width: 100%;
   }
 
-  /* Per-file horizontal scroll: long lines reveal a single scrollbar
-     under all hunks of this file. The header stays fixed (not in body). */
+  /* No horizontal scroll — long lines wrap. Sidesteps the rabbit hole
+     of getting line backgrounds to fill consistently across hunks of
+     differing widths. */
   .body {
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
   }
 
-  .hunk { border-top: 1px solid var(--border); min-width: max-content; }
+  .hunk { border-top: 1px solid var(--border); }
   .hunk-header {
     display: flex;
     align-items: center;
@@ -583,15 +583,20 @@
     background: color-mix(in srgb, var(--removed) 14%, transparent);
     border-color: color-mix(in srgb, var(--removed) 28%, transparent);
   }
-  .lines { font-family: var(--font-mono); font-size: var(--fs-xs); min-width: max-content; }
+  .lines { font-family: var(--font-mono); font-size: var(--fs-xs); }
   .line {
     display: grid;
     grid-template-columns: 40px 40px 16px 1fr;
-    align-items: center;
+    /* Top-align so wrapped continuation rows don't drop the line numbers
+       and prefix into vertical centering with the wrapped content. */
+    align-items: start;
     line-height: 18px;
-    padding: 0 var(--sp-2);
-    white-space: pre;
-    min-width: max-content;
+    padding: 2px var(--sp-2);
+    /* pre-wrap preserves leading whitespace (indentation) but allows
+       wrapping at line breaks. overflow-wrap: anywhere also breaks
+       inside long unbreakable tokens (URLs, base64, etc.). */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   .line-add { background: var(--added-bg); }
   .line-del { background: var(--removed-bg); }
@@ -649,30 +654,32 @@
   }
   .seg button :global(svg) { color: inherit; }
 
-  /* Split view */
+  /* Split view — same wrapping approach as the unified body. */
   .split-body {
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
   }
-  .split-hunk { border-top: 1px solid var(--border); min-width: max-content; }
-  .split-rows { min-width: max-content; }
+  .split-hunk { border-top: 1px solid var(--border); }
   .split-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 0;
     border-bottom: 0;
+    /* Stretch each side to the full row height so wrapped lines on one
+       side don't leave a gap on the other side. */
+    align-items: stretch;
   }
   .split-side {
     display: grid;
     grid-template-columns: 40px 16px 1fr;
-    align-items: center;
+    align-items: start;
     line-height: 18px;
-    padding: 0 var(--sp-2);
-    white-space: pre;
-    min-width: max-content;
+    padding: 2px var(--sp-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     border-right: 1px solid var(--border);
+    min-width: 0;
   }
   .split-side:last-child { border-right: none; }
   .split-side.line-add { background: var(--added-bg); }
