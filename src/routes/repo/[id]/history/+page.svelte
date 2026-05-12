@@ -19,6 +19,9 @@
   import Modal from '$lib/components/primitives/Modal.svelte';
   import Field from '$lib/components/primitives/Field.svelte';
   import TextArea from '$lib/components/primitives/TextArea.svelte';
+  import ContextMenu from '$lib/components/primitives/ContextMenu.svelte';
+  import ContextMenuItem from '$lib/components/primitives/ContextMenuItem.svelte';
+  import ContextMenuDivider from '$lib/components/primitives/ContextMenuDivider.svelte';
   import type { CommitInfo, CommitPage, DiffFile, DiffPayload } from '$lib/types';
   import { formatError } from '$lib/utils/error';
   import { notify } from '$lib/utils/dialog.svelte';
@@ -182,26 +185,14 @@
     resetTarget = commit;
   }
 
-  function onDocClick(e: MouseEvent) {
-    if (!ctxMenu) return;
-    const t = e.target as Node;
-    const cm = document.getElementById('history-ctx-menu');
-    if (cm && cm.contains(t)) return;
-    closeCtxMenu();
-  }
+  // ContextMenu primitive handles its own outside-click + Escape; we only
+  // need Escape to close the amend modal here.
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      if (amendTarget) closeAmend();
-      else if (ctxMenu) closeCtxMenu();
-    }
+    if (e.key === 'Escape' && amendTarget) closeAmend();
   }
   $effect(() => {
-    document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('click', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('keydown', onKey);
   });
   $effect(() => {
     if (amendTarget && amendMessageEl) {
@@ -271,75 +262,50 @@
 </div>
 
 {#if ctxMenu}
-  <div
-    id="history-ctx-menu"
-    class="ctx-menu"
-    role="menu"
-    style="left: {ctxMenu.x}px; top: {ctxMenu.y}px;"
-  >
-    <!-- info group -->
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => copySha(ctxMenu!.commit)}>
-      <Icon name="Copy" size={12} />
-      <span>Copy SHA</span>
-    </button>
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => openOnGitHub(ctxMenu!.commit)}
+  {@const cm = ctxMenu}
+  <ContextMenu open={true} x={cm.x} y={cm.y} onClose={closeCtxMenu}>
+    <ContextMenuItem icon="Copy" label="Copy SHA" onclick={() => copySha(cm.commit)} />
+    <ContextMenuItem
+      icon="ExternalLink"
+      label="Open on GitHub"
+      onclick={() => openOnGitHub(cm.commit)}
       disabled={!webBase}
-      title={webBase ? '' : 'No GitHub remote configured'}>
-      <Icon name="ExternalLink" size={12} />
-      <span>Open on GitHub</span>
-    </button>
-
-    <div class="ctx-divider"></div>
-
-    <!-- branch group -->
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => startBranchFrom(ctxMenu!.commit)}>
-      <Icon name="GitBranch" size={12} />
-      <span>Create branch from here…</span>
-    </button>
-
-    <div class="ctx-divider"></div>
-
-    <!-- apply group -->
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => startCherrypick(ctxMenu!.commit)}
+      title={webBase ? '' : 'No GitHub remote configured'}
+    />
+    <ContextMenuDivider />
+    <ContextMenuItem icon="GitBranch" label="Create branch from here…" onclick={() => startBranchFrom(cm.commit)} />
+    <ContextMenuDivider />
+    <ContextMenuItem
+      icon="GitCommitHorizontal"
+      label="Cherry-pick"
+      onclick={() => startCherrypick(cm.commit)}
       disabled={opKind !== 'clean'}
-      title={opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`}>
-      <Icon name="GitCommitHorizontal" size={12} />
-      <span>Cherry-pick</span>
-    </button>
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => startRevert(ctxMenu!.commit)}
+      title={opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`}
+    />
+    <ContextMenuItem
+      icon="Undo2"
+      label="Revert"
+      onclick={() => startRevert(cm.commit)}
       disabled={opKind !== 'clean'}
-      title={opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`}>
-      <Icon name="Undo2" size={12} />
-      <span>Revert</span>
-    </button>
-
-    <div class="ctx-divider"></div>
-
-    <!-- rewind group -->
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => startReset(ctxMenu!.commit)}
-      disabled={opKind !== 'clean' || ctxMenu.isHead}
-      title={ctxMenu.isHead ? 'Already at this commit' : (opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`)}>
-      <Icon name="History" size={12} />
-      <span>Reset to here…</span>
-    </button>
-
-    <div class="ctx-divider"></div>
-
-    <!-- edit group (existing) -->
-    <button type="button" class="ctx-item" role="menuitem"
-      onclick={() => startAmend(ctxMenu!.commit)}
-      disabled={!ctxMenu.isHead}
-      title={ctxMenu.isHead ? '' : 'Only the most recent commit can be amended'}>
-      <Icon name="Pencil" size={12} />
-      <span>Amend commit…</span>
-    </button>
-  </div>
+      title={opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`}
+    />
+    <ContextMenuDivider />
+    <ContextMenuItem
+      icon="History"
+      label="Reset to here…"
+      onclick={() => startReset(cm.commit)}
+      disabled={opKind !== 'clean' || cm.isHead}
+      title={cm.isHead ? 'Already at this commit' : (opKind === 'clean' ? '' : `${opKindLabel(opKind)} in progress`)}
+    />
+    <ContextMenuDivider />
+    <ContextMenuItem
+      icon="Pencil"
+      label="Amend commit…"
+      onclick={() => startAmend(cm.commit)}
+      disabled={!cm.isHead}
+      title={cm.isHead ? '' : 'Only the most recent commit can be amended'}
+    />
+  </ContextMenu>
 {/if}
 
 {#if amendTarget}
@@ -456,38 +422,6 @@
   .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
 
   /* Right-click context menu */
-  .ctx-menu {
-    position: fixed;
-    min-width: 200px;
-    padding: 4px;
-    background: var(--bg-elev-3);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-3);
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .ctx-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .ctx-item :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .ctx-item:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
-  .ctx-item:hover:not(:disabled) :global(svg) { color: var(--fg-muted); }
-  .ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
-
   /* Amend modal — shell provided by Modal primitive. */
   .form { display: contents; }
   .meta {
@@ -499,11 +433,6 @@
   }
   .meta .sha { margin-left: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-  .ctx-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 6px;
-  }
   .action-error {
     grid-column: 1 / -1;
     display: flex;

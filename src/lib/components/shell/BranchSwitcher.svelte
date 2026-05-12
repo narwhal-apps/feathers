@@ -10,6 +10,8 @@
   import Modal from '$lib/components/primitives/Modal.svelte';
   import Field from '$lib/components/primitives/Field.svelte';
   import Input from '$lib/components/primitives/Input.svelte';
+  import ContextMenu from '$lib/components/primitives/ContextMenu.svelte';
+  import ContextMenuItem from '$lib/components/primitives/ContextMenuItem.svelte';
   import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { formatError } from '$lib/utils/error';
   import type { BranchInfo, AppError } from '$lib/types';
@@ -246,12 +248,8 @@
   }
 
   function onDocClick(e: MouseEvent) {
-    const t = e.target as Node;
-    if (ctxMenu) {
-      const cm = document.getElementById('branch-ctx-menu');
-      if (!cm || !cm.contains(t)) closeCtxMenu();
-    }
     if (!open) return;
+    const t = e.target as Node;
     if (triggerEl && (triggerEl === t || triggerEl.contains(t))) return;
     const menu = document.getElementById('branch-switcher-menu');
     if (menu && menu.contains(t)) return;
@@ -260,9 +258,9 @@
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       if (renameTarget) closeRename();
-      else if (ctxMenu) closeCtxMenu();
       else if (modalOpen) closeModal();
       else if (open) close();
+      // ctxMenu Escape is handled by ContextMenu primitive
     }
   }
 
@@ -469,34 +467,23 @@
 {/if}
 
 {#if ctxMenu}
-  <div
-    id="branch-ctx-menu"
-    class="ctx-menu"
-    role="menu"
-    style="left: {ctxMenu.x}px; top: {ctxMenu.y}px;"
-  >
-    <button
-      type="button"
-      class="ctx-item"
-      role="menuitem"
-      onclick={() => startRename(ctxMenu!.branch)}
+  {@const cm = ctxMenu}
+  <ContextMenu open={true} x={cm.x} y={cm.y} onClose={closeCtxMenu}>
+    <ContextMenuItem
+      icon="Pencil"
+      label="Rename branch…"
+      onclick={() => startRename(cm.branch)}
       disabled={busy}
-    >
-      <Icon name="Pencil" size={12} />
-      <span>Rename branch…</span>
-    </button>
-    <button
-      type="button"
-      class="ctx-item danger"
-      role="menuitem"
-      onclick={() => confirmDelete(ctxMenu!.branch)}
-      disabled={busy || ctxMenu.branch.is_head}
-      title={ctxMenu.branch.is_head ? 'Cannot delete the current branch' : ''}
-    >
-      <Icon name="Trash2" size={12} />
-      <span>Delete branch</span>
-    </button>
-  </div>
+    />
+    <ContextMenuItem
+      icon="Trash2"
+      label="Delete branch"
+      danger
+      onclick={() => confirmDelete(cm.branch)}
+      disabled={busy || cm.branch.is_head}
+      title={cm.branch.is_head ? 'Cannot delete the current branch' : ''}
+    />
+  </ContextMenu>
 {/if}
 
 {#if renameTarget}
@@ -791,42 +778,4 @@
   }
   .seg-static :global(svg) { color: var(--accent-fg); flex-shrink: 0; }
   .seg-static .seg-tag { color: var(--accent-fg); opacity: 0.85; }
-
-  /* Right-click context menu */
-  .ctx-menu {
-    position: fixed;
-    min-width: 180px;
-    padding: 4px;
-    background: var(--bg-elev-3);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-3);
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .ctx-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .ctx-item :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .ctx-item:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
-  .ctx-item:hover:not(:disabled) :global(svg) { color: var(--fg-muted); }
-  .ctx-item.danger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--removed) 14%, transparent);
-    color: var(--removed);
-  }
-  .ctx-item.danger:hover:not(:disabled) :global(svg) { color: var(--removed); }
-  .ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

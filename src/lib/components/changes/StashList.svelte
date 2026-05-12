@@ -1,6 +1,9 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import ContextMenu from '$lib/components/primitives/ContextMenu.svelte';
+  import ContextMenuItem from '$lib/components/primitives/ContextMenuItem.svelte';
+  import ContextMenuDivider from '$lib/components/primitives/ContextMenuDivider.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
@@ -122,24 +125,14 @@
     ctxMenu = null;
   }
 
-  function onDocClick(e: MouseEvent): void {
-    if (!ctxMenu) return;
-    const cm = document.getElementById('stash-ctx-menu');
-    if (!cm || !cm.contains(e.target as Node)) closeCtxMenu();
-  }
+  // ContextMenu primitive handles its own outside-click + Escape close;
+  // we only need to handle Escape-to-deselect when no ctx menu is up.
   function onKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
-      if (ctxMenu) closeCtxMenu();
-      else if (selectedIndex != null) onSelect(null);
-    }
+    if (e.key === 'Escape' && !ctxMenu && selectedIndex != null) onSelect(null);
   }
   $effect(() => {
-    document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('click', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('keydown', onKey);
   });
 </script>
 
@@ -204,37 +197,34 @@
 {/if}
 
 {#if ctxMenu}
-  <div
-    id="stash-ctx-menu"
-    class="ctx-menu"
-    role="menu"
-    style="left: {ctxMenu.x}px; top: {ctxMenu.y}px;"
-  >
-    <button class="ctx-item" role="menuitem"
-      onclick={() => { const s = ctxMenu!.stash; closeCtxMenu(); doApply(s); }}
-      disabled={disabled}>
-      <Icon name="Download" size={12} />
-      <span>Apply</span>
-    </button>
-    <button class="ctx-item" role="menuitem"
-      onclick={() => { const s = ctxMenu!.stash; closeCtxMenu(); doPop(s); }}
-      disabled={disabled}>
-      <Icon name="Download" size={12} />
-      <span>Pop (apply + drop)</span>
-    </button>
-    <button class="ctx-item" role="menuitem"
-      onclick={() => { const s = ctxMenu!.stash; closeCtxMenu(); onRequestSelect(s.index); }}>
-      <Icon name="Eye" size={12} />
-      <span>Show diff</span>
-    </button>
-    <div class="ctx-divider"></div>
-    <button class="ctx-item danger" role="menuitem"
-      onclick={() => doDrop(ctxMenu!.stash)}
-      disabled={disabled}>
-      <Icon name="Trash2" size={12} />
-      <span>Drop</span>
-    </button>
-  </div>
+  {@const cm = ctxMenu}
+  <ContextMenu open={true} x={cm.x} y={cm.y} onClose={closeCtxMenu}>
+    <ContextMenuItem
+      icon="Download"
+      label="Apply"
+      onclick={() => { closeCtxMenu(); doApply(cm.stash); }}
+      disabled={disabled}
+    />
+    <ContextMenuItem
+      icon="Download"
+      label="Pop (apply + drop)"
+      onclick={() => { closeCtxMenu(); doPop(cm.stash); }}
+      disabled={disabled}
+    />
+    <ContextMenuItem
+      icon="Eye"
+      label="Show diff"
+      onclick={() => { closeCtxMenu(); onRequestSelect(cm.stash.index); }}
+    />
+    <ContextMenuDivider />
+    <ContextMenuItem
+      icon="Trash2"
+      label="Drop"
+      danger
+      onclick={() => doDrop(cm.stash)}
+      disabled={disabled}
+    />
+  </ContextMenu>
 {/if}
 
 <style>
@@ -338,39 +328,4 @@
     border-color: color-mix(in srgb, var(--removed) 30%, transparent);
   }
   .act:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .ctx-menu {
-    position: fixed;
-    min-width: 180px;
-    padding: 4px;
-    background: var(--bg-elev-3);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-3);
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .ctx-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 10px;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-  }
-  .ctx-item :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .ctx-item:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
-  .ctx-item.danger:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--removed) 14%, transparent);
-    color: var(--removed);
-  }
-  .ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
-  .ctx-divider { height: 1px; background: var(--border); margin: 4px 6px; }
 </style>
