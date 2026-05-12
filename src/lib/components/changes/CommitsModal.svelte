@@ -225,8 +225,10 @@
   .who { color: var(--fg-muted); }
 
   .diff {
+    /* No padding — DiffView's sticky file headers need to land flush
+       with the modal-body's top edge when scrolled. Spacing lives on
+       DiffView's children (.controls + .file). */
     overflow-y: auto;
-    padding: var(--sp-3);
     background: var(--bg);
     min-width: 0;
   }
