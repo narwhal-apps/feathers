@@ -1,6 +1,8 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { StatusSnapshot } from '$lib/types';
@@ -21,8 +23,6 @@
   let keepIndex = $state(false);
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
-  let messageEl = $state<HTMLInputElement | null>(null);
-  $effect(() => { messageEl?.focus(); });
 
   const stagedCount = $derived(status?.staged.length ?? 0);
   const totalChanges = $derived(
@@ -73,17 +73,14 @@
 >
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
-      <label class="field">
-        <span class="label">Message <span class="optional">(optional)</span></span>
-        <input
-          class="input"
-          type="text"
-          bind:this={messageEl}
-          placeholder="WIP on current branch"
+      <Field label="Message" optional error={errorMsg}>
+        <Input
           bind:value={message}
+          placeholder="WIP on current branch"
           disabled={saving}
+          autofocus
         />
-      </label>
+      </Field>
 
       <label class="checkbox">
         <input
@@ -108,40 +105,12 @@
       <div class="summary">
         Will stash {totalChanges} file{totalChanges === 1 ? '' : 's'}.
       </div>
-
-      {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
     </form>
   {/snippet}
 </Modal>
 
 <style>
   .form { display: flex; flex-direction: column; gap: var(--sp-3); }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .label {
-    font-size: var(--fs-2xs);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    color: var(--fg-subtle);
-    font-weight: var(--weight-semibold);
-  }
-  .label .optional {
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--fg-faint);
-    font-weight: var(--weight-regular);
-    margin-left: 4px;
-  }
-  .input {
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-sans);
-    font-size: var(--fs-sm);
-    outline: none;
-  }
-  .input:focus { border-color: var(--accent-500); }
   .checkbox {
     display: flex;
     align-items: center;
@@ -155,5 +124,4 @@
     font-size: var(--fs-xs);
     padding-top: 4px;
   }
-  .err { color: var(--removed); font-size: var(--fs-xs); }
 </style>

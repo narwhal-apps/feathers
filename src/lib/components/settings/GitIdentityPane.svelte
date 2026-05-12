@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import SettingsRow from './SettingsRow.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
   import type { GitIdentity } from '$lib/types';
   import { identity } from '$lib/stores/identity.svelte';
   import { formatError } from '$lib/utils/error';
@@ -57,12 +58,13 @@
   description="Shows up as the commit author."
 >
   {#snippet control()}
-    <input
-      type="text"
-      placeholder="Your name"
-      bind:value={name}
-      disabled={saving}
-    />
+    <div class="ctl">
+      <Input
+        bind:value={name}
+        placeholder="Your name"
+        disabled={saving}
+      />
+    </div>
   {/snippet}
 </SettingsRow>
 
@@ -71,12 +73,14 @@
   description="Used by GitHub to associate commits with your account."
 >
   {#snippet control()}
-    <input
-      type="email"
-      placeholder="you@example.com"
-      bind:value={email}
-      disabled={saving}
-    />
+    <div class="ctl">
+      <Input
+        type="email"
+        bind:value={email}
+        placeholder="you@example.com"
+        disabled={saving}
+      />
+    </div>
   {/snippet}
 </SettingsRow>
 
@@ -92,20 +96,8 @@
     color: var(--fg-subtle);
     font-size: var(--fs-xs);
   }
-  input[type="text"], input[type="email"] {
-    width: 240px;
-    padding: 6px 10px;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-size: var(--fs-sm);
-    font-family: var(--font-sans);
-  }
-  input:focus {
-    outline: none;
-    border-color: var(--accent-600);
-  }
+  /* Constrain the Input width so it doesn't fill the entire settings row. */
+  .ctl { width: 240px; }
   .actions {
     display: flex;
     align-items: center;

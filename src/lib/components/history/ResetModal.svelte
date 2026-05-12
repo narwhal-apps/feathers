@@ -1,6 +1,9 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo, ResetMode, StatusSnapshot } from '$lib/types';
@@ -107,20 +110,21 @@
             No working-tree changes will be lost — but commits between HEAD and {commit.short_sha} will be unreachable.
           {/if}
         </p>
-        <label class="field">
-          <span class="label">Type <code>{commit.short_sha}</code> to confirm</span>
-          <input
-            class="input"
-            type="text"
+        <Field>
+          {#snippet labelSlot()}
+            Type <code>{commit.short_sha}</code> to confirm
+          {/snippet}
+          <Input
+            variant="mono"
             bind:value={typedConfirm}
             disabled={working}
             placeholder={commit.short_sha}
           />
-        </label>
+        </Field>
       </div>
     {/if}
 
-    {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
+    {#if errorMsg}<Banner tone="error">{errorMsg}</Banner>{/if}
   {/snippet}
 </Modal>
 
@@ -142,21 +146,6 @@
   .mode-label { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
   .mode-label.danger { color: var(--removed); }
   .mode-desc { font-size: var(--fs-xs); color: var(--fg-subtle); margin-top: 2px; line-height: 1.4; }
-  .confirm { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--border); }
-  .warn { margin: 0 0 var(--sp-2); font-size: var(--fs-xs); color: var(--fg); }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .label { font-size: var(--fs-2xs); color: var(--fg-subtle); }
-  .label code { font-family: var(--font-mono); color: var(--fg); }
-  .input {
-    padding: 6px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    outline: none;
-  }
-  .input:focus { border-color: var(--accent-500); }
-  .err { margin-top: var(--sp-2); color: var(--removed); font-size: var(--fs-xs); }
+  .confirm { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--sp-2); }
+  .warn { margin: 0; font-size: var(--fs-xs); color: var(--fg); }
 </style>

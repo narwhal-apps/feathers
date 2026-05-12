@@ -3,6 +3,7 @@
 
   let {
     label,
+    labelSlot,
     optional,
     description,
     error,
@@ -11,6 +12,8 @@
     children,
   }: {
     label?: string;
+    /** Snippet for richer label content (inline code, links). Overrides label. */
+    labelSlot?: Snippet;
     /** Adds an "(optional)" suffix to the label. */
     optional?: boolean;
     description?: string;
@@ -24,7 +27,9 @@
 </script>
 
 <label class="field">
-  {#if label}
+  {#if labelSlot}
+    <span class="label">{@render labelSlot()}</span>
+  {:else if label}
     <span class="label">
       {label}
       {#if optional}<span class="optional">(optional)</span>{/if}
@@ -63,6 +68,15 @@
     color: var(--fg-faint);
     font-weight: var(--weight-regular);
     margin-left: 4px;
+  }
+  /* Inline <code> inside a label keeps the body font color but the
+     mono family — used by typed-confirm fields like "Type 84a3b21
+     to confirm". */
+  .label :global(code) {
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--font-mono);
+    color: var(--fg);
   }
   .err { color: var(--removed); font-size: var(--fs-xs); }
   .hint, .desc { color: var(--fg-subtle); font-size: var(--fs-xs); line-height: 1.4; }

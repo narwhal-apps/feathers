@@ -3,6 +3,10 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
+  import TextArea from '$lib/components/primitives/TextArea.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
@@ -122,32 +126,28 @@
         </span>
       </div>
 
-      <label class="field">
-        <span class="label">Title</span>
-        <input
-          class="input"
-          type="text"
+      <Field label="Title">
+        <Input
           bind:value={title}
-          bind:this={titleEl}
+          bind:ref={titleEl}
           disabled={busy}
           placeholder="A short summary"
           required
         />
-      </label>
+      </Field>
 
-      <label class="field">
-        <span class="label">Description <span class="muted">(optional, Markdown)</span></span>
-        <textarea
-          class="input message"
+      <Field label="Description (Markdown)" optional>
+        <TextArea
+          variant="mono"
           bind:value={description}
           disabled={busy}
-          rows="5"
+          rows={5}
           placeholder="Add context, screenshots, links — anything reviewers will need."
           onkeydown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); }
           }}
-        ></textarea>
-      </label>
+        />
+      </Field>
 
       <label class="toggle">
         <input type="checkbox" bind:checked={draft} disabled={busy} />
@@ -155,10 +155,7 @@
       </label>
 
       {#if error}
-        <div class="err">
-          <Icon name="AlertTriangle" size={14} />
-          <span>{error}</span>
-        </div>
+        <Banner tone="error">{error}</Banner>
       {/if}
     </form>
   {/snippet}
@@ -206,43 +203,6 @@
   }
   .branches :global(.arrow) { color: var(--fg-muted); }
 
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .label {
-    font-size: var(--fs-2xs);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    color: var(--fg-subtle);
-    font-weight: var(--weight-semibold);
-  }
-  .label .muted {
-    text-transform: none;
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg-faint);
-    font-weight: var(--weight-medium);
-    margin-left: 4px;
-  }
-  .input {
-    width: 100%;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-sans);
-    font-size: var(--fs-sm);
-    line-height: 1.4;
-    outline: none;
-    transition: border-color var(--t-fast);
-  }
-  .input.message {
-    resize: vertical;
-    min-height: 100px;
-    max-height: 280px;
-    font-family: var(--font-mono);
-  }
-  .input:focus { border-color: var(--accent-500); }
-  .input::placeholder { color: var(--fg-subtle); }
-
   .toggle {
     display: inline-flex;
     align-items: center;
@@ -253,19 +213,4 @@
     user-select: none;
   }
   .toggle input { accent-color: var(--accent-500); margin: 0; }
-
-  .err {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 12px;
-    background: color-mix(in srgb, var(--removed) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--removed) 35%, transparent);
-    border-radius: var(--r-md);
-    color: var(--fg);
-    font-size: var(--fs-xs);
-    line-height: 1.4;
-  }
-  .err :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
-
 </style>

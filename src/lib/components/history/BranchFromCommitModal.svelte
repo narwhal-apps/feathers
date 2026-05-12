@@ -2,6 +2,8 @@
   import { invoke } from '@tauri-apps/api/core';
   import { goto } from '$app/navigation';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo } from '$lib/types';
@@ -16,8 +18,6 @@
   let name = $state('');
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
-  let nameEl = $state<HTMLInputElement | null>(null);
-  $effect(() => { nameEl?.focus(); });
 
   // Validate: non-empty after trim, no spaces, no `..`, no leading `-`,
   // no trailing `/`. These are the invariants `branch_create_at` will
@@ -74,18 +74,15 @@
         <span class="sha">{commit.short_sha}</span>
         <span class="summary">{commit.summary}</span>
       </div>
-      <label class="field">
-        <span class="label">Branch name</span>
-        <input
-          class="input"
-          type="text"
-          bind:this={nameEl}
-          placeholder="feat/your-branch"
+      <Field label="Branch name" error={errorMsg}>
+        <Input
+          variant="mono"
           bind:value={name}
+          placeholder="feat/your-branch"
           disabled={saving}
+          autofocus
         />
-      </label>
-      {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
+      </Field>
     </form>
   {/snippet}
 </Modal>
@@ -95,24 +92,4 @@
   .meta { display: flex; align-items: baseline; gap: var(--sp-2); color: var(--fg-subtle); font-size: var(--fs-xs); }
   .sha { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .label {
-    font-size: var(--fs-2xs);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    color: var(--fg-subtle);
-    font-weight: var(--weight-semibold);
-  }
-  .input {
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    outline: none;
-  }
-  .input:focus { border-color: var(--accent-500); }
-  .err { color: var(--removed); font-size: var(--fs-xs); }
 </style>

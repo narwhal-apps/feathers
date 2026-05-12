@@ -3,6 +3,10 @@
   import { goto } from '$app/navigation';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import type { AppError } from '$lib/types';
 
@@ -13,7 +17,6 @@
   let folderName = $state('');
   let busy = $state(false);
   let error = $state<string | null>(null);
-  let urlEl = $state<HTMLInputElement | null>(null);
 
   let folderManuallyEdited = false;
   $effect(() => {
@@ -69,7 +72,6 @@
   }
 
   function close() { if (!busy) onClose(); }
-  $effect(() => { urlEl?.focus(); });
 </script>
 
 <Modal
@@ -88,54 +90,48 @@
 >
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
-      <label class="field">
-        <span class="label">Repository URL</span>
-        <input
-          class="input"
-          type="text"
+      <Field label="Repository URL">
+        <Input
+          variant="mono"
           bind:value={url}
-          bind:this={urlEl}
           disabled={busy}
           placeholder="git@github.com:owner/repo.git or https://github.com/owner/repo"
           required
+          autofocus
         />
-      </label>
+      </Field>
 
-      <div class="field">
-        <span class="label">Parent directory</span>
+      <Field label="Parent directory">
         <div class="picker">
-          <input
-            class="input"
-            type="text"
+          <Input
+            variant="mono"
             bind:value={parentDir}
             disabled={busy}
             placeholder="/Users/you/Developer"
             required
           />
-          <button
-            type="button"
-            class="picker-btn"
+          <Button
+            variant="secondary"
+            size="md"
+            iconOnly="FolderOpen"
+            label="Choose folder"
+            title="Choose folder"
             onclick={pickParent}
             disabled={busy}
-            title="Choose folder"
-          >
-            <Icon name="FolderOpen" size={12} />
-          </button>
+          />
         </div>
-      </div>
+      </Field>
 
-      <label class="field">
-        <span class="label">Folder name</span>
-        <input
-          class="input"
-          type="text"
+      <Field label="Folder name">
+        <Input
+          variant="mono"
           bind:value={folderName}
           disabled={busy}
           oninput={() => { folderManuallyEdited = true; }}
           placeholder="repo"
           required
         />
-      </label>
+      </Field>
 
       {#if dest}
         <div class="dest-preview" title={dest}>
@@ -145,60 +141,16 @@
       {/if}
 
       {#if error}
-        <div class="err">
-          <Icon name="AlertTriangle" size={14} />
-          <span>{error}</span>
-        </div>
+        <Banner tone="error">{error}</Banner>
       {/if}
     </form>
   {/snippet}
 </Modal>
 
 <style>
-  .form { display: contents; }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .label {
-    font-size: var(--fs-2xs);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    color: var(--fg-subtle);
-    font-weight: var(--weight-semibold);
-  }
-  .input {
-    width: 100%;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    outline: none;
-    transition: border-color var(--t-fast);
-  }
-  .input::placeholder { color: var(--fg-subtle); }
-  .input:focus { border-color: var(--accent-500); }
-
-  .picker { display: flex; gap: 6px; }
-  .picker .input { flex: 1; }
-  .picker-btn {
-    flex-shrink: 0;
-    width: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
-  }
-  .picker-btn:hover:not(:disabled) {
-    color: var(--accent-fg);
-    border-color: var(--accent-bg-strong);
-    background: var(--accent-bg-soft);
-  }
+  .form { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .picker { display: flex; gap: 6px; align-items: stretch; }
+  .picker > :global(:first-child) { flex: 1; min-width: 0; }
 
   .dest-preview {
     display: flex;
@@ -215,19 +167,4 @@
   }
   .dest-preview span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dest-preview :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-
-  .err {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 12px;
-    background: color-mix(in srgb, var(--removed) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--removed) 35%, transparent);
-    border-radius: var(--r-md);
-    color: var(--fg);
-    font-size: var(--fs-xs);
-    line-height: 1.4;
-  }
-  .err :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
-
 </style>

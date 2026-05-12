@@ -8,6 +8,8 @@
   import { queryKeys } from '$lib/query/keys';
   import { ui } from '$lib/stores/ui.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import Input from '$lib/components/primitives/Input.svelte';
   import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { formatError } from '$lib/utils/error';
   import type { BranchInfo, AppError } from '$lib/types';
@@ -430,20 +432,18 @@
   >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); createBranch(); }}>
-        <label class="field">
-          <span class="label">Name</span>
-          <input
-            class="input"
-            type="text"
-            placeholder="feature/short-description"
+        <Field label="Name">
+          <Input
+            variant="mono"
             bind:value={newName}
-            bind:this={modalNameEl}
+            bind:ref={modalNameEl}
             disabled={busy}
+            placeholder="feature/short-description"
           />
-        </label>
+        </Field>
 
         <div class="field">
-          <span class="label">Branch from</span>
+          <span class="from-label">Branch from</span>
           {#if showDefaultOption}
             <SegmentedControl
               options={[
@@ -517,16 +517,14 @@
   >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); submitRename(); }}>
-        <label class="field">
-          <span class="label">Rename "{target.name}" to</span>
-          <input
-            class="input"
-            type="text"
+        <Field label={`Rename "${target.name}" to`}>
+          <Input
+            variant="mono"
             bind:value={renameName}
-            bind:this={renameNameEl}
+            bind:ref={renameNameEl}
             disabled={busy}
           />
-        </label>
+        </Field>
       </form>
     {/snippet}
   </Modal>
@@ -752,34 +750,16 @@
   .new:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
   .new:disabled { opacity: 0.6; cursor: progress; }
 
-  /* Form bits inside the new-branch / rename modals (provided shell now). */
-  .form { display: contents; }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .label {
+  /* Modal form layout (Field handles its own internals). */
+  .form { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .from-label {
     font-size: var(--fs-2xs);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
     color: var(--fg-subtle);
     font-weight: var(--weight-semibold);
   }
-  .input {
-    width: 100%;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    outline: none;
-    transition: border-color var(--t-fast);
-  }
-  .input::placeholder { color: var(--fg-subtle); }
-  .input:focus { border-color: var(--accent-500); }
 
   .seg-name {
     flex: 1;

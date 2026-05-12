@@ -17,6 +17,8 @@
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Field from '$lib/components/primitives/Field.svelte';
+  import TextArea from '$lib/components/primitives/TextArea.svelte';
   import type { CommitInfo, CommitPage, DiffFile, DiffPayload } from '$lib/types';
   import { formatError } from '$lib/utils/error';
   import { notify } from '$lib/utils/dialog.svelte';
@@ -362,22 +364,21 @@
           <span class="sha">{target.short_sha}</span>
           <span class="when">{relTime(target.author_when)}</span>
         </div>
-        <label class="field">
-          <span class="label">Message</span>
-          <textarea
-            class="input message"
+        <Field label="Message">
+          <TextArea
+            variant="mono"
             bind:value={amendMessage}
-            bind:this={amendMessageEl}
+            bind:ref={amendMessageEl}
             disabled={amending}
-            rows="4"
+            rows={4}
             onkeydown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault();
                 submitAmend();
               }
             }}
-          ></textarea>
-        </label>
+          />
+        </Field>
       </form>
     {/snippet}
   </Modal>
@@ -497,30 +498,6 @@
     font-size: var(--fs-xs);
   }
   .meta .sha { margin-left: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .label {
-    font-size: var(--fs-2xs);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-wider);
-    color: var(--fg-subtle);
-    font-weight: var(--weight-semibold);
-  }
-  .input.message {
-    width: 100%;
-    resize: vertical;
-    min-height: 80px;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-family: var(--font-sans);
-    font-size: var(--fs-sm);
-    line-height: 1.4;
-    outline: none;
-    transition: border-color var(--t-fast);
-  }
-  .input.message:focus { border-color: var(--accent-500); }
 
   .ctx-divider {
     height: 1px;
