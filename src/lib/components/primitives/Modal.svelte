@@ -15,6 +15,7 @@
     showClose = true,
     titleId = 'modal-title',
     head,
+    titleAffix,
     body,
     foot,
     actions,
@@ -27,6 +28,8 @@
     showClose?: boolean;
     titleId?: string;
     head?: import('svelte').Snippet;
+    /** Optional snippet rendered next to the title — for badges / counts. */
+    titleAffix?: import('svelte').Snippet;
     body?: import('svelte').Snippet;
     foot?: import('svelte').Snippet;
     actions?: {
@@ -69,7 +72,10 @@
       {@render head()}
     {:else if title}
       <header class="head">
-        <h2 id={titleId}>{title}</h2>
+        <h2 id={titleId} class="title">
+          <span>{title}</span>
+          {#if titleAffix}{@render titleAffix()}{/if}
+        </h2>
         {#if closeBtnVisible}
           <button class="close" onclick={onClose} aria-label="Close">
             <Icon name="X" size={14} />
@@ -176,6 +182,9 @@
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
     color: var(--fg);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
   }
   .close {
     width: 28px; height: 28px;

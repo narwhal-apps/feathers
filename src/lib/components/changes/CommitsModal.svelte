@@ -56,19 +56,11 @@
   }
 </script>
 
-<Modal {onClose} width="lg" align="center">
-  {#snippet head()}
-    <header class="head">
-      <h2>
-        Unpushed commits
-        {#if commits.length > 0}
-          <Tag tone="accent" size="sm">{commits.length}</Tag>
-        {/if}
-      </h2>
-      <button class="close" onclick={onClose} aria-label="Close">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </header>
+<Modal title="Unpushed commits" {onClose} width="lg" align="center">
+  {#snippet titleAffix()}
+    {#if commits.length > 0}
+      <Tag tone="accent" size="sm">{commits.length}</Tag>
+    {/if}
   {/snippet}
 
   {#snippet body()}
@@ -133,40 +125,6 @@
 </Modal>
 
 <style>
-  .head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .head h2 {
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--font-mono);
-    font-size: var(--fs-lg);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    color: var(--fg);
-  }
-  .close {
-    width: 28px; height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    border-radius: var(--r-sm);
-    color: var(--fg-subtle);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .close:hover { background: var(--bg-elev-3); color: var(--fg); }
-
   .split {
     flex: 1;
     min-height: 0;

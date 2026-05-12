@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import Icon from '$lib/components/primitives/Icon.svelte';
   import Avatar from '$lib/components/primitives/Avatar.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
@@ -27,8 +27,7 @@
 
   let undoing = $state(false);
 
-  async function undo(e: MouseEvent) {
-    e.stopPropagation();
+  async function undo() {
     if (!top) return;
     const ok = await confirm({
       title: 'Undo last commit',
@@ -54,12 +53,23 @@
       undoing = false;
     }
   }
+
+  function onCardKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpen();
+    }
+  }
 </script>
 
 {#if top}
-  <button
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
     class="card"
+    role="button"
+    tabindex="0"
     onclick={onOpen}
+    onkeydown={onCardKey}
     title="Show {count} unpushed commit{count === 1 ? '' : 's'}"
     aria-label="Show {count} unpushed commit{count === 1 ? '' : 's'}"
   >
@@ -69,17 +79,16 @@
 
     <header class="head">
       <span class="message">{top.summary || '(no message)'}</span>
-      <span
-        class="undo"
-        role="button"
-        tabindex="0"
-        aria-label="Undo last commit"
-        title="Undo last commit"
-        onclick={undo}
-        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); undo(e as unknown as MouseEvent); } }}
-      >
-        {undoing ? 'Undoing…' : 'Undo'}
-        {#if !undoing}<Icon name="Undo2" size={12} />{/if}
+      <span class="undo-wrap">
+        <Button
+          variant="ghost"
+          size="sm"
+          iconRight="Undo2"
+          label={undoing ? 'Undoing…' : 'Undo'}
+          loading={undoing}
+          title="Undo last commit"
+          onclick={(e) => { e.stopPropagation(); undo(); }}
+        />
       </span>
     </header>
 
@@ -96,7 +105,7 @@
       <span class="who">{top.author_name}</span>
       <span class="when">{relTime(top.author_when)}</span>
     </div>
-  </button>
+  </div>
 {/if}
 
 <style>
@@ -118,6 +127,10 @@
     border-color: var(--border-strong);
     background: var(--bg-elev-3);
   }
+  .card:focus-visible {
+    outline: var(--ring-width) solid var(--ring-color);
+    outline-offset: 2px;
+  }
 
   /* Floating count chip at the top-left corner — slightly overlapping the border. */
   .count {
@@ -136,10 +149,10 @@
     border: 2px solid var(--bg-elev-1);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 11px;
+    font-size: var(--fs-2xs);
     font-weight: var(--weight-bold);
     line-height: 1;
-    box-shadow: var(--shadow-2, 0 1px 3px rgba(0,0,0,0.3));
+    box-shadow: var(--shadow-1);
     pointer-events: none;
   }
 
@@ -160,33 +173,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  /* Inline pseudo-button — the parent `.card` is itself a button so we use
-     a role="button" span here to keep markup valid. */
-  .undo {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 22px;
-    padding: 0 8px;
-    border-radius: var(--r-sm);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--fg-muted);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .undo:hover {
-    color: var(--fg);
-    background: var(--bg-elev-1);
-    border-color: var(--border-strong);
-  }
-  .undo :global(svg) { color: var(--fg-subtle); }
-  .undo:hover :global(svg) { color: var(--fg); }
+  .undo-wrap { flex-shrink: 0; }
 
   .meta {
     display: flex;
