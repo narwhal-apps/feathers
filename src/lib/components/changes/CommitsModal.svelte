@@ -9,6 +9,8 @@
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
   import { commitAvatarUrl } from '$lib/utils/avatar';
+  import { github } from '$lib/stores/github.svelte';
+  import { identity } from '$lib/stores/identity.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import type { CommitPage, DiffFile, DiffPayload } from '$lib/types';
 
@@ -80,7 +82,15 @@
               {#each commits as c (c.oid)}
                 <li class:selected={selectedOid === c.oid}>
                   <button class="row" onclick={() => (selectedOid = c.oid)}>
-                    <Avatar name={c.author_name} email={c.author_email} url={commitAvatarUrl(c.author_email)} size={20} />
+                    <Avatar
+                      name={c.author_name}
+                      email={c.author_email}
+                      url={commitAvatarUrl(c.author_email, {
+                        selfEmail: identity.email,
+                        selfAvatarUrl: github.user?.avatar_url,
+                      })}
+                      size={20}
+                    />
                     <div class="row-text">
                       <div class="row-1">
                         <span class="message">{c.summary || '(no message)'}</span>

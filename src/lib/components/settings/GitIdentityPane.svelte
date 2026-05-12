@@ -3,6 +3,7 @@
   import SettingsRow from './SettingsRow.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import type { GitIdentity } from '$lib/types';
+  import { identity } from '$lib/stores/identity.svelte';
   import { formatError } from '$lib/utils/error';
 
   let initial = $state<GitIdentity>({ name: null, email: null });
@@ -38,6 +39,7 @@
     try {
       await invoke('settings_set_git_identity', { name: name.trim(), email: email.trim() });
       initial = { name: name.trim() || null, email: email.trim() || null };
+      identity.refresh();
       savedFlash = true;
       setTimeout(() => (savedFlash = false), 1500);
     } catch (err) {

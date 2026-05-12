@@ -18,6 +18,7 @@
   import { theme } from '$lib/stores/theme.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { github } from '$lib/stores/github.svelte';
+  import { identity } from '$lib/stores/identity.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
@@ -51,6 +52,7 @@
     if (!browser) return;
     repos.refresh();
     github.refresh();
+    identity.refresh();
     settings.refresh();
   });
 

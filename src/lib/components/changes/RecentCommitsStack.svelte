@@ -7,6 +7,8 @@
   import { queryKeys } from '$lib/query/keys';
   import { relTime } from '$lib/utils/time';
   import { commitAvatarUrl } from '$lib/utils/avatar';
+  import { github } from '$lib/stores/github.svelte';
+  import { identity } from '$lib/stores/identity.svelte';
   import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { formatError } from '$lib/utils/error';
   import type { CommitPage } from '$lib/types';
@@ -82,7 +84,15 @@
     </header>
 
     <div class="meta">
-      <Avatar name={top.author_name} email={top.author_email} url={commitAvatarUrl(top.author_email)} size={18} />
+      <Avatar
+        name={top.author_name}
+        email={top.author_email}
+        url={commitAvatarUrl(top.author_email, {
+          selfEmail: identity.email,
+          selfAvatarUrl: github.user?.avatar_url,
+        })}
+        size={18}
+      />
       <span class="who">{top.author_name}</span>
       <span class="when">{relTime(top.author_when)}</span>
     </div>
