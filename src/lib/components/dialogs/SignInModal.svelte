@@ -3,6 +3,10 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Spinner from '$lib/components/primitives/Spinner.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
+  import NumberedSteps from '$lib/components/primitives/NumberedSteps.svelte';
+  import NumberedStep from '$lib/components/primitives/NumberedStep.svelte';
   import { github } from '$lib/stores/github.svelte';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
 
@@ -65,56 +69,40 @@
     {#if stage === 'starting'}
       <p class="hint">Requesting device code…</p>
     {:else if stage === 'waiting' && code}
-      <ol class="steps">
-        <li>
-          <span class="step-num">1</span>
-          <div>
-            <strong>Open the verification page</strong>
-            <a href={code.verification_uri} onclick={(e) => { e.preventDefault(); openUrl(code!.verification_uri); }}>
-              {code.verification_uri}
-              <Icon name="ExternalLink" size={11} />
-            </a>
-          </div>
-        </li>
-        <li>
-          <span class="step-num">2</span>
-          <div>
-            <strong>Enter this code</strong>
-            <button class="code" onclick={copyCode} title="Copy to clipboard">
-              <span>{code.user_code}</span>
-              <Icon name={copied ? 'Check' : 'Copy'} size={12} />
-            </button>
-            {#if copied}<span class="copied-tag">Copied to clipboard</span>{/if}
-          </div>
-        </li>
-        <li>
-          <span class="step-num">3</span>
-          <div>
-            <strong>Authorize the app</strong>
-            <span class="muted">This window will close automatically.</span>
-          </div>
-        </li>
-      </ol>
+      <NumberedSteps>
+        <NumberedStep n={1}>
+          <strong>Open the verification page</strong>
+          <a
+            href={code.verification_uri}
+            onclick={(e) => { e.preventDefault(); openUrl(code!.verification_uri); }}
+          >
+            {code.verification_uri}
+            <Icon name="ExternalLink" size={11} />
+          </a>
+        </NumberedStep>
+        <NumberedStep n={2}>
+          <strong>Enter this code</strong>
+          <button class="code" onclick={copyCode} title="Copy to clipboard">
+            <span>{code.user_code}</span>
+            <Icon name={copied ? 'Check' : 'Copy'} size={12} />
+          </button>
+          {#if copied}<span class="copied-tag">Copied to clipboard</span>{/if}
+        </NumberedStep>
+        <NumberedStep n={3}>
+          <strong>Authorize the app</strong>
+          <span class="muted">This window will close automatically.</span>
+        </NumberedStep>
+      </NumberedSteps>
       <div class="waiting">
-        <span class="spinner"></span>
+        <Spinner size="xs" />
         Waiting for authorization…
       </div>
     {:else if stage === 'success'}
-      <div class="success">
-        <span class="ok-pill"><Icon name="Check" size={14} /></span>
-        <div>
-          <strong>Signed in as {github.user?.login ?? 'GitHub user'}</strong>
-          <span class="muted">You can now see your pull requests.</span>
-        </div>
-      </div>
+      <Banner tone="success" title="Signed in as {github.user?.login ?? 'GitHub user'}">
+        You can now see your pull requests.
+      </Banner>
     {:else}
-      <div class="error">
-        <Icon name="AlertTriangle" size={16} />
-        <div>
-          <strong>Sign-in failed</strong>
-          <span>{errorMsg}</span>
-        </div>
-      </div>
+      <Banner tone="error" title="Sign-in failed">{errorMsg}</Banner>
     {/if}
   {/snippet}
 </Modal>
@@ -122,25 +110,8 @@
 <style>
   .hint { color: var(--fg-subtle); font-size: var(--fs-sm); margin: 0; }
 
-  .steps { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-  .steps li { display: flex; gap: 12px; }
-  .steps li > div { display: flex; flex-direction: column; gap: 4px; }
-  .step-num {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--r-pill);
-    background: var(--accent-bg-medium);
-    color: var(--accent-fg);
-    font-family: var(--font-mono);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-bold);
-  }
-  .steps li strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--fg); }
-  .steps li a {
+  /* Numbered-step content slots */
+  :global(.steps a) {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -149,7 +120,7 @@
     text-decoration: none;
     word-break: break-all;
   }
-  .steps li a:hover { text-decoration: underline; }
+  :global(.steps a:hover) { text-decoration: underline; }
   .muted { color: var(--fg-subtle); font-size: var(--fs-xs); }
 
   .code {
@@ -163,7 +134,7 @@
     border-radius: var(--r-md);
     color: var(--fg);
     font-family: var(--font-mono);
-    font-size: 18px;
+    font-size: var(--fs-xl);
     font-weight: var(--weight-bold);
     letter-spacing: 0.15em;
     cursor: pointer;
@@ -177,6 +148,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: var(--sp-3);
     padding: 10px 12px;
     background: var(--bg-elev-1);
     border: 1px solid var(--border);
@@ -184,51 +156,4 @@
     color: var(--fg-muted);
     font-size: var(--fs-xs);
   }
-  .spinner {
-    width: 12px;
-    height: 12px;
-    border: 2px solid color-mix(in srgb, var(--accent-500) 30%, transparent);
-    border-top-color: var(--accent-500);
-    border-radius: var(--r-pill);
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .success {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    background: color-mix(in srgb, var(--added) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--added) 30%, transparent);
-    border-radius: var(--r-md);
-  }
-  .success > div { display: flex; flex-direction: column; gap: 2px; }
-  .success strong { color: var(--fg); font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
-  .ok-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--r-pill);
-    background: var(--added);
-    color: #fff;
-  }
-
-  .error {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    background: color-mix(in srgb, var(--removed) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--removed) 35%, transparent);
-    border-radius: var(--r-md);
-    color: var(--fg);
-  }
-  .error :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
-  .error > div { display: flex; flex-direction: column; gap: 2px; }
-  .error strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
-  .error span { color: var(--fg-muted); font-size: var(--fs-xs); }
-
 </style>

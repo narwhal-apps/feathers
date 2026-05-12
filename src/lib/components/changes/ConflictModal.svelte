@@ -5,6 +5,7 @@
   import Button from '$lib/components/primitives/Button.svelte';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { isStashApply } from '$lib/types';
@@ -192,27 +193,13 @@
 >
   {#snippet body()}
     {#if isStashRecovery}
-      <div class="status">
-        <span class="icon-wrap"><Icon name="Info" size={14} /></span>
-        <div class="status-text">
-          <strong>A previous stash apply was interrupted</strong>
-          <span>{stashSubtitle}</span>
-        </div>
-      </div>
+      <Banner tone="info" title="A previous stash apply was interrupted">
+        {stashSubtitle}
+      </Banner>
     {:else if allResolved}
-      <div class="status ok">
-        <span class="icon-wrap"><Icon name="Check" size={14} /></span>
-        <div class="status-text">
-          <strong>All conflicts resolved</strong>
-          <span>
-            {#if isStash}
-              {stashSubtitle}
-            {:else}
-              Continue the {label} to wrap things up.
-            {/if}
-          </span>
-        </div>
-      </div>
+      <Banner tone="success" title="All conflicts resolved">
+        {#if isStash}{stashSubtitle}{:else}Continue the {label} to wrap things up.{/if}
+      </Banner>
     {:else}
       <h3 class="files-title">
         {conflicted.length} conflicted file{conflicted.length === 1 ? '' : 's'}
@@ -263,35 +250,6 @@
 </Modal>
 
 <style>
-  .status {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1px solid color-mix(in srgb, var(--removed) 35%, transparent);
-    background: color-mix(in srgb, var(--removed) 12%, transparent);
-    border-radius: var(--r-md);
-  }
-  .status.ok {
-    border-color: color-mix(in srgb, var(--added) 40%, transparent);
-    background: color-mix(in srgb, var(--added) 14%, transparent);
-  }
-  .icon-wrap {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--removed) 40%, transparent);
-    color: #fff;
-  }
-  .status.ok .icon-wrap { background: var(--added); }
-  .status-text { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--fg); line-height: 1.4; }
-  .status-text strong { font-weight: var(--weight-semibold); }
-  .status-text span { color: var(--fg-muted); font-size: var(--fs-xs); }
-
   .files-title {
     margin: 0 0 10px;
     font-size: var(--fs-md);
@@ -354,8 +312,5 @@
     margin-bottom: 8px;
     color: var(--fg-muted);
     font-size: var(--fs-xs);
-  }
-  .status:not(.ok) .icon-wrap {
-    background: color-mix(in srgb, var(--accent-500) 60%, transparent);
   }
 </style>

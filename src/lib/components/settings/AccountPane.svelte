@@ -3,6 +3,11 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import Avatar from '$lib/components/primitives/Avatar.svelte';
+  import Spinner from '$lib/components/primitives/Spinner.svelte';
+  import Banner from '$lib/components/primitives/Banner.svelte';
+  import NumberedSteps from '$lib/components/primitives/NumberedSteps.svelte';
+  import NumberedStep from '$lib/components/primitives/NumberedStep.svelte';
   import { github } from '$lib/stores/github.svelte';
   import type { DeviceCodeResponse, AppError } from '$lib/types';
 
@@ -52,55 +57,57 @@
 
 {#if github.user}
   <div class="card">
-    <img class="avatar" src={github.user.avatar_url} alt="" />
+    <Avatar
+      name={github.user.name ?? github.user.login}
+      email={github.user.login}
+      url={github.user.avatar_url}
+      size={40}
+    />
     <div class="who">
       <div class="login">@{github.user.login}</div>
       {#if github.user.name}<div class="name">{github.user.name}</div>{/if}
     </div>
     <Button variant="ghost" iconLeft="LogOut" label="Sign out" onclick={signOut} />
   </div>
+{:else if stage === 'starting'}
+  <div class="working">
+    <Spinner size="md" />
+    <span>Requesting device code…</span>
+  </div>
 {:else if stage === 'waiting' && code}
   <div class="flow">
-    <ol class="steps">
-      <li>
-        <span class="step-num">1</span>
-        <div>
-          <strong>Open the verification page</strong>
-          <a href={code.verification_uri} onclick={(e) => { e.preventDefault(); openUrl(code!.verification_uri); }}>
-            {code.verification_uri}
-            <Icon name="ExternalLink" size={11} />
-          </a>
-        </div>
-      </li>
-      <li>
-        <span class="step-num">2</span>
-        <div>
-          <strong>Enter this code</strong>
-          <button class="code" onclick={copyCode}>
-            <span>{code.user_code}</span>
-            <Icon name={copied ? 'Check' : 'Copy'} size={12} />
-          </button>
-        </div>
-      </li>
-      <li>
-        <span class="step-num">3</span>
-        <div>
-          <strong>Authorize Feathers</strong>
-          <span class="muted">This card will update once you approve.</span>
-        </div>
-      </li>
-    </ol>
-    <div class="waiting"><span class="spinner"></span> Waiting for authorization…</div>
+    <NumberedSteps>
+      <NumberedStep n={1}>
+        <strong>Open the verification page</strong>
+        <a
+          href={code.verification_uri}
+          onclick={(e) => { e.preventDefault(); openUrl(code!.verification_uri); }}
+        >
+          {code.verification_uri}
+          <Icon name="ExternalLink" size={11} />
+        </a>
+      </NumberedStep>
+      <NumberedStep n={2}>
+        <strong>Enter this code</strong>
+        <button class="code" onclick={copyCode} title="Copy to clipboard">
+          <span>{code.user_code}</span>
+          <Icon name={copied ? 'Check' : 'Copy'} size={12} />
+        </button>
+      </NumberedStep>
+      <NumberedStep n={3}>
+        <strong>Authorize Feathers</strong>
+        <span class="muted">This card will update once you approve.</span>
+      </NumberedStep>
+    </NumberedSteps>
+    <div class="waiting"><Spinner size="xs" /> Waiting for authorization…</div>
   </div>
 {:else if stage === 'error'}
-  <div class="error">
-    <Icon name="AlertTriangle" size={16} />
-    <div>
-      <strong>Sign-in failed</strong>
-      <span>{errorMsg}</span>
-    </div>
-    <Button onclick={startSignIn} label="Try again" />
-  </div>
+  <Banner tone="error" title="Sign-in failed">
+    {errorMsg}
+    {#snippet actions()}
+      <Button onclick={startSignIn} label="Try again" />
+    {/snippet}
+  </Banner>
 {:else}
   <div class="signed-out">
     <Icon name="Github" size={32} />
@@ -119,7 +126,6 @@
     border: 1px solid var(--border);
     border-radius: var(--r-md);
   }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; }
   .who { flex: 1; min-width: 0; }
   .login { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: var(--weight-medium); }
   .name { color: var(--fg-subtle); font-size: var(--fs-xs); }
@@ -130,47 +136,37 @@
     color: var(--fg-subtle);
   }
   .signed-out p { margin: 0; max-width: 280px; }
-  .flow { padding: var(--sp-3) 0; }
-  .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
-  .steps li { display: flex; gap: var(--sp-3); }
-  .step-num {
-    width: 22px; height: 22px;
-    display: inline-flex; align-items: center; justify-content: center;
-    background: var(--accent-bg-medium); color: var(--accent-fg);
-    border-radius: 50%;
-    font-size: var(--fs-xs); font-weight: var(--weight-bold);
-    flex-shrink: 0;
+  .working {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4);
+    color: var(--fg-muted);
+    font-size: var(--fs-sm);
   }
+  .flow { padding: var(--sp-3) 0; }
+  .flow a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent-fg);
+    font-size: var(--fs-xs);
+    text-decoration: none;
+  }
+  .flow a:hover { text-decoration: underline; }
   .code {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 4px 8px;
-    margin-top: 4px;
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
+    color: var(--fg);
     cursor: pointer;
   }
-  .waiting { margin-top: var(--sp-3); display: flex; align-items: center; gap: 8px; color: var(--fg-subtle); font-size: var(--fs-xs); }
-  .spinner {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent-fg);
-    animation: spin 0.8s linear infinite;
+  .waiting {
+    margin-top: var(--sp-3);
+    display: flex; align-items: center; gap: 8px;
+    color: var(--fg-subtle); font-size: var(--fs-xs);
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
   .muted { color: var(--fg-subtle); font-size: var(--fs-xs); }
-  .error {
-    display: flex; align-items: center; gap: var(--sp-3);
-    padding: var(--sp-3);
-    background: var(--bg-elev-1);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    color: var(--fg);
-    font-size: var(--fs-sm);
-  }
-  .error > div { flex: 1; display: flex; flex-direction: column; }
-  .error span { color: var(--fg-subtle); font-size: var(--fs-xs); }
 </style>
