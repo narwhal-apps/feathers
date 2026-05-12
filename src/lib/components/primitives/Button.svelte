@@ -94,8 +94,11 @@
       background var(--t-fast),
       border-color var(--t-fast),
       color var(--t-fast),
-      box-shadow var(--t-fast),
-      opacity var(--t-fast);
+      box-shadow var(--t-fast);
+    /* opacity intentionally NOT transitioned — when loading ends, the
+       button un-disables on the same frame the icon swaps back in, and
+       a fade-in on opacity makes the icon look like it's settling into
+       place. Snap it. */
   }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn.loading { cursor: progress; }
