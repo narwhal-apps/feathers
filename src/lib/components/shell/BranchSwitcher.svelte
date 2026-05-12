@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Icon from '$lib/components/primitives/Icon.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import SegmentedControl from '$lib/components/primitives/SegmentedControl.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
@@ -413,7 +412,20 @@
 {/if}
 
 {#if modalOpen && head}
-  <Modal title="New branch" onClose={closeModal} width="md">
+  <Modal
+    title="New branch"
+    onClose={closeModal}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeModal, disabled: busy },
+      primary: {
+        label: busy ? 'Creating…' : 'Create branch',
+        onclick: createBranch,
+        loading: busy,
+        disabled: busy || !newName.trim(),
+      },
+    }}
+  >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); createBranch(); }}>
         <label class="field">
@@ -451,17 +463,6 @@
         </div>
       </form>
     {/snippet}
-
-    {#snippet foot()}
-      <Button variant="ghost" label="Cancel" onclick={closeModal} disabled={busy} />
-      <Button
-        variant="primary"
-        label={busy ? 'Creating…' : 'Create branch'}
-        loading={busy}
-        onclick={createBranch}
-        disabled={busy || !newName.trim()}
-      />
-    {/snippet}
   </Modal>
 {/if}
 
@@ -498,7 +499,20 @@
 
 {#if renameTarget}
   {@const target = renameTarget}
-  <Modal title="Rename branch" onClose={closeRename} width="md">
+  <Modal
+    title="Rename branch"
+    onClose={closeRename}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeRename, disabled: busy },
+      primary: {
+        label: busy ? 'Renaming…' : 'Rename',
+        onclick: submitRename,
+        loading: busy,
+        disabled: busy || !renameName.trim() || renameName.trim() === target.name,
+      },
+    }}
+  >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); submitRename(); }}>
         <label class="field">
@@ -512,17 +526,6 @@
           />
         </label>
       </form>
-    {/snippet}
-
-    {#snippet foot()}
-      <Button variant="ghost" label="Cancel" onclick={closeRename} disabled={busy} />
-      <Button
-        variant="primary"
-        label={busy ? 'Renaming…' : 'Rename'}
-        loading={busy}
-        onclick={submitRename}
-        disabled={busy || !renameName.trim() || renameName.trim() === target.name}
-      />
     {/snippet}
   </Modal>
 {/if}
