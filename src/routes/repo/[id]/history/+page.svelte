@@ -12,6 +12,7 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
@@ -93,6 +94,16 @@
   let amendMessage = $state('');
   let amendMessageEl = $state<HTMLTextAreaElement | null>(null);
   let amending = $state(false);
+
+  // Pane width persistence.
+  function loadWidth(key: string, fallback: number): number {
+    if (typeof window === 'undefined') return fallback;
+    const v = window.localStorage.getItem(key);
+    const n = v === null ? NaN : parseInt(v, 10);
+    return Number.isFinite(n) && n >= 240 && n <= 560 ? n : fallback;
+  }
+
+  let paneWidth = $state(loadWidth('feathers:history-pane-w', 360));
 
   function startAmend(commit: CommitInfo) {
     closeCtxMenu();
@@ -205,7 +216,7 @@
   });
 </script>
 
-<div class="layout">
+<div class="layout" style="--pane-w: {paneWidth}px">
   {#if actionError}
     <div class="action-error" role="alert">
       {actionError}
@@ -244,6 +255,8 @@
       <p class="hint">Loading…</p>
     {/if}
   </aside>
+
+  <PaneResizer bind:width={paneWidth} min={240} max={560} onResize={(w) => localStorage.setItem('feathers:history-pane-w', String(w))} />
 
   <section class="diff">
     {#if selectedOid == null}
@@ -402,12 +415,11 @@
   .layout {
     position: relative;
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: var(--pane-w) auto 1fr;
     height: 100%;
     min-height: 0;
   }
   .commits {
-    width: 360px;
     height: 100%;
     border-right: 1px solid var(--border);
     overflow-y: auto;
