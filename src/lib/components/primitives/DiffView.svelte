@@ -187,6 +187,13 @@
 
   const isVisible = (path: string) => visibleFiles.has(path);
 
+  /** Per-session collapsed state — clicking a file header toggles its body. */
+  const collapsed = new SvelteSet<string>();
+  function toggleCollapsed(path: string) {
+    if (collapsed.has(path)) collapsed.delete(path);
+    else collapsed.add(path);
+  }
+
   function estimateHeight(file: DiffFile): number {
     let lines = 0;
     for (const h of file.hunks) lines += h.lines.length;
@@ -265,8 +272,26 @@
     {@const lbl = statusLabel(file.status)}
     {@const dir = dirname(file.path)}
     {@const href = fileHref ? fileHref(file) : null}
-    <article class="file" use:visible={{ path: file.path }}>
-      <header class="file-header">
+    {@const isCollapsed = collapsed.has(file.path)}
+    <article class="file" class:collapsed={isCollapsed} use:visible={{ path: file.path }}>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <header
+        class="file-header"
+        onclick={() => toggleCollapsed(file.path)}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleCollapsed(file.path);
+          }
+        }}
+        role="button"
+        tabindex="0"
+        aria-expanded={!isCollapsed}
+        aria-label={isCollapsed ? `Expand ${file.path}` : `Collapse ${file.path}`}
+      >
+        <span class="chevron" aria-hidden="true">
+          <Icon name={isCollapsed ? 'ChevronRight' : 'ChevronDown'} size={12} />
+        </span>
         <FileIcon fileName={basename(file.path)} size={14} />
         <span class="name">
           <span class="basename">{basename(file.path)}</span>
@@ -292,13 +317,15 @@
             type="button"
             title="Open on remote"
             aria-label="Open {file.path} on remote"
-            onclick={() => openUrl(href)}
+            onclick={(e) => { e.stopPropagation(); openUrl(href); }}
           >
             <Icon name="ExternalLink" size={12} />
           </button>
         {/if}
       </header>
-      {#if file.binary}
+      {#if isCollapsed}
+        <!-- body hidden -->
+      {:else if file.binary}
         <div class="binary">Binary file — diff not shown.</div>
       {:else if !isVisible(file.path)}
         <div class="file-placeholder" style:height="{estimateHeight(file)}px"></div>
@@ -403,18 +430,53 @@
     border-radius: var(--r-md);
     background: var(--bg-elev-1);
     margin-bottom: var(--sp-3);
-    overflow: hidden;
+    /* No overflow: hidden — sticky headers need their scroll ancestor
+       to be the page-level diff column, not this article. */
   }
+  .file.collapsed {
+    /* Round all corners when there's no body to anchor the bottom. */
+    border-radius: var(--r-md);
+  }
+  /* Sticky to the top of the scrolling diff column. The article doesn't
+     create a scroll context, so the header sticks against the nearest
+     ancestor with overflow: auto (the page-level diff container). */
   .file-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: var(--sp-2) var(--sp-3);
     border-bottom: 1px solid var(--border);
+    border-top-left-radius: var(--r-md);
+    border-top-right-radius: var(--r-md);
     background: var(--bg-elev-2);
     color: var(--fg);
     min-width: 0;
+    cursor: pointer;
+    user-select: none;
   }
+  .file.collapsed .file-header {
+    /* Round the bottom corners too when the body is hidden. */
+    border-bottom: 1px solid var(--border);
+    border-bottom-left-radius: var(--r-md);
+    border-bottom-right-radius: var(--r-md);
+  }
+  .file-header:hover { background: var(--bg-elev-3); }
+  .file-header:focus-visible {
+    outline: var(--ring-width) solid var(--ring-color);
+    outline-offset: -2px;
+  }
+  .chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg-subtle);
+    flex-shrink: 0;
+    transition: color var(--t-fast);
+  }
+  .file-header:hover .chevron { color: var(--fg); }
   .name {
     display: inline-flex;
     align-items: baseline;
