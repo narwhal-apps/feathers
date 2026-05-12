@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import SegmentedControl from '$lib/components/primitives/SegmentedControl.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
@@ -430,34 +431,16 @@
         <div class="field">
           <span class="label">Branch from</span>
           {#if showDefaultOption}
-            <div class="seg" role="radiogroup" aria-label="Branch from">
-              <button
-                type="button"
-                class="seg-btn"
-                class:on={fromKind === 'current'}
-                role="radio"
-                aria-checked={fromKind === 'current'}
-                onclick={() => (fromKind = 'current')}
-                disabled={busy}
-              >
-                <Icon name="GitBranch" size={12} />
-                <span class="seg-name">{head.name}</span>
-                <span class="seg-tag">current</span>
-              </button>
-              <button
-                type="button"
-                class="seg-btn"
-                class:on={fromKind === 'default'}
-                role="radio"
-                aria-checked={fromKind === 'default'}
-                onclick={() => (fromKind = 'default')}
-                disabled={busy}
-              >
-                <Icon name="GitBranch" size={12} />
-                <span class="seg-name">{defaultBranch?.name}</span>
-                <span class="seg-tag">default</span>
-              </button>
-            </div>
+            <SegmentedControl
+              options={[
+                { value: 'current', label: `${head.name} · current`, icon: 'GitBranch' },
+                { value: 'default', label: `${defaultBranch?.name ?? ''} · default`, icon: 'GitBranch' },
+              ]}
+              bind:value={fromKind}
+              ariaLabel="Branch from"
+              size="md"
+              disabled={busy}
+            />
           {:else}
             <div class="seg-static">
               <Icon name="GitBranch" size={12} />
@@ -785,36 +768,6 @@
   .input::placeholder { color: var(--fg-subtle); }
   .input:focus { border-color: var(--accent-500); }
 
-  .seg {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .seg-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
-    min-width: 0;
-  }
-  .seg-btn :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .seg-btn:hover:not(:disabled) { background: var(--bg-elev-3); color: var(--fg); border-color: var(--border-strong); }
-  .seg-btn.on {
-    background: var(--accent-bg-medium);
-    border-color: var(--accent-bg-strong);
-    color: var(--accent-fg);
-  }
-  .seg-btn.on :global(svg) { color: var(--accent-fg); }
-  .seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .seg-name {
     flex: 1;
     overflow: hidden;
@@ -829,7 +782,6 @@
     color: var(--fg-subtle);
     font-weight: var(--weight-semibold);
   }
-  .seg-btn.on .seg-tag { color: var(--accent-fg); opacity: 0.85; }
 
   .seg-static {
     display: flex;
