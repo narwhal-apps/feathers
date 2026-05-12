@@ -3,6 +3,7 @@
   import Avatar from '$lib/components/primitives/Avatar.svelte';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import Tag from '$lib/components/primitives/Tag.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
@@ -103,7 +104,11 @@
 
       <section class="diff">
         {#if selectedOid == null}
-          <div class="hint">Select a commit to view its diff.</div>
+          <EmptyState
+            illustration="space-cockpit"
+            title="Select a commit to view its diff"
+            size="sm"
+          />
         {:else if diff.data}
           <DiffView payload={diff.data} {fileHref} />
         {:else if diff.error}

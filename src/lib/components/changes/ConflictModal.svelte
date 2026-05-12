@@ -2,11 +2,14 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openPath } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { isStashApply } from '$lib/types';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
   import type { OpKind, AppError } from '$lib/types';
 
   let {
@@ -53,6 +56,32 @@
 
   const allResolved = $derived(conflicted.length === 0);
 
+  const conflictActions = $derived(
+    isStashRecovery
+      ? {
+          primary: {
+            label: busy === 'continue' ? 'Finishing…' : 'Finish stash apply',
+            onclick: doContinue,
+            loading: busy === 'continue',
+            disabled: busy !== null,
+          },
+        }
+      : {
+          danger: {
+            label: busy === 'abort' ? 'Aborting…' : `Abort ${label}`,
+            onclick: doAbort,
+            loading: busy === 'abort',
+            disabled: busy !== null,
+          },
+          primary: {
+            label: busy === 'continue' ? 'Continuing…' : `Continue ${label}`,
+            onclick: doContinue,
+            loading: busy === 'continue',
+            disabled: busy !== null || !allResolved,
+          },
+        },
+  );
+
   function basename(p: string): string {
     const i = p.lastIndexOf('/');
     return i < 0 ? p : p.slice(i + 1);
@@ -72,7 +101,7 @@
     try {
       await openPath(abs);
     } catch (err) {
-      alert(`Failed to open ${rel}: ${String(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
 
@@ -96,17 +125,13 @@
   function reportError(prefix: string, err: unknown) {
     const e = err as AppError;
     if (e?.kind === 'merge_conflict') {
-      alert(
+      const text =
         `${prefix}: ${e.paths.length} file${e.paths.length === 1 ? '' : 's'} still conflicted.\n\n` +
-          e.paths.slice(0, 10).join('\n'),
-      );
+        e.paths.slice(0, 10).join('\n');
+      notify(text, { kind: 'error', durationMs: 0 });
       return;
     }
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   async function doContinue() {
@@ -134,7 +159,12 @@
     const confirmMsg = isStash
       ? 'Aborting will discard your in-progress resolution. The stash itself remains.'
       : `Abort ${label}? Working tree will be reset.`;
-    const ok = confirm(confirmMsg);
+    const ok = await confirm({
+      title: 'Abort',
+      message: confirmMsg,
+      confirmLabel: 'Abort',
+      danger: true,
+    });
     if (!ok) return;
     busy = 'abort';
     try {
@@ -155,7 +185,11 @@
   }
 </script>
 
-<Modal title={isStashRecovery ? 'Finish stash apply' : `Resolve ${label} conflicts`} width="md">
+<Modal
+  title={isStashRecovery ? 'Finish stash apply' : `Resolve ${label} conflicts`}
+  width="md"
+  actions={conflictActions}
+>
   {#snippet body()}
     {#if isStashRecovery}
       <div class="status">
@@ -199,45 +233,31 @@
               </div>
               <div class="file-sub">Needs resolution</div>
             </div>
-            <button
-              class="row-btn"
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft="ExternalLink"
+              label="Open"
               onclick={() => openOne(path)}
               disabled={!repoPath || busy !== null}
               title={repoPath ? `Open ${name} in your default editor` : 'Repo path unavailable'}
-            >
-              <Icon name="ExternalLink" size={12} />
-              <span>Open</span>
-            </button>
-            <button
-              class="row-btn ok"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft="Check"
+              label={busy === `resolve:${path}` ? 'Resolving…' : 'Resolved'}
+              loading={busy === `resolve:${path}`}
               onclick={() => resolveOne(path)}
               disabled={busy !== null}
               title="Mark this file resolved"
-            >
-              <Icon name="Check" size={12} />
-              <span>{busy === `resolve:${path}` ? 'Resolving…' : 'Resolved'}</span>
-            </button>
+            />
           </li>
         {/each}
       </ul>
       <p class="hint">
         Open each file, fix the conflict markers (<code>{'<<<<<<<'}</code>, <code>{'======='}</code>, <code>{'>>>>>>>'}</code>), save, then mark it resolved.
       </p>
-    {/if}
-  {/snippet}
-
-  {#snippet foot()}
-    {#if isStashRecovery}
-      <button class="btn primary" onclick={doContinue} disabled={busy !== null}>
-        {busy === 'continue' ? 'Finishing…' : 'Finish stash apply'}
-      </button>
-    {:else}
-      <button class="btn ghost" onclick={doAbort} disabled={busy !== null}>
-        {busy === 'abort' ? 'Aborting…' : `Abort ${label}`}
-      </button>
-      <button class="btn primary" onclick={doContinue} disabled={busy !== null || !allResolved}>
-        {busy === 'continue' ? 'Continuing…' : `Continue ${label}`}
-      </button>
     {/if}
   {/snippet}
 </Modal>
@@ -318,33 +338,6 @@
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
   }
-  .row-btn {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 24px;
-    padding: 0 9px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
-  }
-  .row-btn :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .row-btn:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
-  .row-btn:hover:not(:disabled) :global(svg) { color: var(--fg); }
-  .row-btn.ok:hover:not(:disabled) {
-    color: var(--added);
-    background: color-mix(in srgb, var(--added) 14%, transparent);
-    border-color: color-mix(in srgb, var(--added) 30%, transparent);
-  }
-  .row-btn.ok:hover:not(:disabled) :global(svg) { color: var(--added); }
-  .row-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
   .hint { margin: 0; color: var(--fg-subtle); font-size: var(--fs-xs); line-height: 1.5; }
   .hint code {
     font-family: var(--font-mono);
@@ -355,26 +348,6 @@
     border-radius: var(--r-sm);
     color: var(--fg-muted);
   }
-
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 
   .hint-top {
     margin-top: -4px;

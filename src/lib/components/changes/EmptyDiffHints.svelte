@@ -5,10 +5,12 @@
   import { queryKeys } from '$lib/query/keys';
   import { repos } from '$lib/stores/repos.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { github } from '$lib/stores/github.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
-  import Icon from '$lib/components/primitives/Icon.svelte';
+  import { notify } from '$lib/utils/dialog.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import Kbd from '$lib/components/primitives/Kbd.svelte';
-  import type { BranchInfo } from '$lib/types';
+  import type { BranchInfo, PullRequest } from '$lib/types';
 
   let { id }: { id: string } = $props();
 
@@ -42,9 +44,27 @@
   );
   const repoPath = $derived(repos.activeRepo?.path ?? null);
 
+  // Same cache key as the PR page + Titlebar — one fetch shared across
+  // all three. Skip the request entirely when prerequisites aren't met.
+  const prs = createQuery<PullRequest[]>(
+    () =>
+      github.user && isGithubRepo
+        ? queryKeys.repoPullRequests(id)
+        : ['noop'],
+    () =>
+      github.user && isGithubRepo
+        ? invoke<PullRequest[]>('github_list_prs', { id })
+        : Promise.resolve([] as PullRequest[]),
+  );
+  const existingPr = $derived(
+    head
+      ? prs.data?.find((pr) => pr.state === 'open' && pr.head.ref === head.name) ?? null
+      : null,
+  );
+
   function openInEditor() {
     invoke('repo_open_in_editor', { id }).catch((err) =>
-      alert(`Failed to open editor: ${String(err)}`),
+      notify(`Failed to open editor: ${String(err)}`, { kind: 'error', durationMs: 0 }),
     );
   }
   function openOnGithub() {
@@ -55,19 +75,27 @@
 
 <div class="hints">
   {#if canCreatePr && head}
-    <article class="card primary">
-      <div class="text">
-        <strong>Open a pull request</strong>
-        <p>
-          <code>{head.name}</code> is up on GitHub. Ship it for review.
-        </p>
-        <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
-      </div>
-      <button type="button" class="btn primary-btn" onclick={() => ui.createPr()}>
-        <Icon name="GitPullRequest" size={12} />
-        Open pull request
-      </button>
-    </article>
+    {#if existingPr}
+      <article class="card primary">
+        <div class="text">
+          <strong>Pull request #{existingPr.number} is open</strong>
+          <p>{existingPr.title}</p>
+          <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
+        </div>
+        <Button variant="primary" size="sm" iconLeft="GitPullRequest" label="Show PR" onclick={() => openUrl(existingPr.html_url).catch(() => {})} />
+      </article>
+    {:else}
+      <article class="card primary">
+        <div class="text">
+          <strong>Open a pull request</strong>
+          <p>
+            <code>{head.name}</code> is up on GitHub. Ship it for review.
+          </p>
+          <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
+        </div>
+        <Button variant="primary" size="sm" iconLeft="GitPullRequest" label="Create PR" onclick={() => ui.createPr()} />
+      </article>
+    {/if}
   {/if}
 
   {#if hasUpstream && ahead > 0}
@@ -79,10 +107,7 @@
         </p>
         <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'P']} /></div>
       </div>
-      <button type="button" class="btn" onclick={() => ui.push()}>
-        <Icon name="ArrowUp" size={12} />
-        Push
-      </button>
+      <Button variant="secondary" size="sm" iconLeft="ArrowUp" label="Push" onclick={() => ui.push()} />
     </article>
   {/if}
 
@@ -93,10 +118,7 @@
         <p>Cursor, VS Code, Zed, or whatever is set as default.</p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'A']} /></div>
       </div>
-      <button type="button" class="btn" onclick={openInEditor}>
-        <Icon name="ExternalLink" size={12} />
-        Open
-      </button>
+      <Button variant="secondary" size="sm" iconLeft="ExternalLink" label="Open" onclick={openInEditor} />
     </article>
   {/if}
 
@@ -107,10 +129,7 @@
         <p><code>{webBase}</code></p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'G']} /></div>
       </div>
-      <button type="button" class="btn" onclick={openOnGithub}>
-        <Icon name="ExternalLink" size={12} />
-        View
-      </button>
+      <Button variant="secondary" size="sm" iconLeft="ExternalLink" label="View" onclick={openOnGithub} />
     </article>
   {/if}
 
@@ -176,32 +195,6 @@
     font-size: var(--fs-2xs);
     line-height: 1;
   }
-
-  .btn {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: border-color var(--t-fast), background var(--t-fast);
-  }
-  .btn:hover { border-color: var(--border-strong); background: var(--bg-elev-2); }
-  .btn :global(svg) { color: var(--fg-subtle); }
-  .btn.primary-btn {
-    background: var(--accent-500);
-    color: var(--accent-on);
-    border-color: transparent;
-  }
-  .btn.primary-btn :global(svg) { color: var(--accent-on); }
-  .btn.primary-btn:hover { background: var(--accent-400); }
 
   .more {
     margin-top: 8px;

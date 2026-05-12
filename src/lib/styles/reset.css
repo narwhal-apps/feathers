@@ -29,6 +29,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
+  /* Defense in depth — the Tauri window enforces 900px (see
+     src-tauri/tauri.conf.json), but if the app is ever rendered
+     elsewhere (browser dev preview, embedded iframe), this keeps the
+     two-pane layouts from collapsing. */
+  min-width: 600px;
 }
 
 ::selection {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import SettingsRow from './SettingsRow.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import type { GitIdentity } from '$lib/types';
   import { formatError } from '$lib/utils/error';
 
@@ -80,9 +81,7 @@
 <div class="actions">
   {#if errorMsg}<div class="err">Couldn't save: {errorMsg}</div>{/if}
   {#if savedFlash}<div class="ok">Saved.</div>{/if}
-  <button class="btn primary" disabled={!dirty || !isValid || saving} onclick={save}>
-    {saving ? 'Saving…' : 'Save'}
-  </button>
+  <Button variant="primary" disabled={!dirty || !isValid || saving} loading={saving} label={saving ? 'Saving…' : 'Save'} onclick={save} />
 </div>
 
 <style>
@@ -112,18 +111,6 @@
     gap: var(--sp-3);
     margin-top: var(--sp-4);
   }
-  .err { color: var(--danger-fg, #c00); font-size: var(--fs-xs); margin-right: auto; }
+  .err { color: var(--removed); font-size: var(--fs-xs); margin-right: auto; }
   .ok { color: var(--accent-fg); font-size: var(--fs-xs); margin-right: auto; }
-  .btn {
-    padding: 6px 12px;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-  .btn.primary { background: var(--accent-bg-medium); color: var(--accent-fg); border-color: transparent; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

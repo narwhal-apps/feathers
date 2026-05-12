@@ -57,7 +57,20 @@
   }
 </script>
 
-<Modal title="Stash changes" onClose={onClose} width="md">
+<Modal
+  title="Stash changes"
+  onClose={onClose}
+  width="md"
+  actions={{
+    secondary: { label: 'Cancel', onclick: onClose, disabled: saving },
+    primary: {
+      label: saving ? 'Stashing…' : 'Stash',
+      onclick: submit,
+      loading: saving,
+      disabled: !canSave,
+    },
+  }}
+>
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <label class="field">
@@ -98,12 +111,6 @@
 
       {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
     </form>
-  {/snippet}
-  {#snippet foot()}
-    <button class="btn ghost" onclick={onClose} disabled={saving}>Cancel</button>
-    <button class="btn primary" onclick={submit} disabled={!canSave}>
-      {saving ? 'Stashing…' : 'Stash'}
-    </button>
   {/snippet}
 </Modal>
 
@@ -148,17 +155,5 @@
     font-size: var(--fs-xs);
     padding-top: 4px;
   }
-  .err { color: #c00; font-size: var(--fs-xs); }
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--fg-muted); border-color: var(--border); }
+  .err { color: var(--removed); font-size: var(--fs-xs); }
 </style>

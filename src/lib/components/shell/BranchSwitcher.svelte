@@ -1,12 +1,15 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import SegmentedControl from '$lib/components/primitives/SegmentedControl.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { ui } from '$lib/stores/ui.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
   import type { BranchInfo, AppError } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -94,12 +97,7 @@
   }
 
   function reportError(prefix: string, err: unknown) {
-    const e = err as AppError;
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   async function pick(b: BranchInfo) {
@@ -120,16 +118,14 @@
     } catch (err) {
       const e = err as AppError;
       if (e.kind === 'dirty') {
-        alert(
+        const text =
           `Cannot switch branches — working tree has uncommitted changes:\n\n` +
-            e.paths.slice(0, 10).join('\n') +
-            (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '') +
-            `\n\nCommit, stash, or discard them first.`,
-        );
-      } else if (e.kind === 'git') {
-        alert(`Failed to switch: ${e.message}`);
+          e.paths.slice(0, 10).join('\n') +
+          (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '') +
+          `\n\nCommit, stash, or discard them first.`;
+        notify(text, { kind: 'error', durationMs: 0 });
       } else {
-        alert(`Failed to switch: ${JSON.stringify(err)}`);
+        notify(`Failed to switch: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
       }
     } finally {
       busy = false;
@@ -210,7 +206,13 @@
 
   async function confirmDelete(b: BranchInfo) {
     closeCtxMenu();
-    if (!confirm(`Delete branch "${b.name}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete branch',
+      message: `Delete branch "${b.name}"?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await runDelete(b.name, false);
   }
   async function runDelete(name: string, force: boolean) {
@@ -223,10 +225,15 @@
       const e = err as AppError;
       if (e.kind === 'unmerged') {
         busy = false;
-        const ok = confirm(
+        const text =
           `Branch "${name}" has commits that aren't merged into HEAD.\n\n` +
-            `Force delete and lose those commits?`,
-        );
+          `Force delete and lose those commits?`;
+        const ok = await confirm({
+          title: 'Force delete?',
+          message: text,
+          confirmLabel: 'Force delete',
+          danger: true,
+        });
         if (ok) await runDelete(name, true);
         return;
       }
@@ -308,7 +315,6 @@
     >
       <Icon name="GitBranch" size={12} />
       <span class="name">{head.name}</span>
-      <span class="total" title="{localBranches.length} local branches">{localBranches.length}</span>
       {#if head.ahead || head.behind}
         <span class="counts">↓ {head.behind ?? 0}  ↑ {head.ahead ?? 0}</span>
       {/if}
@@ -329,7 +335,10 @@
         <div class="list">
           <ul>
             {#if filteredLocal.length > 0}
-              <li class="section-head">Local</li>
+              <li class="section-head">
+                <span>Local</span>
+                <span class="count" title="{localBranches.length} local branches">{localBranches.length}</span>
+              </li>
               {#each filteredLocal as b (b.name)}
                 {@const tracked = b.ahead != null || b.behind != null}
                 <li>
@@ -405,7 +414,20 @@
 {/if}
 
 {#if modalOpen && head}
-  <Modal title="New branch" onClose={closeModal} width="md">
+  <Modal
+    title="New branch"
+    onClose={closeModal}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeModal, disabled: busy },
+      primary: {
+        label: busy ? 'Creating…' : 'Create branch',
+        onclick: createBranch,
+        loading: busy,
+        disabled: busy || !newName.trim(),
+      },
+    }}
+  >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); createBranch(); }}>
         <label class="field">
@@ -423,34 +445,16 @@
         <div class="field">
           <span class="label">Branch from</span>
           {#if showDefaultOption}
-            <div class="seg" role="radiogroup" aria-label="Branch from">
-              <button
-                type="button"
-                class="seg-btn"
-                class:on={fromKind === 'current'}
-                role="radio"
-                aria-checked={fromKind === 'current'}
-                onclick={() => (fromKind = 'current')}
-                disabled={busy}
-              >
-                <Icon name="GitBranch" size={12} />
-                <span class="seg-name">{head.name}</span>
-                <span class="seg-tag">current</span>
-              </button>
-              <button
-                type="button"
-                class="seg-btn"
-                class:on={fromKind === 'default'}
-                role="radio"
-                aria-checked={fromKind === 'default'}
-                onclick={() => (fromKind = 'default')}
-                disabled={busy}
-              >
-                <Icon name="GitBranch" size={12} />
-                <span class="seg-name">{defaultBranch?.name}</span>
-                <span class="seg-tag">default</span>
-              </button>
-            </div>
+            <SegmentedControl
+              options={[
+                { value: 'current', label: `${head.name} · current`, icon: 'GitBranch' },
+                { value: 'default', label: `${defaultBranch?.name ?? ''} · default`, icon: 'GitBranch' },
+              ]}
+              bind:value={fromKind}
+              ariaLabel="Branch from"
+              size="md"
+              disabled={busy}
+            />
           {:else}
             <div class="seg-static">
               <Icon name="GitBranch" size={12} />
@@ -460,16 +464,6 @@
           {/if}
         </div>
       </form>
-    {/snippet}
-
-    {#snippet foot()}
-      <button type="button" class="btn ghost" onclick={closeModal} disabled={busy}>Cancel</button>
-      <button
-        type="button"
-        class="btn primary"
-        onclick={createBranch}
-        disabled={busy || !newName.trim()}
-      >{busy ? 'Creating…' : 'Create branch'}</button>
     {/snippet}
   </Modal>
 {/if}
@@ -507,7 +501,20 @@
 
 {#if renameTarget}
   {@const target = renameTarget}
-  <Modal title="Rename branch" onClose={closeRename} width="md">
+  <Modal
+    title="Rename branch"
+    onClose={closeRename}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeRename, disabled: busy },
+      primary: {
+        label: busy ? 'Renaming…' : 'Rename',
+        onclick: submitRename,
+        loading: busy,
+        disabled: busy || !renameName.trim() || renameName.trim() === target.name,
+      },
+    }}
+  >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); submitRename(); }}>
         <label class="field">
@@ -521,16 +528,6 @@
           />
         </label>
       </form>
-    {/snippet}
-
-    {#snippet foot()}
-      <button type="button" class="btn ghost" onclick={closeRename} disabled={busy}>Cancel</button>
-      <button
-        type="button"
-        class="btn primary"
-        onclick={submitRename}
-        disabled={busy || !renameName.trim() || renameName.trim() === target.name}
-      >{busy ? 'Renaming…' : 'Rename'}</button>
     {/snippet}
   </Modal>
 {/if}
@@ -563,17 +560,6 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .total {
-    background: var(--accent-bg-strong);
-    color: var(--accent-fg);
-    border-radius: var(--r-pill);
-    padding: 1px 7px;
-    font-size: 10px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    line-height: 16px;
-    font-weight: var(--weight-bold);
   }
   .counts {
     color: var(--fg-muted);
@@ -648,12 +634,31 @@
     font-size: var(--fs-sm);
   }
   li.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 8px 10px 4px;
     color: var(--fg-subtle);
     font-size: var(--fs-2xs);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
     font-weight: var(--weight-semibold);
+  }
+  li.section-head .count {
+    background: var(--accent-bg-strong);
+    color: var(--accent-fg);
+    border-radius: var(--r-pill);
+    padding: 1px 7px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
+    font-weight: var(--weight-bold);
+    /* Section head is uppercase via text-transform; numbers shouldn't
+       inherit that visual weight. */
+    text-transform: none;
+    letter-spacing: 0;
   }
   /* Tighten the gap when one section follows another. */
   li.section-head + li { margin-top: 0; }
@@ -776,36 +781,6 @@
   .input::placeholder { color: var(--fg-subtle); }
   .input:focus { border-color: var(--accent-500); }
 
-  .seg {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .seg-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
-    min-width: 0;
-  }
-  .seg-btn :global(svg) { color: var(--fg-subtle); flex-shrink: 0; }
-  .seg-btn:hover:not(:disabled) { background: var(--bg-elev-3); color: var(--fg); border-color: var(--border-strong); }
-  .seg-btn.on {
-    background: var(--accent-bg-medium);
-    border-color: var(--accent-bg-strong);
-    color: var(--accent-fg);
-  }
-  .seg-btn.on :global(svg) { color: var(--accent-fg); }
-  .seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .seg-name {
     flex: 1;
     overflow: hidden;
@@ -820,7 +795,6 @@
     color: var(--fg-subtle);
     font-weight: var(--weight-semibold);
   }
-  .seg-btn.on .seg-tag { color: var(--accent-fg); opacity: 0.85; }
 
   .seg-static {
     display: flex;
@@ -837,29 +811,6 @@
   }
   .seg-static :global(svg) { color: var(--accent-fg); flex-shrink: 0; }
   .seg-static .seg-tag { color: var(--accent-fg); opacity: 0.85; }
-
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary {
-    background: var(--accent-500);
-    color: var(--accent-on);
-  }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 
   /* Right-click context menu */
   .ctx-menu {

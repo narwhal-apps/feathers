@@ -14,6 +14,12 @@
   let errorMsg = $state<string | null>(null);
   let copied = $state(false);
 
+  const footerActions = $derived(
+    stage === 'error'
+      ? { secondary: { label: 'Close', onclick: onClose } }
+      : undefined,
+  );
+
   $effect(() => {
     let cancelled = false;
     (async () => {
@@ -54,7 +60,7 @@
   }
 </script>
 
-<Modal title="Sign in to GitHub" onClose={onClose} width="sm">
+<Modal title="Sign in to GitHub" onClose={onClose} width="sm" actions={footerActions}>
   {#snippet body()}
     {#if stage === 'starting'}
       <p class="hint">Requesting device code…</p>
@@ -109,12 +115,6 @@
           <span>{errorMsg}</span>
         </div>
       </div>
-    {/if}
-  {/snippet}
-
-  {#snippet foot()}
-    {#if stage === 'error'}
-      <button class="btn ghost" onclick={onClose}>Close</button>
     {/if}
   {/snippet}
 </Modal>
@@ -231,17 +231,4 @@
   .error strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
   .error span { color: var(--fg-muted); font-size: var(--fs-xs); }
 
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--fg-muted);
-    transition: color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn:hover { color: var(--fg); border-color: var(--border-strong); }
 </style>

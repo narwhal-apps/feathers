@@ -57,7 +57,20 @@
   }
 </script>
 
-<Modal title={titleText} onClose={onClose} width="sm">
+<Modal
+  title={titleText}
+  onClose={onClose}
+  width="sm"
+  actions={{
+    secondary: { label: 'Cancel', onclick: onClose, disabled: working },
+    primary: {
+      label: working ? `${verb}ing…` : verb,
+      onclick: go,
+      loading: working,
+      disabled: working,
+    },
+  }}
+>
   {#snippet body()}
     <p class="lede">{lede}</p>
     <div class="card">
@@ -66,12 +79,6 @@
     </div>
     <p class="hint">Working tree must be clean.</p>
     {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
-  {/snippet}
-  {#snippet foot()}
-    <button class="btn ghost" onclick={onClose} disabled={working}>Cancel</button>
-    <button class="btn primary" onclick={go} disabled={working}>
-      {working ? `${verb}ing…` : verb}
-    </button>
   {/snippet}
 </Modal>
 
@@ -95,9 +102,5 @@
   }
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hint { margin: 0; color: var(--fg-subtle); font-size: var(--fs-xs); }
-  .err { margin-top: var(--sp-2); color: #c00; font-size: var(--fs-xs); }
-  .btn { height: 32px; padding: 0 14px; border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: var(--weight-semibold); cursor: pointer; border: 1px solid transparent; }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--fg-muted); border-color: var(--border); }
+  .err { margin-top: var(--sp-2); color: var(--removed); font-size: var(--fs-xs); }
 </style>

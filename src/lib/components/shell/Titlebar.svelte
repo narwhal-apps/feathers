@@ -14,8 +14,10 @@
   import { queryKeys } from '$lib/query/keys';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
+  import { notify } from '$lib/utils/dialog.svelte';
+  import { formatError } from '$lib/utils/error';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
-  import type { AppError, BranchInfo } from '$lib/types';
+  import type { AppError, BranchInfo, PullRequest } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
 
@@ -61,6 +63,25 @@
     isGithubRepo && hasUpstream && head != null && !onDefaultBranch,
   );
 
+  // Re-uses the same cache key the PR page populates, so visiting that
+  // tab once primes this query for free. Gated on signed-in + GitHub
+  // remote so we don't fire requests we can't satisfy.
+  const prs = createQuery<PullRequest[]>(
+    () =>
+      active && github.user && isGithubRepo
+        ? queryKeys.repoPullRequests(active.id)
+        : ['noop'],
+    () =>
+      active && github.user && isGithubRepo
+        ? invoke<PullRequest[]>('github_list_prs', { id: active.id })
+        : Promise.resolve([] as PullRequest[]),
+  );
+  const existingPr = $derived(
+    head
+      ? prs.data?.find((pr) => pr.state === 'open' && pr.head.ref === head.name) ?? null
+      : null,
+  );
+
   let busy = $state<null | 'fetch' | 'pull' | 'push' | 'publish'>(null);
   let createPrOpen = $state(false);
 
@@ -79,18 +100,14 @@
   function reportError(prefix: string, err: unknown) {
     const e = err as AppError;
     if (e?.kind === 'merge_conflict') {
-      alert(
+      const text =
         `${prefix}: merge conflict in ${e.paths.length} file${e.paths.length === 1 ? '' : 's'}.\n\n` +
-          e.paths.slice(0, 10).join('\n') +
-          (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : ''),
-      );
+        e.paths.slice(0, 10).join('\n') +
+        (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '');
+      notify(text, { kind: 'error', durationMs: 0 });
       return;
     }
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? (e as { message: string }).message
-        : JSON.stringify(err);
-    alert(`${prefix}: ${msg}`);
+    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
   async function run<T>(kind: NonNullable<typeof busy>, fn: () => Promise<T>) {
@@ -162,8 +179,11 @@
     const req = ui.pushRequest;
     if (req != null && req !== lastPushReq) {
       lastPushReq = req;
-      // Push is meaningful only when there's something to push.
-      if (active && hasUpstream && ahead > 0 && busy == null) doPush();
+      if (!active || busy != null) return;
+      // Mirror the titlebar buttons: push if upstream + ahead, otherwise
+      // publish the branch.
+      if (hasUpstream && ahead > 0) doPush();
+      else if (!hasUpstream && head) doPublish();
     }
   });
   let lastCreatePrReq: number | null = null;
@@ -171,7 +191,8 @@
     const req = ui.createPrRequest;
     if (req != null && req !== lastCreatePrReq) {
       lastCreatePrReq = req;
-      if (canCreatePr) startCreatePr();
+      if (existingPr) openUrl(existingPr.html_url).catch(() => {});
+      else if (canCreatePr) startCreatePr();
     }
   });
 </script>
@@ -213,7 +234,7 @@
     {/if}
     <Button
       label={busy === 'fetch' ? 'Fetching…' : 'Fetch'}
-      icon="ArrowDownToLine"
+      iconLeft="ArrowDownToLine"
       variant="ghost"
       size="sm"
       disabled={!active || busy !== null}
@@ -222,7 +243,7 @@
     {#if hasUpstream}
       <Button
         label={busy === 'pull' ? 'Pulling…' : 'Pull'}
-        icon="ArrowDown"
+        iconLeft="ArrowDown"
         badge={behind > 0 ? behind : undefined}
         variant="ghost"
         size="sm"
@@ -234,7 +255,7 @@
       />
       <Button
         label={busy === 'push' ? 'Pushing…' : 'Push'}
-        icon="ArrowUp"
+        iconLeft="ArrowUp"
         badge={ahead > 0 ? ahead : undefined}
         variant="primary"
         size="sm"
@@ -247,26 +268,38 @@
     {:else if active && head}
       <Button
         label={busy === 'publish' ? 'Publishing…' : 'Publish branch'}
-        icon="CloudUpload"
+        iconLeft="CloudUpload"
         variant="primary"
         size="sm"
         disabled={busy !== null}
         onclick={doPublish}
-        title="Push {head.name} to origin and set it as the upstream"
+        title="Push {head.name} to origin and set it as the upstream (⌘P)"
       />
     {/if}
     {#if canCreatePr && head}
-      <Button
-        label="Create PR"
-        icon="GitPullRequest"
-        variant="ghost"
-        size="sm"
-        disabled={busy !== null}
-        onclick={startCreatePr}
-        title={github.user
-          ? `Open a pull request from ${head.name} (⌘R)`
-          : `Open ${head.name} on github.com to create a pull request (⌘R)`}
-      />
+      {#if existingPr}
+        <Button
+          label="Show PR"
+          iconLeft="GitPullRequest"
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          onclick={() => openUrl(existingPr.html_url).catch(() => {})}
+          title="Open #{existingPr.number}: {existingPr.title} (⌘R)"
+        />
+      {:else}
+        <Button
+          label="Create PR"
+          iconLeft="GitPullRequest"
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          onclick={startCreatePr}
+          title={github.user
+            ? `Open a pull request from ${head.name} (⌘R)`
+            : `Open ${head.name} on github.com to create a pull request (⌘R)`}
+        />
+      {/if}
     {/if}
   </div>
 </header>

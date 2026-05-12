@@ -11,16 +11,19 @@
   } from '$lib/stores/repo-context';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
+  import { loadStorageInt } from '$lib/utils/storage';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
-  import type { CommitInfo, CommitPage, DiffFile, DiffPayload, AppError } from '$lib/types';
+  import type { CommitInfo, CommitPage, DiffFile, DiffPayload } from '$lib/types';
   import { formatError } from '$lib/utils/error';
+  import { notify } from '$lib/utils/dialog.svelte';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import BranchFromCommitModal from '$lib/components/history/BranchFromCommitModal.svelte';
   import ConfirmActionModal from '$lib/components/history/ConfirmActionModal.svelte';
   import ResetModal from '$lib/components/history/ResetModal.svelte';
-  import Toast from '$lib/components/history/Toast.svelte';
   import { opKindLabel, type OpKind } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
@@ -48,7 +51,6 @@
 
   // Inline feedback at the top of the tab.
   let actionError = $state<string | null>(null);
-  let toastMsg = $state<string | null>(null);
 
   function flashError(msg: string): void {
     actionError = msg;
@@ -56,7 +58,7 @@
   }
 
   function flashToast(msg: string): void {
-    toastMsg = msg;
+    notify(msg, { kind: 'success' });
   }
 
   const diff = createQuery<DiffPayload>(
@@ -94,6 +96,8 @@
   let amendMessageEl = $state<HTMLTextAreaElement | null>(null);
   let amending = $state(false);
 
+  let paneWidth = $state(loadStorageInt('feathers:history-pane-w', 360, 240, 560));
+
   function startAmend(commit: CommitInfo) {
     closeCtxMenu();
     amendTarget = commit;
@@ -122,12 +126,7 @@
       ]);
       closeAmend();
     } catch (err) {
-      const e = err as AppError;
-      const msg =
-        typeof e === 'object' && e !== null && 'message' in e
-          ? (e as { message: string }).message
-          : JSON.stringify(err);
-      alert(`Failed to amend: ${msg}`);
+      notify(`Failed to amend: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
     } finally {
       amending = false;
     }
@@ -210,7 +209,7 @@
   });
 </script>
 
-<div class="layout">
+<div class="layout" style="--pane-w: {paneWidth}px">
   {#if actionError}
     <div class="action-error" role="alert">
       {actionError}
@@ -250,9 +249,15 @@
     {/if}
   </aside>
 
+  <PaneResizer bind:width={paneWidth} min={240} max={560} onResize={(w) => localStorage.setItem('feathers:history-pane-w', String(w))} />
+
   <section class="diff">
     {#if selectedOid == null}
-      <div class="hint">Select a commit to view its diff.</div>
+      <EmptyState
+        illustration="space-cockpit"
+        title="Select a commit to view its diff"
+        description="Click any commit in the timeline. Right-click for actions."
+      />
     {:else if diff.data}
       <DiffView payload={diff.data} {fileHref} />
     {:else if diff.error}
@@ -337,7 +342,20 @@
 
 {#if amendTarget}
   {@const target = amendTarget}
-  <Modal title="Amend commit" onClose={closeAmend} width="md">
+  <Modal
+    title="Amend commit"
+    onClose={closeAmend}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeAmend, disabled: amending },
+      primary: {
+        label: amending ? 'Amending…' : 'Amend',
+        onclick: submitAmend,
+        loading: amending,
+        disabled: amending || !amendMessage.trim() || amendMessage.trim() === target.summary,
+      },
+    }}
+  >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); submitAmend(); }}>
         <div class="meta">
@@ -361,16 +379,6 @@
           ></textarea>
         </label>
       </form>
-    {/snippet}
-
-    {#snippet foot()}
-      <button type="button" class="btn ghost" onclick={closeAmend} disabled={amending}>Cancel</button>
-      <button
-        type="button"
-        class="btn primary"
-        onclick={submitAmend}
-        disabled={amending || !amendMessage.trim() || amendMessage.trim() === target.summary}
-      >{amending ? 'Amending…' : 'Amend'}</button>
     {/snippet}
   </Modal>
 {/if}
@@ -402,20 +410,16 @@
   />
 {/if}
 
-{#if toastMsg}
-  <Toast message={toastMsg} onDone={() => (toastMsg = null)} />
-{/if}
-
 <style>
   .layout {
     position: relative;
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: var(--pane-w) auto 1fr;
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
   }
   .commits {
-    width: 360px;
     height: 100%;
     border-right: 1px solid var(--border);
     overflow-y: auto;
@@ -510,25 +514,6 @@
     transition: border-color var(--t-fast);
   }
   .input.message:focus { border-color: var(--accent-500); }
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 
   .ctx-divider {
     height: 1px;

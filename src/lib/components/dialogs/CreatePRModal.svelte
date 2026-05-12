@@ -31,7 +31,7 @@
   );
 
   let title = $state('');
-  let body = $state('');
+  let description = $state('');
   let base = $state('');
   let draft = $state(false);
   let busy = $state(false);
@@ -39,6 +39,7 @@
   let titleEl = $state<HTMLInputElement | null>(null);
 
   let prefilled = false;
+  let cursorPlaced = false;
   $effect(() => {
     if (prefilled) return;
     const top = log.data?.commits[0];
@@ -49,11 +50,15 @@
   $effect(() => {
     if (!base && defaultBase) base = defaultBase.name;
   });
+  // One-shot: once the prefill lands and the input mounts, focus and
+  // park the caret at the end. Reading `cursorPlaced` (not `title`)
+  // means typing does NOT retrigger this — otherwise every keystroke
+  // would snap the caret back to the end of the line.
   $effect(() => {
-    if (titleEl && title && !busy) {
-      titleEl.focus();
-      titleEl.setSelectionRange(title.length, title.length);
-    }
+    if (cursorPlaced || !titleEl || !prefilled || busy) return;
+    titleEl.focus();
+    titleEl.setSelectionRange(title.length, title.length);
+    cursorPlaced = true;
   });
 
   async function submit() {
@@ -66,7 +71,7 @@
       const pr = await invoke<PullRequest>('github_create_pr', {
         id,
         title: t,
-        body: body.trim() || null,
+        body: description.trim() || null,
         base,
         draft,
       });
@@ -87,7 +92,20 @@
   function close() { if (!busy) onClose(); }
 </script>
 
-<Modal title="Open pull request" onClose={close} width="md">
+<Modal
+  title="Open pull request"
+  onClose={close}
+  width="md"
+  actions={{
+    secondary: { label: 'Cancel', onclick: close, disabled: busy },
+    primary: {
+      label: busy ? 'Creating…' : draft ? 'Open draft' : 'Open pull request',
+      onclick: submit,
+      loading: busy,
+      disabled: busy || !title.trim() || !head || !base || base === head?.name,
+    },
+  }}
+>
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <div class="branches">
@@ -121,7 +139,7 @@
         <span class="label">Description <span class="muted">(optional, Markdown)</span></span>
         <textarea
           class="input message"
-          bind:value={body}
+          bind:value={description}
           disabled={busy}
           rows="5"
           placeholder="Add context, screenshots, links — anything reviewers will need."
@@ -143,18 +161,6 @@
         </div>
       {/if}
     </form>
-  {/snippet}
-
-  {#snippet foot()}
-    <button type="button" class="btn ghost" onclick={close} disabled={busy}>Cancel</button>
-    <button
-      type="button"
-      class="btn primary"
-      onclick={submit}
-      disabled={busy || !title.trim() || !head || !base || base === head?.name}
-    >
-      {busy ? 'Creating…' : draft ? 'Open draft' : 'Open pull request'}
-    </button>
   {/snippet}
 </Modal>
 
@@ -262,23 +268,4 @@
   }
   .err :global(svg) { color: var(--removed); flex-shrink: 0; margin-top: 2px; }
 
-  .btn {
-    height: 32px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-  }
-  .btn.primary { background: var(--accent-500); color: var(--accent-on); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-400); }
-  .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.ghost {
-    background: transparent;
-    color: var(--fg-muted);
-    border-color: var(--border);
-  }
-  .btn.ghost:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
 </style>

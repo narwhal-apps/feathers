@@ -1,5 +1,6 @@
 <script lang="ts">
-  import Icon from '$lib/components/primitives/Icon.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import type { RepoSummary } from '$lib/types';
 
@@ -38,7 +39,12 @@
 </script>
 
 {#if repos.knownRepos.length === 0}
-  <div class="empty">No repositories yet.</div>
+  <EmptyState
+    illustration="rocket-launch"
+    title="No repositories yet"
+    description="Open or clone one from the welcome screen to get started."
+    size="md"
+  />
 {:else}
   <ul class="list">
     {#each repos.knownRepos as r (r.id)}
@@ -50,15 +56,12 @@
         </div>
         {#if r.id === repos.activeRepoId}
           <span class="badge" title="Close this repo first">Currently open</span>
-          <button class="btn" disabled>Forget</button>
+          <Button size="sm" label="Forget" disabled />
         {:else if confirmingId === r.id}
-          <button class="btn ghost" onclick={cancelConfirm}>Cancel</button>
-          <button class="btn danger" onclick={() => forget(r)}>
-            <Icon name="Trash2" size={12} />
-            Confirm
-          </button>
+          <Button variant="ghost" size="sm" label="Cancel" onclick={cancelConfirm} />
+          <Button variant="danger" size="sm" iconLeft="Trash2" label="Confirm" onclick={() => forget(r)} />
         {:else}
-          <button class="btn ghost" onclick={() => forget(r)}>Forget</button>
+          <Button variant="danger" size="sm" label="Forget" onclick={() => forget(r)} />
         {/if}
       </li>
     {/each}
@@ -66,12 +69,6 @@
 {/if}
 
 <style>
-  .empty {
-    padding: var(--sp-5);
-    text-align: center;
-    color: var(--fg-subtle);
-    font-size: var(--fs-sm);
-  }
   .list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
   .row {
     display: flex;
@@ -108,18 +105,4 @@
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
   }
-  .btn {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 4px 10px;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    color: var(--fg);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-  .btn.ghost { background: transparent; }
-  .btn.danger { background: var(--danger-bg, #c00); color: white; border-color: transparent; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

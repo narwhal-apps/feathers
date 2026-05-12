@@ -14,6 +14,9 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
+  import { loadStorageInt } from '$lib/utils/storage';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
   import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
@@ -26,11 +29,11 @@
     DiffPayload,
     DiffFile,
     FileStatus,
-    AppError,
     FileChange,
   } from '$lib/types';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { formatError } from '$lib/utils/error';
+  import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { SvelteMap } from 'svelte/reactivity';
 
   const id = $derived($page.params.id ?? '');
@@ -66,7 +69,7 @@
     try {
       await openPath(abs);
     } catch (err) {
-      alert(`Failed to open ${relPath}: ${String(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
 
@@ -77,9 +80,12 @@
   }
 
   async function discardHunk(file: DiffFile, hunkIndex: number) {
-    const ok = confirm(
-      `Discard this hunk in ${file.path}? This cannot be undone.`,
-    );
+    const ok = await confirm({
+      title: 'Discard hunk',
+      message: `Discard this hunk in ${file.path}? This cannot be undone.`,
+      confirmLabel: 'Discard',
+      danger: true,
+    });
     if (!ok) return;
     await withBusy(async () => {
       await invoke('discard_hunk', { id, path: file.path, hunkIndex });
@@ -102,6 +108,8 @@
   // Stash UI state.
   let stashModalOpen = $state(false);
   let selectedStashIndex = $state<number | null>(null);
+
+  let paneWidth = $state(loadStorageInt('feathers:changes-pane-w', 340, 240, 560));
 
   const stashFiles = createQuery<FileChange[]>(
     () =>
@@ -158,9 +166,7 @@
     try {
       return await fn();
     } catch (err) {
-      const e = err as AppError;
-      const msg = 'message' in e ? e.message : JSON.stringify(err);
-      alert(`Failed: ${msg}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
       return null;
     } finally {
       busy = false;
@@ -175,7 +181,7 @@
       refresh();
     } catch (err) {
       for (const p of paths) pendingStaged.delete(p);
-      alert(`Failed: ${formatError(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
   async function unstagePaths(paths: string[]) {
@@ -186,16 +192,20 @@
       refresh();
     } catch (err) {
       for (const p of paths) pendingStaged.delete(p);
-      alert(`Failed: ${formatError(err)}`);
+      notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
   async function discardPaths(paths: string[], label: string) {
     if (paths.length === 0) return;
-    const ok = confirm(
-      `Discard changes to ${label}? This cannot be undone.\n\n` +
+    const ok = await confirm({
+      title: 'Discard changes',
+      message:
+        `Discard changes to ${label}? This cannot be undone.\n\n` +
         paths.slice(0, 8).join('\n') +
         (paths.length > 8 ? `\n…and ${paths.length - 8} more` : ''),
-    );
+      confirmLabel: 'Discard',
+      danger: true,
+    });
     if (!ok) return;
     await withBusy(async () => {
       await invoke('discard_files', { id, paths });
@@ -362,7 +372,7 @@
   }
 </script>
 
-<div class="layout">
+<div class="layout" style="--pane-w: {paneWidth}px">
   <aside class="files">
     <div class="files-scroll">
       <StashList
@@ -390,10 +400,12 @@
           </aside>
         {/if}
         {#if allChanges.length === 0}
-          <div class="empty-state">
-            <Icon name="Sparkles" size={20} />
-            <p>Working tree is clean.</p>
-          </div>
+          <EmptyState
+            illustration="astronaut-helmet"
+            title="Working tree is clean"
+            description="Nothing to stage. You're all caught up."
+            size="sm"
+          />
         {:else}
           <header class="group-header" class:stash-mode={showingStash}>
             {#if !showingStash}
@@ -414,11 +426,16 @@
               {/key}
             </span>
             {#if !showingStash}
-              <button
-                class="bulk danger"
-                onclick={discardAll}
-                title="Discard all changes">Discard all</button
-              >
+              <span class="discard-all">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconLeft="Undo2"
+                  label="Discard all"
+                  onclick={discardAll}
+                  title="Discard all changes"
+                />
+              </span>
             {/if}
           </header>
           <ul>
@@ -559,6 +576,8 @@
     </footer>
   </aside>
 
+  <PaneResizer bind:width={paneWidth} min={240} max={560} onResize={(w) => localStorage.setItem('feathers:changes-pane-w', String(w))} />
+
   <section class="diff">
     {#if showingStash}
       {#if selected == null}
@@ -610,13 +629,13 @@
 <style>
   .layout {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: var(--pane-w) auto 1fr;
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
   }
 
   .files {
-    width: 340px;
     height: 100%;
     border-right: 1px solid var(--border);
     display: flex;
@@ -710,25 +729,9 @@
     from { transform: translateY(60%); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
   }
-  .bulk {
-    color: var(--fg-subtle);
-    font-size: var(--fs-2xs);
-    font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
-    transition: color var(--t-fast);
-  }
-  .bulk:hover:not(:disabled) {
-    color: var(--accent-fg);
-  }
-  .bulk:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .bulk.danger {
+  .discard-all {
     margin-left: auto;
-  }
-  .bulk.danger:hover:not(:disabled) {
-    color: var(--removed);
+    display: inline-flex;
   }
 
   .files ul {
@@ -878,19 +881,6 @@
   }
   .tone-conflict :global(svg) {
     color: var(--removed);
-  }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-8) var(--sp-3);
-    color: var(--fg-subtle);
-    font-size: var(--fs-sm);
-  }
-  .empty-state p {
-    margin: 0;
   }
 
   .composer {
