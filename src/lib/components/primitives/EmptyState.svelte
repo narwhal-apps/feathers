@@ -43,9 +43,11 @@
     gap: var(--sp-2);
     padding: var(--sp-5) var(--sp-3);
     color: var(--fg-muted);
-    /* Sit visually a bit above center; pure-center reads as "lost in
-       space" — a slight upward bias feels intentional. */
-    margin-top: -4vh;
+    /* Fill the parent so justify-content: center can do real vertical
+       centering. Falls back to content-height when the parent is
+       content-sized. */
+    min-height: 100%;
+    box-sizing: border-box;
   }
 
   /* Mask-based recolor so we can tint the silhouette via theme tokens
