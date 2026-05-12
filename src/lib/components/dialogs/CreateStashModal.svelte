@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { StatusSnapshot } from '$lib/types';
@@ -58,7 +57,20 @@
   }
 </script>
 
-<Modal title="Stash changes" onClose={onClose} width="md">
+<Modal
+  title="Stash changes"
+  onClose={onClose}
+  width="md"
+  actions={{
+    secondary: { label: 'Cancel', onclick: onClose, disabled: saving },
+    primary: {
+      label: saving ? 'Stashing…' : 'Stash',
+      onclick: submit,
+      loading: saving,
+      disabled: !canSave,
+    },
+  }}
+>
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <label class="field">
@@ -99,16 +111,6 @@
 
       {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
     </form>
-  {/snippet}
-  {#snippet foot()}
-    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={saving} />
-    <Button
-      variant="primary"
-      label={saving ? 'Stashing…' : 'Stash'}
-      loading={saving}
-      onclick={submit}
-      disabled={!canSave}
-    />
   {/snippet}
 </Modal>
 
