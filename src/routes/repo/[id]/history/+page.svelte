@@ -443,7 +443,14 @@
   .summary { color: var(--fg); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row2 { display: flex; gap: var(--sp-2); padding-left: 16px; color: var(--fg-subtle); font-size: var(--fs-xs); }
   .sha { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-  .diff { padding: var(--sp-3); min-width: 0; height: 100%; overflow-y: auto; }
+  /* No padding here — DiffView's sticky file headers need to land flush
+     with the tab-nav border when scrolled. Spacing is on the children
+     (first file gets top margin). */
+  .diff {
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+  }
   .hint { color: var(--fg-subtle); padding: var(--sp-3); font-size: var(--fs-sm); }
   .err { color: var(--removed); padding: var(--sp-3); font-size: var(--fs-sm); }
 

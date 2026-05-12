@@ -429,7 +429,11 @@
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     background: var(--bg-elev-1);
-    margin-bottom: var(--sp-3);
+    /* Side + bottom margin gives the file breathing room from the
+       page edges and following content. The first file's top margin
+       is added below so its sticky header can land flush with the
+       page's scroll-container top when stuck. */
+    margin: 0 var(--sp-3) var(--sp-3);
     /* No overflow: hidden — sticky headers need their scroll ancestor
        to be the page-level diff column, not this article. */
   }
@@ -685,7 +689,10 @@
   .controls {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: var(--sp-2);
+    /* DiffView mounts directly inside the page's scrollable diff
+       column with no padding — give the controls their own page-edge
+       margin (matches .file's margin). */
+    margin: var(--sp-3) var(--sp-3) var(--sp-2);
   }
   .seg {
     display: inline-flex;

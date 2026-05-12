@@ -943,7 +943,9 @@
   }
 
   .diff {
-    padding: var(--sp-3);
+    /* No padding — DiffView's sticky file headers need to land flush
+       with the tab-nav border when scrolled. Spacing lives on DiffView's
+       children. */
     background: var(--bg);
     min-width: 0;
     height: 100%;
