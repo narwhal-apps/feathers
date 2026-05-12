@@ -94,11 +94,9 @@
       background var(--t-fast),
       border-color var(--t-fast),
       color var(--t-fast),
-      transform var(--t-fast),
       box-shadow var(--t-fast),
       opacity var(--t-fast);
   }
-  .btn:not(:disabled):active { transform: translateY(0.5px); }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn.loading { cursor: progress; }
 
