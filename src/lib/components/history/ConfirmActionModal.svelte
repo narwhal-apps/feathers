@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
   import Modal from '$lib/components/primitives/Modal.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import type { CommitInfo } from '$lib/types';
@@ -58,7 +57,20 @@
   }
 </script>
 
-<Modal title={titleText} onClose={onClose} width="sm">
+<Modal
+  title={titleText}
+  onClose={onClose}
+  width="sm"
+  actions={{
+    secondary: { label: 'Cancel', onclick: onClose, disabled: working },
+    primary: {
+      label: working ? `${verb}ing…` : verb,
+      onclick: go,
+      loading: working,
+      disabled: working,
+    },
+  }}
+>
   {#snippet body()}
     <p class="lede">{lede}</p>
     <div class="card">
@@ -67,16 +79,6 @@
     </div>
     <p class="hint">Working tree must be clean.</p>
     {#if errorMsg}<div class="err">{errorMsg}</div>{/if}
-  {/snippet}
-  {#snippet foot()}
-    <Button variant="ghost" label="Cancel" onclick={onClose} disabled={working} />
-    <Button
-      variant="primary"
-      label={working ? `${verb}ing…` : verb}
-      loading={working}
-      onclick={go}
-      disabled={working}
-    />
   {/snippet}
 </Modal>
 
