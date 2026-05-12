@@ -2,6 +2,7 @@
   import type { DiffPayload, DiffFile, DiffHunk, DiffLine, FileStatus } from '$lib/types';
   import { browser } from '$app/environment';
   import { detectLang, highlightLines } from '$lib/syntax/highlighter';
+  import { intraLineRanges, wrapHtmlRanges } from '$lib/utils/word-diff';
   import { theme } from '$lib/stores/theme.svelte';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
@@ -18,6 +19,26 @@
   $effect(() => {
     if (browser) localStorage.setItem(VIEW_KEY, mode);
   });
+
+  /** Index-wise pairs of consecutive del→add runs in a hunk. For runs of
+   *  unequal length, only min(N, M) pairs are returned — the leftover
+   *  lines are pure adds or deletes and don't get intra-line highlighting. */
+  function consecutiveDelAddPairs(lines: DiffLine[]): Array<[number, number]> {
+    const pairs: Array<[number, number]> = [];
+    let i = 0;
+    while (i < lines.length) {
+      if (lines[i].kind !== 'del') { i++; continue; }
+      const dStart = i;
+      while (i < lines.length && lines[i].kind === 'del') i++;
+      const aStart = i;
+      while (i < lines.length && lines[i].kind === 'add') i++;
+      const dCount = aStart - dStart;
+      const aCount = i - aStart;
+      const n = Math.min(dCount, aCount);
+      for (let k = 0; k < n; k++) pairs.push([dStart + k, aStart + k]);
+    }
+    return pairs;
+  }
 
   // Pair consecutive del/add runs into rows for the split view. Context lines
   // align on both sides; lone adds/dels leave the opposite cell empty. Each
@@ -100,6 +121,20 @@
         for (const hunk of file.hunks) {
           const lines = hunk.lines.map((l) => l.text);
           const html = await highlightLines(lines, lang, t);
+          // Word-level intra-line highlighting. Walks consecutive del→add
+          // runs and pairs them index-wise; for each pair we mark the
+          // changed substrings in both the del and the add line. Skipped
+          // when the two lines barely overlap — full-line repaint reads
+          // as noise, not signal.
+          const pairs = consecutiveDelAddPairs(hunk.lines);
+          for (const [delIdx, addIdx] of pairs) {
+            const delText = hunk.lines[delIdx].text;
+            const addText = hunk.lines[addIdx].text;
+            const r = intraLineRanges(delText, addText);
+            if (r.ratio < 0.3) continue;
+            html[delIdx] = wrapHtmlRanges(html[delIdx], r.delRanges, 'intra-del');
+            html[addIdx] = wrapHtmlRanges(html[addIdx], r.addRanges, 'intra-add');
+          }
           hunkHtml.push(html);
         }
         if (cancelled) return;
@@ -560,6 +595,19 @@
   }
   .line-add { background: var(--added-bg); }
   .line-del { background: var(--removed-bg); }
+  /* Intra-line word diff. Wrapper spans carry only a background tint
+     so they stack cleanly over Shiki's syntax colours. Inner wrappers
+     (a logical range may be split across syntax-span boundaries) stay
+     flat — only the first and last wrapper round the leading/trailing
+     edges, so the whole logical range reads as one rounded pill. */
+  .text :global(.intra-add) {
+    background: color-mix(in srgb, var(--added) 28%, transparent);
+  }
+  .text :global(.intra-del) {
+    background: color-mix(in srgb, var(--removed) 28%, transparent);
+  }
+  .text :global(.intra-start) { border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+  .text :global(.intra-end)   { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
   .line .ln { color: var(--fg-subtle); text-align: right; padding-right: var(--sp-1); font-variant-numeric: tabular-nums; }
   .line .prefix { color: var(--fg-subtle); text-align: center; }
   .line-add .prefix { color: var(--added); }
