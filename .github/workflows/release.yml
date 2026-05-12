@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    name: Build macOS (${{ matrix.target }})
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      # Required for tauri-action to create / attach artifacts to the
+      # GitHub Release.
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin
+          - target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          # One cache per target so cross-arch builds don't trash each other.
+          shared-key: 'release-${{ matrix.target }}'
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build + publish (tauri-action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required for createUpdaterArtifacts. Generate locally with
+          # `pnpm tauri signer generate -- -w ~/.tauri/feathers.key` and
+          # add both as repo secrets. See docs/RELEASE.md.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # ── TODO: macOS code signing + notarisation ──────────────────
+          # Add an Apple Developer account, then uncomment + populate
+          # these secrets to ship signed/notarised .dmgs (Gatekeeper
+          # warning goes away):
+          #   APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          #   APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          #   APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          #   APPLE_ID: ${{ secrets.APPLE_ID }}
+          #   APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          #   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          # Both arch jobs share the same tag so artifacts attach to one
+          # release. github.ref_name is the raw tag (e.g. "v0.1.1") on
+          # tag-push runs; for workflow_dispatch the build still produces
+          # artifacts but tagName falls back to the default-branch HEAD
+          # (which won't match an existing release — manual runs are for
+          # local-build verification, not publishing).
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Feathers ${{ github.ref_name }}'
+          releaseBody: |
+            See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+            **Unsigned macOS build.** macOS will warn on first launch — right-click the app and pick *Open* once.
+          releaseDraft: true
+          prerelease: false
+          # Generates the latest.json manifest the updater plugin reads.
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}

@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Keep the workflow action versions current — security patches for
+  # checkout / setup-node / tauri-action land here as PRs.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(actions)
+
+  # JS deps. Security advisories surface as PRs; minor bumps as well.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      tauri:
+        patterns:
+          - '@tauri-apps/*'
+      svelte:
+        patterns:
+          - 'svelte*'
+          - '@sveltejs/*'
+
+  # Rust crates.
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(cargo)
+    groups:
+      tauri:
+        patterns:
+          - 'tauri'
+          - 'tauri-*'
