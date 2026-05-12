@@ -1,8 +1,9 @@
 <script lang="ts">
-  let { keys }: { keys: string[] } = $props();
+  type Tone = 'default' | 'on-accent';
+  let { keys, tone = 'default' }: { keys: string[]; tone?: Tone } = $props();
 </script>
 
-<span class="grp">
+<span class="grp tone-{tone}">
   {#each keys as k}
     <kbd>{k}</kbd>
   {/each}
@@ -17,14 +18,22 @@
     min-width: 18px;
     height: 18px;
     padding: 0 4px;
+    border-radius: var(--r-sm);
+    font-family: var(--font-sans);
+    font-size: var(--fs-2xs);
+    font-weight: var(--weight-semibold);
+    line-height: 1;
+  }
+  .tone-default kbd {
     background: var(--bg);
     border: 1px solid var(--border);
     border-bottom-width: 2px;
-    border-radius: var(--r-sm);
     color: var(--fg-muted);
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: var(--weight-semibold);
-    line-height: 1;
+  }
+  /* Reads on the --accent-500 background of a primary Button — uses a
+     translucent darken built off --accent-on. */
+  .tone-on-accent kbd {
+    background: var(--kbd-on-accent);
+    color: var(--accent-on);
   }
 </style>

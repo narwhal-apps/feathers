@@ -2,6 +2,8 @@
   import { goto } from '$app/navigation';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import Avatar from '$lib/components/primitives/Avatar.svelte';
+  import Kbd from '$lib/components/primitives/Kbd.svelte';
   import FeatherMark from '$lib/components/shell/FeatherMark.svelte';
   import CloneModal from '$lib/components/dialogs/CloneModal.svelte';
   import { openRepoFlow } from '$lib/components/dialogs/openRepo';
@@ -56,7 +58,7 @@
     <div class="cta">
       <Button variant="primary" size="lg" iconLeft="FolderOpen" onclick={openRepoFlow}>
         <span>Open repository</span>
-        <kbd>⌘O</kbd>
+        <Kbd keys={['⌘O']} tone="on-accent" />
       </Button>
       <Button variant="secondary" size="lg" iconLeft="DownloadCloud" label="Clone from URL" onclick={() => (cloneOpen = true)} />
     </div>
@@ -70,7 +72,7 @@
           {#each recents as r (r.id)}
             <li>
               <button class="recent" onclick={() => pick(r)}>
-                <span class="avatar">{r.name.trim()[0]?.toUpperCase() ?? '?'}</span>
+                <Avatar name={r.name} size={28} />
                 <span class="meta">
                   <span class="name">{r.name}</span>
                   <span class="path">
@@ -87,9 +89,9 @@
   </div>
 
   <footer class="legend">
-    <span class="hint"><kbd>⌘O</kbd> open</span>
+    <span class="hint"><Kbd keys={['⌘O']} /> open</span>
     <span class="dot">·</span>
-    <span class="hint"><kbd>⌘,</kbd> settings</span>
+    <span class="hint"><Kbd keys={['⌘,']} /> settings</span>
     <span class="dot">·</span>
     <span class="hint">v{version}</span>
   </footer>
@@ -171,17 +173,6 @@
     justify-content: center;
     flex-wrap: wrap;
   }
-  .cta :global(kbd) {
-    display: inline-block;
-    margin-left: 4px;
-    padding: 1px 6px;
-    background: rgba(255, 255, 255, 0.18);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: var(--weight-medium);
-    letter-spacing: 0;
-  }
 
   .recents { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
   .rule {
@@ -221,19 +212,6 @@
     border-color: var(--border);
     transform: translateX(2px);
   }
-  .avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px; height: 28px;
-    flex-shrink: 0;
-    border-radius: var(--r-sm);
-    background: linear-gradient(135deg, var(--accent-600, var(--accent-fg)), var(--accent-800, var(--accent-fg)));
-    color: var(--accent-50, white);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: var(--weight-bold);
-  }
   .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
   .name { font-size: var(--fs-sm); font-weight: var(--weight-medium); }
   .path {
@@ -257,18 +235,7 @@
     font-size: var(--fs-2xs);
     z-index: 1;
   }
-  .legend kbd {
-    display: inline-block;
-    padding: 1px 6px;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--fg-muted);
-    margin-right: 4px;
-  }
-  .hint { display: inline-flex; align-items: center; }
+  .hint { display: inline-flex; align-items: center; gap: 4px; }
   .dot { opacity: 0.4; }
 
   @keyframes rise {

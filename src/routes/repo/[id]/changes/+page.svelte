@@ -15,6 +15,7 @@
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import Banner from '$lib/components/primitives/Banner.svelte';
+  import Kbd from '$lib/components/primitives/Kbd.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
   import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { loadStorageInt } from '$lib/utils/storage';
@@ -590,7 +591,7 @@
     {#if showingStash}
       {#if selected == null}
         <div class="hint">
-          Select a file from this stash to see its changes. Press <kbd>Esc</kbd> to return to the working tree.
+          Select a file from this stash to see its changes. Press <Kbd keys={['Esc']} /> to return to the working tree.
         </div>
       {:else if stashDiff.loading}
         <div class="hint">Loading diff…</div>

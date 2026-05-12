@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Avatar from '$lib/components/primitives/Avatar.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { openRepoFlow } from '$lib/components/dialogs/openRepo';
@@ -109,9 +110,6 @@
     }
   });
 
-  function avatarLetter(name: string): string {
-    return (name.trim()[0] ?? '?').toUpperCase();
-  }
 </script>
 
 {#if list.length === 0}
@@ -150,10 +148,10 @@
       aria-expanded={open}
     >
       {#if active}
-        <span class="avatar">{avatarLetter(active.name)}</span>
+        <Avatar name={active.name} size={20} />
         <span class="name">{active.name}</span>
       {:else}
-        <span class="avatar muted">·</span>
+        <span class="avatar-empty" aria-hidden="true">·</span>
         <span class="name muted">Select repository</span>
       {/if}
       <Icon name="ChevronsUpDown" size={12} />
@@ -237,26 +235,18 @@
     font-weight: var(--weight-semibold);
   }
 
-  .avatar {
+  /* Empty placeholder when no repo is active. The signed-in case uses
+     <Avatar> directly. */
+  .avatar-empty {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 20px;
     height: 20px;
-    border-radius: var(--r-sm);
-    background: linear-gradient(135deg, var(--accent-600), var(--accent-800));
-    color: var(--accent-50);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: var(--weight-bold);
-    letter-spacing: 0;
     flex-shrink: 0;
-    box-shadow: var(--inset-top), 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
-  .avatar.muted {
+    border-radius: var(--r-sm);
     background: var(--bg-elev-1);
     color: var(--fg-subtle);
-    box-shadow: none;
   }
   .name { color: var(--fg); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .name.muted { color: var(--fg-subtle); font-weight: var(--weight-medium); }
