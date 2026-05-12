@@ -2,7 +2,6 @@
   import { invoke } from '@tauri-apps/api/core';
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Icon from '$lib/components/primitives/Icon.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import Modal from '$lib/components/primitives/Modal.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
@@ -88,7 +87,20 @@
   function close() { if (!busy) onClose(); }
 </script>
 
-<Modal title="Open pull request" onClose={close} width="md">
+<Modal
+  title="Open pull request"
+  onClose={close}
+  width="md"
+  actions={{
+    secondary: { label: 'Cancel', onclick: close, disabled: busy },
+    primary: {
+      label: busy ? 'Creating…' : draft ? 'Open draft' : 'Open pull request',
+      onclick: submit,
+      loading: busy,
+      disabled: busy || !title.trim() || !head || !base || base === head?.name,
+    },
+  }}
+>
   {#snippet body()}
     <form class="form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
       <div class="branches">
@@ -144,17 +156,6 @@
         </div>
       {/if}
     </form>
-  {/snippet}
-
-  {#snippet foot()}
-    <Button variant="ghost" label="Cancel" onclick={close} disabled={busy} />
-    <Button
-      variant="primary"
-      label={busy ? 'Creating…' : draft ? 'Open draft' : 'Open pull request'}
-      loading={busy}
-      onclick={submit}
-      disabled={busy || !title.trim() || !head || !base || base === head?.name}
-    />
   {/snippet}
 </Modal>
 
