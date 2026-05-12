@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import Avatar from '$lib/components/primitives/Avatar.svelte';
   import SignInModal from '$lib/components/dialogs/SignInModal.svelte';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
@@ -195,10 +196,12 @@
       </div>
     </div>
   {:else if prs.data && prs.data.length === 0}
-    <div class="state hint">
-      <Icon name="GitPullRequest" size={28} />
-      <p>Nothing open. Inbox zero for review.</p>
-    </div>
+    <EmptyState
+      illustration="landing-space-capsule"
+      title="Inbox zero"
+      description="Nothing open for review. Mission accomplished."
+    />
+
   {:else if prs.data}
     <ul class="prs">
       {#each prs.data as pr (pr.number)}

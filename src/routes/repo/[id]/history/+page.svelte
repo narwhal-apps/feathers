@@ -12,6 +12,7 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { loadStorageInt } from '$lib/utils/storage';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
@@ -252,7 +253,11 @@
 
   <section class="diff">
     {#if selectedOid == null}
-      <div class="hint">Select a commit to view its diff.</div>
+      <EmptyState
+        illustration="space-cockpit"
+        title="Select a commit to view its diff"
+        description="Click any commit in the timeline. Right-click for actions."
+      />
     {:else if diff.data}
       <DiffView payload={diff.data} {fileHref} />
     {:else if diff.error}

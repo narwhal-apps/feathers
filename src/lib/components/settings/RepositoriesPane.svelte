@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/primitives/Button.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import type { RepoSummary } from '$lib/types';
 
@@ -38,7 +39,12 @@
 </script>
 
 {#if repos.knownRepos.length === 0}
-  <div class="empty">No repositories yet.</div>
+  <EmptyState
+    illustration="rocket-launch"
+    title="No repositories yet"
+    description="Open or clone one from the welcome screen to get started."
+    size="md"
+  />
 {:else}
   <ul class="list">
     {#each repos.knownRepos as r (r.id)}
@@ -63,12 +69,6 @@
 {/if}
 
 <style>
-  .empty {
-    padding: var(--sp-5);
-    text-align: center;
-    color: var(--fg-subtle);
-    font-size: var(--fs-sm);
-  }
   .list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
   .row {
     display: flex;

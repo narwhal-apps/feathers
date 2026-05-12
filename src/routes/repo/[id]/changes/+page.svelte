@@ -15,6 +15,7 @@
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
+  import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { loadStorageInt } from '$lib/utils/storage';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
@@ -399,10 +400,12 @@
           </aside>
         {/if}
         {#if allChanges.length === 0}
-          <div class="empty-state">
-            <Icon name="Sparkles" size={20} />
-            <p>Working tree is clean.</p>
-          </div>
+          <EmptyState
+            illustration="astronaut-helmet"
+            title="Working tree is clean"
+            description="Nothing to stage. You're all caught up."
+            size="sm"
+          />
         {:else}
           <header class="group-header" class:stash-mode={showingStash}>
             {#if !showingStash}
@@ -877,19 +880,6 @@
   }
   .tone-conflict :global(svg) {
     color: var(--removed);
-  }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: var(--sp-8) var(--sp-3);
-    color: var(--fg-subtle);
-    font-size: var(--fs-sm);
-  }
-  .empty-state p {
-    margin: 0;
   }
 
   .composer {
