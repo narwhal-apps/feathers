@@ -11,7 +11,7 @@ rotated). Estimated time: ~10 minutes.
 ### 1. Generate the updater signing keypair
 
 ```bash
-pnpm tauri signer generate -- -w ~/.tauri/feathers.key
+pnpm tauri signer generate -w ~/.tauri/feathers.key
 ```
 
 This creates two files:
