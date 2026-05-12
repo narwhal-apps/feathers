@@ -415,6 +415,7 @@
     position: relative;
     display: grid;
     grid-template-columns: var(--pane-w) auto 1fr;
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
     min-height: 0;
   }
