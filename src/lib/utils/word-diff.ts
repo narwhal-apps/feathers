@@ -1,76 +1,42 @@
 /**
  * Word-level diff for intra-line highlighting in the diff view.
  *
- * Tokenizes both strings into runs of word-chars / whitespace / punctuation,
- * runs Hunt–McIlroy LCS, and returns the character ranges (in plain-text
- * coordinates) that are added on the new side and removed on the old side.
+ * Delegates to the `diff` package (Myers' algorithm with whitespace-aware
+ * word tokenisation), then projects the resulting segment list into
+ * character ranges in old/new line coordinates.
  *
  * Also returns a similarity ratio so callers can skip the highlight when
- * the two lines barely overlap (full-line repaint reads as noise, not signal).
+ * the two lines barely overlap (full-line repaint reads as noise, not
+ * signal).
  */
 
-type DiffSeg = { kind: 'eq' | 'del' | 'add'; text: string };
+import { diffWordsWithSpace } from 'diff';
 
 export type IntraResult = {
   delRanges: Array<[number, number]>;
   addRanges: Array<[number, number]>;
-  /** LCS-character-count divided by the longer line's length. */
+  /** Common-character count divided by the longer line's length. */
   ratio: number;
 };
 
-function tokenize(s: string): string[] {
-  return s.match(/[\w$]+|\s+|[^\s\w$]/g) ?? [];
-}
-
-function diffTokens(a: string[], b: string[]): DiffSeg[] {
-  const m = a.length;
-  const n = b.length;
-  // LCS DP — small lines so the O(m·n) cost is fine.
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
-  for (let i = 0; i < m; i++) {
-    for (let j = 0; j < n; j++) {
-      dp[i + 1][j + 1] = a[i] === b[j] ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const out: DiffSeg[] = [];
-  let i = m;
-  let j = n;
-  while (i > 0 && j > 0) {
-    if (a[i - 1] === b[j - 1]) { out.push({ kind: 'eq', text: a[--i] }); j--; }
-    else if (dp[i - 1][j] >= dp[i][j - 1]) { out.push({ kind: 'del', text: a[--i] }); }
-    else { out.push({ kind: 'add', text: b[--j] }); }
-  }
-  while (i > 0) out.push({ kind: 'del', text: a[--i] });
-  while (j > 0) out.push({ kind: 'add', text: b[--j] });
-  out.reverse();
-  // Coalesce adjacent same-kind segments so ranges are tight.
-  const merged: DiffSeg[] = [];
-  for (const seg of out) {
-    const last = merged[merged.length - 1];
-    if (last && last.kind === seg.kind) last.text += seg.text;
-    else merged.push({ ...seg });
-  }
-  return merged;
-}
-
 export function intraLineRanges(oldText: string, newText: string): IntraResult {
-  const segs = diffTokens(tokenize(oldText), tokenize(newText));
+  const segs = diffWordsWithSpace(oldText, newText);
   let oldOff = 0;
   let newOff = 0;
   let eqChars = 0;
   const delRanges: Array<[number, number]> = [];
   const addRanges: Array<[number, number]> = [];
   for (const seg of segs) {
-    const len = seg.text.length;
-    if (seg.kind === 'eq') {
-      eqChars += len;
-      oldOff += len;
+    const len = seg.value.length;
+    if (seg.added) {
+      addRanges.push([newOff, newOff + len]);
       newOff += len;
-    } else if (seg.kind === 'del') {
+    } else if (seg.removed) {
       delRanges.push([oldOff, oldOff + len]);
       oldOff += len;
     } else {
-      addRanges.push([newOff, newOff + len]);
+      eqChars += len;
+      oldOff += len;
       newOff += len;
     }
   }
