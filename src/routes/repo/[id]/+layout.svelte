@@ -5,6 +5,7 @@
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryKeys } from '$lib/query/keys';
   import { provideRepoQueries } from '$lib/stores/repo-context';
+  import RepoActions from '$lib/components/shell/RepoActions.svelte';
   import type { StatusSnapshot, BranchInfo, OpState } from '$lib/types';
 
   let { children } = $props();
@@ -67,6 +68,10 @@
   >
     <span>Pull Requests</span>
   </a>
+
+  <div class="tab-actions">
+    <RepoActions />
+  </div>
 </nav>
 
 <div class="content">
@@ -77,11 +82,14 @@
   .tabs {
     flex-shrink: 0;
     display: flex;
+    align-items: center;
     gap: var(--sp-1);
     padding: 0 var(--sp-3);
     border-bottom: 1px solid var(--border);
     background: var(--bg-elev-1);
   }
+  /* Pushes RepoActions to the right edge of the tab strip. */
+  .tab-actions { margin-left: auto; padding: 4px 0; }
   .tab {
     display: inline-flex;
     align-items: center;
