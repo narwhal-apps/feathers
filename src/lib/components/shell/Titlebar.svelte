@@ -493,22 +493,36 @@
     margin-right: 2px;
   }
 
-  .user-menu { position: relative; margin-left: 2px; }
+  .user-menu {
+    position: relative;
+    margin-left: 2px;
+    display: flex;
+    align-items: center;
+  }
   .user-trigger {
     /* Match the sm Button height (26px) so the avatar lines up with
-       Push / Pull / Fetch in the same row. */
+       Push / Pull / Fetch in the same row. flex (not inline-flex) and
+       line-height: 1 avoid any text-baseline offset from the inline
+       layout context the actions row sits in. */
     width: 26px;
     height: 26px;
     padding: 0;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--r-pill);
     box-sizing: border-box;
+    line-height: 1;
     cursor: pointer;
     transition: background var(--t-fast), border-color var(--t-fast);
+  }
+  .user-trigger :global(.avatar) {
+    /* The avatar span is inline-flex by default — neutralise its inline
+       baseline so it sits dead-centre inside the trigger. */
+    display: flex;
+    vertical-align: middle;
   }
   .user-trigger:hover { background: var(--bg-elev-2); border-color: var(--border); }
   .user-trigger[aria-expanded="true"] {
