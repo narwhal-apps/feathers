@@ -56,6 +56,7 @@
   aria-orientation="vertical"
   aria-valuenow={width}
   aria-valuemin={min}
+  aria-valuemax={Number.isFinite(max) ? max : undefined}
 ></div>
 
 <style>

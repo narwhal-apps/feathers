@@ -15,6 +15,7 @@
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
+  import { loadStorageInt } from '$lib/utils/storage';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
   import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
@@ -107,15 +108,7 @@
   let stashModalOpen = $state(false);
   let selectedStashIndex = $state<number | null>(null);
 
-  // Pane width persistence.
-  function loadWidth(key: string, fallback: number): number {
-    if (typeof window === 'undefined') return fallback;
-    const v = window.localStorage.getItem(key);
-    const n = v === null ? NaN : parseInt(v, 10);
-    return Number.isFinite(n) && n >= 240 && n <= 560 ? n : fallback;
-  }
-
-  let paneWidth = $state(loadWidth('feathers:changes-pane-w', 340));
+  let paneWidth = $state(loadStorageInt('feathers:changes-pane-w', 340, 240, 560));
 
   const stashFiles = createQuery<FileChange[]>(
     () =>

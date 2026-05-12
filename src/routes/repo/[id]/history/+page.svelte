@@ -13,6 +13,7 @@
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
+  import { loadStorageInt } from '$lib/utils/storage';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import Modal from '$lib/components/primitives/Modal.svelte';
@@ -95,15 +96,7 @@
   let amendMessageEl = $state<HTMLTextAreaElement | null>(null);
   let amending = $state(false);
 
-  // Pane width persistence.
-  function loadWidth(key: string, fallback: number): number {
-    if (typeof window === 'undefined') return fallback;
-    const v = window.localStorage.getItem(key);
-    const n = v === null ? NaN : parseInt(v, 10);
-    return Number.isFinite(n) && n >= 240 && n <= 560 ? n : fallback;
-  }
-
-  let paneWidth = $state(loadWidth('feathers:history-pane-w', 360));
+  let paneWidth = $state(loadStorageInt('feathers:history-pane-w', 360, 240, 560));
 
   function startAmend(commit: CommitInfo) {
     closeCtxMenu();
