@@ -655,17 +655,20 @@
   .files-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: var(--sp-2) 0;
+    padding-bottom: var(--sp-2);
   }
 
   .conflict-wrap { margin: 4px 10px 8px; }
 
   .group-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 var(--sp-3) 0 10px;
-    margin-bottom: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 10px;
+    background: var(--bg-elev-1);
   }
   .check-all {
     margin-right: 2px;
