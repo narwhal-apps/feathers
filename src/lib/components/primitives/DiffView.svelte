@@ -679,8 +679,22 @@
   }
   .text :global(.intra-start) { border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
   .text :global(.intra-end)   { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
-  .line .ln { color: var(--fg-subtle); text-align: right; padding-right: var(--sp-1); font-variant-numeric: tabular-nums; }
-  .line .prefix { color: var(--fg-subtle); text-align: center; }
+  /* Line numbers and the +/− prefix are presentational — exclude them
+     from text selection so copy gives clean code without gutter chrome. */
+  .line .ln {
+    color: var(--fg-subtle);
+    text-align: right;
+    padding-right: var(--sp-1);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .line .prefix {
+    color: var(--fg-subtle);
+    text-align: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
   .line-add .prefix { color: var(--added); }
   .line-del .prefix { color: var(--removed); }
   .line .text { color: var(--fg); }
@@ -761,8 +775,15 @@
     text-align: right;
     padding-right: var(--sp-1);
     font-variant-numeric: tabular-nums;
+    user-select: none;
+    -webkit-user-select: none;
   }
-  .split-side .prefix { color: var(--fg-subtle); text-align: center; }
+  .split-side .prefix {
+    color: var(--fg-subtle);
+    text-align: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
   .split-side.line-add .prefix { color: var(--added); }
   .split-side.line-del .prefix { color: var(--removed); }
   .split-side .text { color: var(--fg); }
