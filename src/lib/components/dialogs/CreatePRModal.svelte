@@ -31,7 +31,7 @@
   );
 
   let title = $state('');
-  let body = $state('');
+  let description = $state('');
   let base = $state('');
   let draft = $state(false);
   let busy = $state(false);
@@ -66,7 +66,7 @@
       const pr = await invoke<PullRequest>('github_create_pr', {
         id,
         title: t,
-        body: body.trim() || null,
+        body: description.trim() || null,
         base,
         draft,
       });
@@ -134,7 +134,7 @@
         <span class="label">Description <span class="muted">(optional, Markdown)</span></span>
         <textarea
           class="input message"
-          bind:value={body}
+          bind:value={description}
           disabled={busy}
           rows="5"
           placeholder="Add context, screenshots, links — anything reviewers will need."
