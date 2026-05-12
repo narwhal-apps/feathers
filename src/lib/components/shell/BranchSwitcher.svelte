@@ -315,7 +315,6 @@
     >
       <Icon name="GitBranch" size={12} />
       <span class="name">{head.name}</span>
-      <span class="total" title="{localBranches.length} local branches">{localBranches.length}</span>
       {#if head.ahead || head.behind}
         <span class="counts">↓ {head.behind ?? 0}  ↑ {head.ahead ?? 0}</span>
       {/if}
@@ -336,7 +335,10 @@
         <div class="list">
           <ul>
             {#if filteredLocal.length > 0}
-              <li class="section-head">Local</li>
+              <li class="section-head">
+                <span>Local</span>
+                <span class="count" title="{localBranches.length} local branches">{localBranches.length}</span>
+              </li>
               {#each filteredLocal as b (b.name)}
                 {@const tracked = b.ahead != null || b.behind != null}
                 <li>
@@ -559,17 +561,6 @@
     font-variant-numeric: tabular-nums;
     max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .total {
-    background: var(--accent-bg-strong);
-    color: var(--accent-fg);
-    border-radius: var(--r-pill);
-    padding: 1px 7px;
-    font-size: 10px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    line-height: 16px;
-    font-weight: var(--weight-bold);
-  }
   .counts {
     color: var(--fg-muted);
     font-family: var(--font-mono);
@@ -643,12 +634,31 @@
     font-size: var(--fs-sm);
   }
   li.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 8px 10px 4px;
     color: var(--fg-subtle);
     font-size: var(--fs-2xs);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
     font-weight: var(--weight-semibold);
+  }
+  li.section-head .count {
+    background: var(--accent-bg-strong);
+    color: var(--accent-fg);
+    border-radius: var(--r-pill);
+    padding: 1px 7px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
+    font-weight: var(--weight-bold);
+    /* Section head is uppercase via text-transform; numbers shouldn't
+       inherit that visual weight. */
+    text-transform: none;
+    letter-spacing: 0;
   }
   /* Tighten the gap when one section follows another. */
   li.section-head + li { margin-top: 0; }
