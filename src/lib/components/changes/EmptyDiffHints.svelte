@@ -138,7 +138,7 @@
     <ul>
       <li><Kbd keys={['⌘', '1']} /> <span>Changes</span></li>
       <li><Kbd keys={['⌘', '2']} /> <span>History</span></li>
-      <li><Kbd keys={['⌘', '3']} /> <span>Pull Requests</span></li>
+      <li><Kbd keys={['⌘', '3']} /> <span>Pull requests</span></li>
       <li><Kbd keys={['⌘', 'B']} /> <span>Switch branch</span></li>
       <li><Kbd keys={['⌘', 'O']} /> <span>Switch repository</span></li>
     </ul>

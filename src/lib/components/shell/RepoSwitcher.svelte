@@ -128,7 +128,7 @@
     {#if open}
       <div id="repo-switcher-menu" class="menu" role="menu">
         <button class="add" role="menuitem" onclick={add}>
-          <span>Open existing repository…</span>
+          <span>Open repository…</span>
           <Icon name="FolderOpen" size={14} />
         </button>
         <button class="add" role="menuitem" onclick={startClone}>
@@ -183,7 +183,7 @@
         </ul>
         <div class="divider"></div>
         <button class="add" role="menuitem" onclick={add}>
-          <span>Open existing repository…</span>
+          <span>Open repository…</span>
           <Icon name="FolderOpen" size={14} />
         </button>
         <button class="add" role="menuitem" onclick={startClone}>

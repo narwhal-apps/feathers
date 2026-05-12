@@ -38,9 +38,9 @@
     border-color: color-mix(in srgb, var(--added) 28%, transparent);
   }
   .pill-warn    {
-    background: color-mix(in srgb, #fbbf24 14%, transparent);
-    color: #fde68a;
-    border-color: color-mix(in srgb, #fbbf24 28%, transparent);
+    background: var(--warn-bg);
+    color: var(--warn);
+    border-color: var(--warn-border);
   }
   .pill-danger  {
     background: color-mix(in srgb, var(--removed) 14%, transparent);

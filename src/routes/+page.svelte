@@ -57,7 +57,7 @@
 
     <div class="cta">
       <Button variant="primary" size="lg" iconLeft="FolderOpen" onclick={openRepoFlow}>
-        <span>Open repository</span>
+        <span>Open repository…</span>
         <Kbd keys={['⌘O']} tone="on-accent" />
       </Button>
       <Button variant="secondary" size="lg" iconLeft="DownloadCloud" label="Clone from URL" onclick={() => (cloneOpen = true)} />

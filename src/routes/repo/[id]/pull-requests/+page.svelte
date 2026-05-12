@@ -6,6 +6,7 @@
   import Button from '$lib/components/primitives/Button.svelte';
   import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import Avatar from '$lib/components/primitives/Avatar.svelte';
+  import Spinner from '$lib/components/primitives/Spinner.svelte';
   import SignInModal from '$lib/components/dialogs/SignInModal.svelte';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
@@ -88,7 +89,7 @@
 
   <div class="page-body">
   {#if !github.hydrated}
-    <div class="state hint">Loading…</div>
+    <div class="state hint"><Spinner size="sm" /><span>Loading…</span></div>
   {:else if !github.user}
     <div class="state cta">
       <span class="cta-icon" aria-hidden="true">
@@ -178,7 +179,7 @@
       {/each}
     </ul>
   {:else if prs.loading}
-    <div class="state hint">Loading pull requests…</div>
+    <div class="state hint"><Spinner size="sm" /><span>Loading pull requests…</span></div>
   {/if}
   </div>
 </div>
@@ -249,7 +250,11 @@
     text-align: center;
   }
   .state :global(svg) { color: var(--fg-muted); }
-  .state.hint { font-size: var(--fs-sm); }
+  .state.hint {
+    font-size: var(--fs-sm);
+    flex-direction: row;
+    gap: 8px;
+  }
   .state.err {
     padding: var(--sp-10, 64px) var(--sp-4);
     gap: var(--sp-3);

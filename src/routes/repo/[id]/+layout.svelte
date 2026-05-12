@@ -66,7 +66,7 @@
     class:active={active === 'pull-requests'}
     href={`/repo/${id}/pull-requests/`}
   >
-    <span>Pull Requests</span>
+    <span>Pull requests</span>
   </a>
 
   <div class="tab-actions">
