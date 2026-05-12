@@ -139,6 +139,7 @@
     </div>
   </header>
 
+  <div class="page-body">
   {#if !github.hydrated}
     <div class="state hint">Loading…</div>
   {:else if !github.user}
@@ -232,6 +233,7 @@
   {:else if prs.loading}
     <div class="state hint">Loading pull requests…</div>
   {/if}
+  </div>
 </div>
 
 {#if signInOpen}
@@ -243,10 +245,20 @@
 
 <style>
   .page {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     height: 100%;
-    overflow-y: auto;
     padding: var(--sp-3) var(--sp-4);
     color: var(--fg);
+  }
+  /* Fills the area below the header. EmptyState's min-height: 100%
+     resolves against this region (not the whole page), so it centers
+     between header and bottom — and the page itself doesn't scroll. */
+  .page-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
   .page-head {
     display: flex;
