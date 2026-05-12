@@ -70,29 +70,39 @@ to sign the update bundles.
 
 ## Cutting a release
 
-### 1. Bump the version
+### The easy way: `pnpm release`
 
-Three files have to agree on the version string for the updater to
-detect "newer":
+```bash
+pnpm release            # interactive
+pnpm release --dry-run  # preview without writing or pushing anything
+```
+
+The script:
+
+1. Verifies the working tree is clean, you're on `main`, and `main` is in
+   sync with `origin/main`.
+2. Asks for a bump (patch / minor / major).
+3. Builds a CHANGELOG entry from `git log <last-tag>..HEAD`, grouped by
+   conventional-commit type (`feat:` → Features, `fix:` → Fixes, …).
+4. Shows the entry for confirmation.
+5. On confirm: bumps the version in `package.json`,
+   `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`; prepends the
+   entry to `CHANGELOG.md`; commits as `release: vX.Y.Z`; tags
+   `vX.Y.Z`; pushes both `main` and the tag.
+
+The tag push then triggers `.github/workflows/release.yml` — same as the
+manual flow below.
+
+### The manual way
+
+If you'd rather do it by hand, the three version fields must agree (the
+updater compares with strict SemVer):
 
 - `package.json` → `"version": "X.Y.Z"`
 - `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
 - `src-tauri/Cargo.toml` → `version = "X.Y.Z"`
 
-Pre-release tags (`X.Y.Z-rc.1`) work too — the updater compares with
-SemVer.
-
-### 2. Update the CHANGELOG
-
-Add a section at the top of `CHANGELOG.md` (create if missing):
-
-```markdown
-## vX.Y.Z — YYYY-MM-DD
-
-- Feature / fix bullets
-```
-
-### 3. Commit, tag, push
+Then commit, tag, push:
 
 ```bash
 git commit -am "release: vX.Y.Z"
@@ -107,7 +117,7 @@ The tag push triggers `.github/workflows/release.yml`. Both
 `.app.tar.gz.sig` to a single draft release. `latest.json` is also
 generated and uploaded.
 
-### 4. Publish the draft
+### Publish the draft
 
 Open https://github.com/<owner>/feathers/releases — there's a draft
 release `Feathers vX.Y.Z`. Edit the notes, then click **Publish
