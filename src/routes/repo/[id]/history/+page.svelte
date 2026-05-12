@@ -11,7 +11,6 @@
   } from '$lib/stores/repo-context';
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
-  import Button from '$lib/components/primitives/Button.svelte';
   import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
   import { loadStorageInt } from '$lib/utils/storage';
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
@@ -338,7 +337,20 @@
 
 {#if amendTarget}
   {@const target = amendTarget}
-  <Modal title="Amend commit" onClose={closeAmend} width="md">
+  <Modal
+    title="Amend commit"
+    onClose={closeAmend}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeAmend, disabled: amending },
+      primary: {
+        label: amending ? 'Amending…' : 'Amend',
+        onclick: submitAmend,
+        loading: amending,
+        disabled: amending || !amendMessage.trim() || amendMessage.trim() === target.summary,
+      },
+    }}
+  >
     {#snippet body()}
       <form class="form" onsubmit={(e) => { e.preventDefault(); submitAmend(); }}>
         <div class="meta">
@@ -362,17 +374,6 @@
           ></textarea>
         </label>
       </form>
-    {/snippet}
-
-    {#snippet foot()}
-      <Button variant="ghost" label="Cancel" onclick={closeAmend} disabled={amending} />
-      <Button
-        variant="primary"
-        label={amending ? 'Amending…' : 'Amend'}
-        loading={amending}
-        onclick={submitAmend}
-        disabled={amending || !amendMessage.trim() || amendMessage.trim() === target.summary}
-      />
     {/snippet}
   </Modal>
 {/if}
