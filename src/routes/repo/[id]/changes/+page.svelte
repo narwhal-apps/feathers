@@ -14,6 +14,7 @@
   import DiffView from '$lib/components/primitives/DiffView.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
+  import PaneResizer from '$lib/components/primitives/PaneResizer.svelte';
   import FileIcon from '$lib/components/file/FileIcon.svelte';
   import RecentCommitsStack from '$lib/components/changes/RecentCommitsStack.svelte';
   import CommitsModal from '$lib/components/changes/CommitsModal.svelte';
@@ -105,6 +106,16 @@
   // Stash UI state.
   let stashModalOpen = $state(false);
   let selectedStashIndex = $state<number | null>(null);
+
+  // Pane width persistence.
+  function loadWidth(key: string, fallback: number): number {
+    if (typeof window === 'undefined') return fallback;
+    const v = window.localStorage.getItem(key);
+    const n = v === null ? NaN : parseInt(v, 10);
+    return Number.isFinite(n) && n >= 240 && n <= 560 ? n : fallback;
+  }
+
+  let paneWidth = $state(loadWidth('feathers:changes-pane-w', 340));
 
   const stashFiles = createQuery<FileChange[]>(
     () =>
@@ -367,7 +378,7 @@
   }
 </script>
 
-<div class="layout">
+<div class="layout" style="--pane-w: {paneWidth}px">
   <aside class="files">
     <div class="files-scroll">
       <StashList
@@ -569,6 +580,8 @@
     </footer>
   </aside>
 
+  <PaneResizer bind:width={paneWidth} min={240} max={560} onResize={(w) => localStorage.setItem('feathers:changes-pane-w', String(w))} />
+
   <section class="diff">
     {#if showingStash}
       {#if selected == null}
@@ -620,13 +633,12 @@
 <style>
   .layout {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: var(--pane-w) auto 1fr;
     height: 100%;
     min-height: 0;
   }
 
   .files {
-    width: 340px;
     height: 100%;
     border-right: 1px solid var(--border);
     display: flex;
