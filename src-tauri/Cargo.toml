@@ -41,7 +41,7 @@ git2 = { version = "0.19", default-features = false, features = [
 ] }
 uuid = { version = "1", features = ["v4"] }
 parking_lot = "0.12"
-dirs = "5"
+dirs = "6"
 tauri-plugin-store = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-window-state = "2"
