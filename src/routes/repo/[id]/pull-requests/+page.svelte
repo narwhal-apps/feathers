@@ -265,6 +265,9 @@
     font-size: var(--fs-lg);
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
+    /* Hug the glyphs so the count badge sits on the visual centerline,
+       not the line-box centerline. */
+    line-height: 1;
   }
   .count {
     background: var(--accent-bg-medium);
