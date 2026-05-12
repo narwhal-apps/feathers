@@ -3,6 +3,7 @@
   import { openUrl } from '@tauri-apps/plugin-opener';
   import Button from '$lib/components/primitives/Button.svelte';
   import Icon from '$lib/components/primitives/Icon.svelte';
+  import Avatar from '$lib/components/primitives/Avatar.svelte';
   import RepoSwitcher from '$lib/components/shell/RepoSwitcher.svelte';
   import BranchSwitcher from '$lib/components/shell/BranchSwitcher.svelte';
   import FeatherMark from '$lib/components/shell/FeatherMark.svelte';
@@ -81,6 +82,42 @@
       ? prs.data?.find((pr) => pr.state === 'open' && pr.head.ref === head.name) ?? null
       : null,
   );
+
+  // GitHub user-menu (avatar dropdown). Shown only when signed in.
+  let userMenuOpen = $state(false);
+  let userMenuEl = $state<HTMLDivElement | null>(null);
+
+  function refreshPRs() {
+    if (!active) return;
+    queryClient.invalidate(queryKeys.repoPullRequests(active.id));
+    userMenuOpen = false;
+  }
+  async function signOutGithub() {
+    try {
+      await github.signOut();
+      if (active) queryClient.invalidate(queryKeys.repoPullRequests(active.id));
+    } catch (err) {
+      reportError('Failed to sign out', err);
+    } finally {
+      userMenuOpen = false;
+    }
+  }
+
+  $effect(() => {
+    if (!userMenuOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (userMenuEl && !userMenuEl.contains(e.target as Node)) userMenuOpen = false;
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') userMenuOpen = false;
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  });
 
   let busy = $state<null | 'fetch' | 'pull' | 'push' | 'publish'>(null);
   let createPrOpen = $state(false);
@@ -301,6 +338,51 @@
         />
       {/if}
     {/if}
+
+    {#if github.user}
+      <div class="user-menu" bind:this={userMenuEl}>
+        <button
+          class="user-trigger"
+          onclick={() => (userMenuOpen = !userMenuOpen)}
+          aria-haspopup="menu"
+          aria-expanded={userMenuOpen}
+          title="Signed in as {github.user.login}"
+        >
+          <Avatar
+            name={github.user.name ?? github.user.login}
+            email={github.user.login}
+            url={github.user.avatar_url}
+            size={22}
+          />
+        </button>
+        {#if userMenuOpen}
+          <div class="user-pop" role="menu">
+            <div class="user-info">
+              {#if github.user.name}
+                <div class="user-name">{github.user.name}</div>
+              {/if}
+              <div class="user-login">@{github.user.login}</div>
+            </div>
+            <div class="user-actions">
+              <Button
+                variant="ghost"
+                size="sm"
+                iconLeft="RefreshCw"
+                label="Refresh"
+                onclick={refreshPRs}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                iconLeft="LogOut"
+                label="Sign out"
+                onclick={signOutGithub}
+              />
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 </header>
 
@@ -409,5 +491,66 @@
     letter-spacing: var(--tracking-tight);
     white-space: nowrap;
     margin-right: 2px;
+  }
+
+  .user-menu { position: relative; margin-left: 2px; }
+  .user-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    transition: background var(--t-fast), border-color var(--t-fast);
+  }
+  .user-trigger:hover { background: var(--bg-elev-2); border-color: var(--border); }
+  .user-trigger[aria-expanded="true"] {
+    background: var(--bg-elev-2);
+    border-color: var(--border-strong);
+  }
+  .user-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 200px;
+    padding: 4px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-2);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .user-info {
+    padding: 8px 10px 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .user-name {
+    color: var(--fg);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-semibold);
+    line-height: 1.2;
+  }
+  .user-login {
+    color: var(--fg-subtle);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: 1.3;
+    margin-top: 2px;
+  }
+  .user-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  /* Make the action buttons fill the popover width and left-align labels. */
+  .user-actions :global(.btn) {
+    width: 100%;
+    justify-content: flex-start;
   }
 </style>

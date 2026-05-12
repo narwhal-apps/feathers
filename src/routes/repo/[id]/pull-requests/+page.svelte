@@ -9,13 +9,11 @@
   import SignInModal from '$lib/components/dialogs/SignInModal.svelte';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
-  import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
   import { github } from '$lib/stores/github.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { relTime } from '$lib/utils/time';
   import { formatError } from '$lib/utils/error';
-  import { notify } from '$lib/utils/dialog.svelte';
   import type { PullRequest } from '$lib/types';
 
   const id = $derived($page.params.id ?? '');
@@ -51,10 +49,6 @@
     return () => clearInterval(t);
   });
 
-  function reportError(prefix: string, err: unknown) {
-    notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
-  }
-
   // Split a string into alternating text + URL segments so the template can
   // render each URL as an openUrl-on-click link. Matches http(s) URLs only.
   function splitUrls(text: string): Array<{ text: string; href?: string }> {
@@ -79,19 +73,6 @@
     return m?.[1] ?? null;
   }
 
-  async function signOut() {
-    try {
-      await github.signOut();
-      queryClient.invalidate(['repo', id, 'pull-requests']);
-    } catch (e) {
-      reportError('Failed to sign out', e);
-    }
-  }
-
-  async function refreshPRs() {
-    queryClient.invalidate(queryKeys.repoPullRequests(id));
-  }
-
   function open(url: string) { openUrl(url); }
 </script>
 
@@ -101,40 +82,6 @@
       <h2>Pull requests</h2>
       {#if prs.data && prs.data.length > 0}
         <span class="count">{prs.data.length}</span>
-      {/if}
-    </div>
-    <div class="head-actions">
-      {#if github.user}
-        <span class="me" title="Signed in as {github.user.login}">
-          <Avatar name={github.user.name ?? github.user.login} email={github.user.login} url={github.user.avatar_url} size={20} />
-          <span>{github.user.login}</span>
-        </span>
-        <Button
-          variant="primary"
-          size="sm"
-          iconLeft="Plus"
-          label="Create PR"
-          onclick={() => (createOpen = true)}
-          disabled={!isGithubRepo}
-          title={isGithubRepo ? 'Create a pull request from the current branch' : 'Origin is not on github.com'}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          iconOnly="RefreshCw"
-          label="Refresh"
-          title="Refresh"
-          onclick={refreshPRs}
-          disabled={!isGithubRepo}
-        />
-        <Button
-          variant="ghost"
-          size="sm"
-          iconOnly="LogOut"
-          label="Sign out"
-          title="Sign out of GitHub"
-          onclick={signOut}
-        />
       {/if}
     </div>
   </header>
@@ -290,19 +237,6 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-weight: var(--weight-bold);
-  }
-  .head-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .me {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--fg-muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--weight-semibold);
   }
   .state {
     display: flex;
