@@ -190,20 +190,22 @@
     </span>
   {/if}
   <Button
-    label={busy === 'fetch' ? 'Fetching…' : 'Fetch'}
+    label="Fetch"
     iconLeft="ArrowDownToLine"
     variant="ghost"
     size="sm"
+    loading={busy === 'fetch'}
     disabled={!active || busy !== null}
     onclick={doFetch}
   />
   {#if hasUpstream}
     <Button
-      label={busy === 'pull' ? 'Pulling…' : 'Pull'}
+      label="Pull"
       iconLeft="ArrowDown"
       badge={behind > 0 ? behind : undefined}
       variant="ghost"
       size="sm"
+      loading={busy === 'pull'}
       disabled={!active || busy !== null || behind === 0}
       onclick={doPull}
       title={behind === 0
@@ -211,11 +213,12 @@
         : `${behind} commit${behind === 1 ? '' : 's'} behind`}
     />
     <Button
-      label={busy === 'push' ? 'Pushing…' : 'Push'}
+      label="Push"
       iconLeft="ArrowUp"
       badge={ahead > 0 ? ahead : undefined}
       variant="primary"
       size="sm"
+      loading={busy === 'push'}
       disabled={!active || busy !== null || ahead === 0}
       onclick={doPush}
       title={ahead === 0
@@ -224,10 +227,11 @@
     />
   {:else if active && head}
     <Button
-      label={busy === 'publish' ? 'Publishing…' : 'Publish branch'}
+      label="Publish branch"
       iconLeft="CloudUpload"
       variant="primary"
       size="sm"
+      loading={busy === 'publish'}
       disabled={busy !== null}
       onclick={doPublish}
       title="Push {head.name} to origin and set it as the upstream (⌘P)"
