@@ -37,6 +37,10 @@
   /* Inset highlight (top edge of cards) */
   --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
+  /* Translucent kbd badge that reads on a primary-button (--accent-500)
+     background — works in both themes via color-mix on --accent-on. */
+  --kbd-on-accent: color-mix(in srgb, var(--accent-on) 22%, transparent);
+
   /* Subtle grain texture (data-uri SVG noise) */
   --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.025 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 
