@@ -39,6 +39,7 @@
   let titleEl = $state<HTMLInputElement | null>(null);
 
   let prefilled = false;
+  let cursorPlaced = false;
   $effect(() => {
     if (prefilled) return;
     const top = log.data?.commits[0];
@@ -49,11 +50,15 @@
   $effect(() => {
     if (!base && defaultBase) base = defaultBase.name;
   });
+  // One-shot: once the prefill lands and the input mounts, focus and
+  // park the caret at the end. Reading `cursorPlaced` (not `title`)
+  // means typing does NOT retrigger this — otherwise every keystroke
+  // would snap the caret back to the end of the line.
   $effect(() => {
-    if (titleEl && title && !busy) {
-      titleEl.focus();
-      titleEl.setSelectionRange(title.length, title.length);
-    }
+    if (cursorPlaced || !titleEl || !prefilled || busy) return;
+    titleEl.focus();
+    titleEl.setSelectionRange(title.length, title.length);
+    cursorPlaced = true;
   });
 
   async function submit() {
