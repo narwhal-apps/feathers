@@ -635,7 +635,7 @@
     color: var(--accent-fg);
     border-radius: var(--r-pill);
     padding: 1px 7px;
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     line-height: 16px;
@@ -669,6 +669,10 @@
   .item:disabled { opacity: 0.6; cursor: progress; }
   .item:hover:not(:disabled) { background: var(--bg-elev-2); color: var(--fg); }
   .item:hover:not(:disabled) :global(svg) { color: var(--fg-muted); }
+  .item:focus-visible {
+    outline: var(--ring-width) solid var(--ring-color);
+    outline-offset: -2px;
+  }
   .item.current {
     background: var(--accent-bg-medium);
     color: var(--accent-fg);
@@ -688,7 +692,7 @@
     color: var(--accent-fg);
     border: 1px solid var(--accent-bg-strong);
     font-family: var(--font-sans);
-    font-size: 9px;
+    font-size: var(--fs-2xs);
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-wider);
     text-transform: uppercase;
@@ -756,7 +760,7 @@
   }
   .seg-tag {
     font-family: var(--font-sans);
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wider);
     color: var(--fg-subtle);

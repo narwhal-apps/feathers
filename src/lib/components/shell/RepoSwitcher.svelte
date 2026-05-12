@@ -307,6 +307,10 @@
     transition: background var(--t-fast), color var(--t-fast);
   }
   .item:hover { background: var(--bg-elev-2); color: var(--fg); }
+  .item:focus-visible {
+    outline: var(--ring-width) solid var(--ring-color);
+    outline-offset: -2px;
+  }
   .item.active {
     background: var(--accent-bg-medium);
     color: var(--accent-fg);

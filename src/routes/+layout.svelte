@@ -164,7 +164,7 @@
   .page {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 40px);
+    height: calc(100vh - var(--titlebar-h));
     overflow: hidden;
     background: var(--bg);
     color: var(--fg);

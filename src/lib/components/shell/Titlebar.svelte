@@ -161,7 +161,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-3);
-    height: 40px;
+    height: var(--titlebar-h);
     padding: 0 var(--sp-3) 0 0;
     background: linear-gradient(
         180deg,

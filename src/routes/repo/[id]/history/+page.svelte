@@ -440,8 +440,8 @@
     justify-content: space-between;
     gap: var(--sp-3);
     padding: 6px 12px;
-    background: color-mix(in srgb, #c00 12%, var(--bg-elev-1));
-    border-bottom: 1px solid color-mix(in srgb, #c00 30%, var(--border));
+    background: color-mix(in srgb, var(--removed) 12%, var(--bg-elev-1));
+    border-bottom: 1px solid color-mix(in srgb, var(--removed) 30%, var(--border));
     color: var(--fg);
     font-size: var(--fs-xs);
   }
@@ -449,7 +449,7 @@
     background: transparent;
     border: none;
     color: var(--fg-muted);
-    font-size: 18px;
+    font-size: var(--fs-xl);
     line-height: 1;
     cursor: pointer;
     padding: 0 4px;

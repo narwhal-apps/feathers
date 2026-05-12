@@ -277,7 +277,7 @@
   /* Inline "fetched 5m ago" sitting right before the Fetch button. */
   .fetch-meta {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     color: var(--fg-faint);
     line-height: 1;
     text-transform: lowercase;

@@ -81,6 +81,10 @@
   --r-xl: 14px;
   --r-pill: 999px;
 
+  /* ── chrome heights — used by both the titlebar and pages that
+     need to compute against it (welcome screen, settings sheet). */
+  --titlebar-h: 40px;
+
   /* ── motion ─────────────────────────────────────────────────── */
   --t-fast: 90ms cubic-bezier(0.4, 0, 0.2, 1);
   --t-med:  180ms cubic-bezier(0.4, 0, 0.2, 1);

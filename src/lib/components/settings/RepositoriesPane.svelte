@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/primitives/Button.svelte';
+  import Avatar from '$lib/components/primitives/Avatar.svelte';
   import EmptyState from '$lib/components/primitives/EmptyState.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import type { RepoSummary } from '$lib/types';
@@ -14,10 +15,6 @@
     );
     return () => { unlisten?.(); };
   });
-
-  function avatarLetter(name: string): string {
-    return (name.trim()[0] ?? '?').toUpperCase();
-  }
 
   async function forget(r: RepoSummary): Promise<void> {
     if (confirmingId !== r.id) {
@@ -49,7 +46,7 @@
   <ul class="list">
     {#each repos.knownRepos as r (r.id)}
       <li class="row">
-        <span class="avatar">{avatarLetter(r.name)}</span>
+        <Avatar name={r.name} size={28} />
         <div class="info">
           <div class="name">{r.name}</div>
           <div class="path">{r.path}</div>
@@ -78,19 +75,6 @@
     background: var(--bg-elev-1);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-  }
-  .avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px; height: 28px;
-    border-radius: var(--r-sm);
-    background: linear-gradient(135deg, var(--accent-600), var(--accent-800));
-    color: var(--accent-50);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: var(--weight-bold);
-    flex-shrink: 0;
   }
   .info { flex: 1; min-width: 0; }
   .name { font-size: var(--fs-sm); font-weight: var(--weight-medium); }
