@@ -5,11 +5,12 @@
   import { queryKeys } from '$lib/query/keys';
   import { repos } from '$lib/stores/repos.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { github } from '$lib/stores/github.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { notify } from '$lib/utils/dialog.svelte';
   import Button from '$lib/components/primitives/Button.svelte';
   import Kbd from '$lib/components/primitives/Kbd.svelte';
-  import type { BranchInfo } from '$lib/types';
+  import type { BranchInfo, PullRequest } from '$lib/types';
 
   let { id }: { id: string } = $props();
 
@@ -43,6 +44,24 @@
   );
   const repoPath = $derived(repos.activeRepo?.path ?? null);
 
+  // Same cache key as the PR page + Titlebar — one fetch shared across
+  // all three. Skip the request entirely when prerequisites aren't met.
+  const prs = createQuery<PullRequest[]>(
+    () =>
+      github.user && isGithubRepo
+        ? queryKeys.repoPullRequests(id)
+        : ['noop'],
+    () =>
+      github.user && isGithubRepo
+        ? invoke<PullRequest[]>('github_list_prs', { id })
+        : Promise.resolve([] as PullRequest[]),
+  );
+  const existingPr = $derived(
+    head
+      ? prs.data?.find((pr) => pr.state === 'open' && pr.head.ref === head.name) ?? null
+      : null,
+  );
+
   function openInEditor() {
     invoke('repo_open_in_editor', { id }).catch((err) =>
       notify(`Failed to open editor: ${String(err)}`, { kind: 'error', durationMs: 0 }),
@@ -56,16 +75,27 @@
 
 <div class="hints">
   {#if canCreatePr && head}
-    <article class="card primary">
-      <div class="text">
-        <strong>Open a pull request</strong>
-        <p>
-          <code>{head.name}</code> is up on GitHub. Ship it for review.
-        </p>
-        <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
-      </div>
-      <Button variant="primary" iconLeft="GitPullRequest" label="Open pull request" onclick={() => ui.createPr()} />
-    </article>
+    {#if existingPr}
+      <article class="card primary">
+        <div class="text">
+          <strong>Pull request #{existingPr.number} is open</strong>
+          <p>{existingPr.title}</p>
+          <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
+        </div>
+        <Button variant="primary" iconLeft="GitPullRequest" label="Show PR" onclick={() => openUrl(existingPr.html_url).catch(() => {})} />
+      </article>
+    {:else}
+      <article class="card primary">
+        <div class="text">
+          <strong>Open a pull request</strong>
+          <p>
+            <code>{head.name}</code> is up on GitHub. Ship it for review.
+          </p>
+          <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
+        </div>
+        <Button variant="primary" iconLeft="GitPullRequest" label="Create PR" onclick={() => ui.createPr()} />
+      </article>
+    {/if}
   {/if}
 
   {#if hasUpstream && ahead > 0}

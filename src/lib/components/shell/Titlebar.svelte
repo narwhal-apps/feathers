@@ -17,7 +17,7 @@
   import { notify } from '$lib/utils/dialog.svelte';
   import { formatError } from '$lib/utils/error';
   import CreatePRModal from '$lib/components/dialogs/CreatePRModal.svelte';
-  import type { AppError, BranchInfo } from '$lib/types';
+  import type { AppError, BranchInfo, PullRequest } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
 
@@ -61,6 +61,25 @@
   );
   const canCreatePr = $derived(
     isGithubRepo && hasUpstream && head != null && !onDefaultBranch,
+  );
+
+  // Re-uses the same cache key the PR page populates, so visiting that
+  // tab once primes this query for free. Gated on signed-in + GitHub
+  // remote so we don't fire requests we can't satisfy.
+  const prs = createQuery<PullRequest[]>(
+    () =>
+      active && github.user && isGithubRepo
+        ? queryKeys.repoPullRequests(active.id)
+        : ['noop'],
+    () =>
+      active && github.user && isGithubRepo
+        ? invoke<PullRequest[]>('github_list_prs', { id: active.id })
+        : Promise.resolve([] as PullRequest[]),
+  );
+  const existingPr = $derived(
+    head
+      ? prs.data?.find((pr) => pr.state === 'open' && pr.head.ref === head.name) ?? null
+      : null,
   );
 
   let busy = $state<null | 'fetch' | 'pull' | 'push' | 'publish'>(null);
@@ -172,7 +191,8 @@
     const req = ui.createPrRequest;
     if (req != null && req !== lastCreatePrReq) {
       lastCreatePrReq = req;
-      if (canCreatePr) startCreatePr();
+      if (existingPr) openUrl(existingPr.html_url).catch(() => {});
+      else if (canCreatePr) startCreatePr();
     }
   });
 </script>
@@ -257,17 +277,29 @@
       />
     {/if}
     {#if canCreatePr && head}
-      <Button
-        label="Create PR"
-        iconLeft="GitPullRequest"
-        variant="ghost"
-        size="sm"
-        disabled={busy !== null}
-        onclick={startCreatePr}
-        title={github.user
-          ? `Open a pull request from ${head.name} (⌘R)`
-          : `Open ${head.name} on github.com to create a pull request (⌘R)`}
-      />
+      {#if existingPr}
+        <Button
+          label="Show PR"
+          iconLeft="GitPullRequest"
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          onclick={() => openUrl(existingPr.html_url).catch(() => {})}
+          title="Open #{existingPr.number}: {existingPr.title} (⌘R)"
+        />
+      {:else}
+        <Button
+          label="Create PR"
+          iconLeft="GitPullRequest"
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          onclick={startCreatePr}
+          title={github.user
+            ? `Open a pull request from ${head.name} (⌘R)`
+            : `Open ${head.name} on github.com to create a pull request (⌘R)`}
+        />
+      {/if}
     {/if}
   </div>
 </header>
