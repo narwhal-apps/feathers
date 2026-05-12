@@ -82,7 +82,7 @@
           <p>{existingPr.title}</p>
           <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
         </div>
-        <Button variant="primary" iconLeft="GitPullRequest" label="Show PR" onclick={() => openUrl(existingPr.html_url).catch(() => {})} />
+        <Button variant="primary" size="sm" iconLeft="GitPullRequest" label="Show PR" onclick={() => openUrl(existingPr.html_url).catch(() => {})} />
       </article>
     {:else}
       <article class="card primary">
@@ -93,7 +93,7 @@
           </p>
           <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'R']} /></div>
         </div>
-        <Button variant="primary" iconLeft="GitPullRequest" label="Create PR" onclick={() => ui.createPr()} />
+        <Button variant="primary" size="sm" iconLeft="GitPullRequest" label="Create PR" onclick={() => ui.createPr()} />
       </article>
     {/if}
   {/if}
@@ -107,7 +107,7 @@
         </p>
         <div class="kbd-line">Titlebar or <Kbd keys={['⌘', 'P']} /></div>
       </div>
-      <Button variant="secondary" iconLeft="ArrowUp" label="Push" onclick={() => ui.push()} />
+      <Button variant="secondary" size="sm" iconLeft="ArrowUp" label="Push" onclick={() => ui.push()} />
     </article>
   {/if}
 
@@ -118,7 +118,7 @@
         <p>Cursor, VS Code, Zed, or whatever is set as default.</p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'A']} /></div>
       </div>
-      <Button variant="secondary" iconLeft="ExternalLink" label="Open" onclick={openInEditor} />
+      <Button variant="secondary" size="sm" iconLeft="ExternalLink" label="Open" onclick={openInEditor} />
     </article>
   {/if}
 
@@ -129,7 +129,7 @@
         <p><code>{webBase}</code></p>
         <div class="kbd-line"><Kbd keys={['⌘', '⇧', 'G']} /></div>
       </div>
-      <Button variant="secondary" iconLeft="ExternalLink" label="View" onclick={openOnGithub} />
+      <Button variant="secondary" size="sm" iconLeft="ExternalLink" label="View" onclick={openOnGithub} />
     </article>
   {/if}
 
