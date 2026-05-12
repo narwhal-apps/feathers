@@ -21,6 +21,7 @@
   import { identity } from '$lib/stores/identity.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { settings } from '$lib/stores/settings.svelte';
+  import { updater } from '$lib/stores/updater.svelte';
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import { notify } from '$lib/utils/dialog.svelte';
 
@@ -54,6 +55,7 @@
     github.refresh();
     identity.refresh();
     settings.refresh();
+    updater.startBackgroundChecks();
   });
 
   // External changes (terminal commits, branch switches, file edits) come in

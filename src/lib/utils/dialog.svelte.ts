@@ -16,10 +16,19 @@ export interface ConfirmOptions {
   danger?: boolean;
 }
 
+export interface ToastAction {
+  label: string;
+  onclick: () => void;
+}
+
 export interface NotifyOptions {
   kind?: 'info' | 'success' | 'error';
-  /** Auto-dismiss after this many ms; 0 = sticky until clicked. */
+  /** Auto-dismiss after this many ms; 0 = sticky until dismissed. */
   durationMs?: number;
+  /** Optional inline action — renders as a button next to the message.
+   *  Useful for "Update available — [Install]" style toasts. The toast
+   *  is automatically sticky (durationMs=0) when an action is set. */
+  action?: ToastAction;
 }
 
 export interface ConfirmRequest {
@@ -33,6 +42,7 @@ export interface ToastEntry {
   message: string;
   kind: 'info' | 'success' | 'error';
   durationMs: number;
+  action?: ToastAction;
 }
 
 let _nextId = 1;
@@ -55,8 +65,10 @@ export function confirm(opts: ConfirmOptions): Promise<boolean> {
 export function notify(message: string, opts: NotifyOptions = {}): void {
   const id = nextId();
   const kind = opts.kind ?? 'info';
-  const durationMs = opts.durationMs ?? 3000;
-  _toasts.list = [..._toasts.list, { id, message, kind, durationMs }];
+  // Action toasts are inherently sticky — auto-dismissing them would
+  // pull the action out from under the user mid-decision.
+  const durationMs = opts.action ? 0 : (opts.durationMs ?? 3000);
+  _toasts.list = [..._toasts.list, { id, message, kind, durationMs, action: opts.action }];
   if (durationMs !== 0) {
     setTimeout(() => {
       _toasts.list = _toasts.list.filter((t) => t.id !== id);
