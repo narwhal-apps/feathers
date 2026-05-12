@@ -495,13 +495,18 @@
 
   .user-menu { position: relative; margin-left: 2px; }
   .user-trigger {
+    /* Match the sm Button height (26px) so the avatar lines up with
+       Push / Pull / Fetch in the same row. */
+    width: 26px;
+    height: 26px;
+    padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 2px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--r-pill);
+    box-sizing: border-box;
     cursor: pointer;
     transition: background var(--t-fast), border-color var(--t-fast);
   }
