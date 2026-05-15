@@ -36,6 +36,21 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # dtolnay/rust-toolchain only sets RUSTUP_TOOLCHAIN, which the
+      # macos-latest rustup-init shim sometimes loses between steps.
+      # The symptom is `cargo check` failing with the cryptic
+      # "error: unexpected argument 'check' found / Usage: rustup-init"
+      # because cargo on PATH falls through to rustup-init when no
+      # default toolchain is set. Pinning the default permanently +
+      # verifying surfaces any half-installed state at this step
+      # (clear error) instead of poisoning the actual cargo step later.
+      - name: Pin default toolchain + verify
+        run: |
+          rustup default stable
+          rustup show active-toolchain
+          cargo --version
+          rustc --version
+
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
