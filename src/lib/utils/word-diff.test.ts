@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { intraLineRanges, wrapHtmlRanges } from './word-diff';
+import { intraLineRanges, wrapHtmlRanges, MAX_INTRA_LINE_LEN } from './word-diff';
 
 describe('intraLineRanges', () => {
   it('marks identical lines as 100% similar with no ranges', () => {
@@ -42,6 +42,20 @@ describe('intraLineRanges', () => {
     const r = intraLineRanges('a', 'a much longer string');
     // Common is just "a" (1 char). longest = 20.
     expect(r.ratio).toBeCloseTo(1 / 20, 2);
+  });
+
+  it('skips Myers and returns ratio 0 when either line is over the length cap', () => {
+    const longLine = 'x'.repeat(MAX_INTRA_LINE_LEN + 1);
+    const r = intraLineRanges(longLine, longLine);
+    expect(r.ratio).toBe(0);
+    expect(r.delRanges).toHaveLength(0);
+    expect(r.addRanges).toHaveLength(0);
+  });
+
+  it('skips Myers and returns ratio 0 when length ratio diverges past threshold', () => {
+    // 10 vs 100 chars — shortest/longest = 0.1, well below 0.3 cutoff.
+    const r = intraLineRanges('abcdefghij', 'a'.repeat(100));
+    expect(r.ratio).toBe(0);
   });
 
   it('returns ranges in old/new line coordinates', () => {

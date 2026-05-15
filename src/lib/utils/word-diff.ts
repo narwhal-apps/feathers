@@ -19,7 +19,38 @@ export type IntraResult = {
   ratio: number;
 };
 
+/** Skip Myers above this line length. `diffWordsWithSpace` is O(N+D²) where
+ *  D is the edit distance — two long, dissimilar lines (minified bundles,
+ *  base64, generated SQL) push it into multi-second territory. The caller
+ *  already discards low-similarity results downstream; running the
+ *  algorithm just to throw the answer away is the freeze. */
+export const MAX_INTRA_LINE_LEN = 1000;
+
+/** Skip Myers when the two lines differ in length by more than this much
+ *  (shorter / longer). They can't possibly meet the downstream similarity
+ *  bar, so the only thing the algorithm can do is burn cycles. */
+const MIN_LENGTH_RATIO = 0.3;
+
 export function intraLineRanges(oldText: string, newText: string): IntraResult {
+  // Cheap pre-checks before letting Myers run. Both bail with ratio: 0 so
+  // the caller's `< 0.3` similarity gate skips the highlight as if Myers
+  // had returned a poor match.
+  if (oldText.length > MAX_INTRA_LINE_LEN || newText.length > MAX_INTRA_LINE_LEN) {
+    return { delRanges: [], addRanges: [], ratio: 0 };
+  }
+  const longest = Math.max(oldText.length, newText.length);
+  const shortest = Math.min(oldText.length, newText.length);
+  // Only gate on length-ratio for *long* lines. Myers is O(N+D²); the cost
+  // only bites once the lines are non-trivial in size. Below the floor the
+  // algorithm is fast enough that the gate would just mask cases the
+  // existing API contract already covered (e.g. one-side-empty pairs).
+  if (longest > 32 && shortest / longest < MIN_LENGTH_RATIO) {
+    return { delRanges: [], addRanges: [], ratio: 0 };
+  }
+  // `longest || 1` keeps the eqChars/longest division safe for the both-empty
+  // case (matches the original behaviour: longest=0 → ratio=0).
+  const denom = longest || 1;
+
   const segs = diffWordsWithSpace(oldText, newText);
   let oldOff = 0;
   let newOff = 0;
@@ -40,8 +71,7 @@ export function intraLineRanges(oldText: string, newText: string): IntraResult {
       newOff += len;
     }
   }
-  const longest = Math.max(oldText.length, newText.length, 1);
-  return { delRanges, addRanges, ratio: eqChars / longest };
+  return { delRanges, addRanges, ratio: eqChars / denom };
 }
 
 /**

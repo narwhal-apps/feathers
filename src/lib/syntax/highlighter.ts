@@ -110,19 +110,33 @@ function esc(s: string): string {
   return s.replace(/[<>&"']/g, (c) => HTML_ESCAPE[c]);
 }
 
+/** Per-line and per-hunk caps for syntax highlighting. Oniguruma (Shiki's
+ *  TextMate regex engine) can backtrack into multi-second pauses on a single
+ *  long line — minified bundles, base64 blobs, lockfile rows. And
+ *  `codeToTokensBase` is synchronous, so it owns the main thread until it
+ *  returns. Above either cap we fall back to escaped plain text for the
+ *  whole hunk; the diff still renders, just without colour. */
+export const MAX_LINE_LEN = 500;
+export const MAX_LINES_PER_HUNK = 2000;
+
 /**
  * Highlight an array of source lines as a single contextual block (so
  * multi-line strings/comments span correctly within the block) and return
  * one HTML string per input line.
  *
- * If the language hasn't loaded yet or shiki fails for any reason, returns
- * escaped plain-text HTML — the diff still renders, just without colors.
+ * If the input exceeds either size cap, the language hasn't loaded yet,
+ * or shiki fails for any reason, returns escaped plain-text HTML — the
+ * diff still renders, just without colors.
  */
 export async function highlightLines(
   lines: string[],
   lang: BundledLanguage,
   themeName: ThemeName,
 ): Promise<string[]> {
+  if (lines.length > MAX_LINES_PER_HUNK) return lines.map(esc);
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].length > MAX_LINE_LEN) return lines.map(esc);
+  }
   try {
     await ensureLang(lang);
     const hl = await getHighlighter();
