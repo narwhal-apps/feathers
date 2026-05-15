@@ -36,7 +36,7 @@
   import { gitUrlToWebUrl, fileUrlOnRemote } from '$lib/utils/git-url';
   import { formatError } from '$lib/utils/error';
   import { confirm, notify } from '$lib/utils/dialog.svelte';
-  import { SvelteMap } from 'svelte/reactivity';
+  import { SvelteSet } from 'svelte/reactivity';
 
   const id = $derived($page.params.id ?? '');
 
@@ -101,11 +101,17 @@
   let message = $state('');
   let commitsModalOpen = $state(false);
 
-  // Optimistic stage state. Path → desired staged value, set immediately so
-  // checkboxes reflect the user's intent without waiting for the IPC + refetch
-  // round-trip. Cleared per-path once status.data catches up.
-  // SvelteMap is used (not a plain object) for fine-grained reactivity.
-  const pendingStaged = new SvelteMap<string, boolean>();
+  // GitHub-Desktop-style "include this in the next commit" selection.
+  // We invert the storage — track the paths the user has explicitly
+  // UNCHECKED — so newly-detected files (FS event added a file mid-
+  // session) are checked by default with zero extra bookkeeping.
+  // Cleared after every successful commit. Pruned when files leave the
+  // changes list (committed elsewhere, discarded, etc.) so it doesn't
+  // grow forever.
+  const excluded = new SvelteSet<string>();
+  function isSelected(path: string): boolean {
+    return !excluded.has(path);
+  }
 
   // Stash UI state.
   let stashModalOpen = $state(false);
@@ -154,10 +160,6 @@
     },
   );
 
-  function isStaged(path: string): boolean {
-    return status.data?.staged.some((f) => f.path === path) ?? false;
-  }
-
   async function refresh() {
     queryClient.invalidate(['repo', id, 'status']);
     queryClient.invalidate(['repo', id, 'diff']);
@@ -177,23 +179,19 @@
 
   async function stagePaths(paths: string[]) {
     if (paths.length === 0) return;
-    for (const p of paths) pendingStaged.set(p, true);
     try {
       await invoke('stage_files', { id, paths });
       refresh();
     } catch (err) {
-      for (const p of paths) pendingStaged.delete(p);
       notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
   async function unstagePaths(paths: string[]) {
     if (paths.length === 0) return;
-    for (const p of paths) pendingStaged.set(p, false);
     try {
       await invoke('unstage_files', { id, paths });
       refresh();
     } catch (err) {
-      for (const p of paths) pendingStaged.delete(p);
       notify(formatError(err), { kind: 'error', durationMs: 0 });
     }
   }
@@ -218,12 +216,36 @@
 
   async function commit() {
     if (!message.trim()) return;
-    if ((status.data?.staged.length ?? 0) === 0) return;
+    // Build the path set to commit from the user's current selection.
+    // Conflicted files can never be committed even if technically selected.
+    const candidates = allChanges.filter(
+      (r) => r.selected && r.status !== 'conflicted',
+    );
+    if (candidates.length === 0) return;
+    const selectedPaths = candidates.map((r) => r.path);
+
+    // Diff the selection against what's currently staged in the index so
+    // we issue the smallest possible set of stage / unstage calls. Then
+    // commit. The index is treated as an implementation detail — the
+    // checkbox state in the FE is the source of truth.
+    const stagedNow = new Set(status.data?.staged.map((f) => f.path) ?? []);
+    const selectedSet = new Set(selectedPaths);
+    const toStage = selectedPaths.filter((p) => !stagedNow.has(p));
+    const toUnstage = [...stagedNow].filter((p) => !selectedSet.has(p));
+
     committing = true;
     try {
       await withBusy(async () => {
+        if (toStage.length > 0) {
+          await invoke('stage_files', { id, paths: toStage });
+        }
+        if (toUnstage.length > 0) {
+          await invoke('unstage_files', { id, paths: toUnstage });
+        }
         await invoke('commit_create', { id, message: message.trim() });
         message = '';
+        // Selection resets so the next round of changes starts checked.
+        excluded.clear();
         queryClient.invalidateMany([
           queryKeys.repoStatus(id),
           ['repo', id, 'log'],
@@ -241,70 +263,63 @@
   type ChangeRow = {
     path: string;
     status: FileStatus;
-    staged: boolean;
+    /** "Include this file in the next commit" — FE-side selection. */
+    selected: boolean;
   };
 
   const allChanges = $derived.by((): ChangeRow[] => {
     if (showingStash) {
       const files = stashFiles.data ?? [];
       return files
-        .map<ChangeRow>((f) => ({ path: f.path, status: f.status, staged: false }))
+        .map<ChangeRow>((f) => ({ path: f.path, status: f.status, selected: false }))
         .sort((a, b) => a.path.localeCompare(b.path));
     }
     const s = status.data;
     if (!s) return [];
     const seen = new Set<string>();
     const rows: ChangeRow[] = [];
-    for (const f of s.staged) {
-      seen.add(f.path);
-      rows.push({ path: f.path, status: f.status, staged: pendingStaged.get(f.path) ?? true });
-    }
-    for (const f of s.unstaged) {
-      if (seen.has(f.path)) continue;
-      seen.add(f.path);
-      rows.push({ path: f.path, status: f.status, staged: pendingStaged.get(f.path) ?? false });
-    }
-    for (const f of s.untracked) {
-      if (seen.has(f.path)) continue;
-      seen.add(f.path);
-      rows.push({ path: f.path, status: 'untracked', staged: pendingStaged.get(f.path) ?? false });
-    }
-    for (const f of s.conflicted) {
-      if (seen.has(f.path)) continue;
-      seen.add(f.path);
-      rows.push({ path: f.path, status: 'conflicted', staged: false });
-    }
+    const push = (path: string, status: FileStatus, allowSelect: boolean) => {
+      if (seen.has(path)) return;
+      seen.add(path);
+      rows.push({
+        path,
+        status,
+        selected: allowSelect && isSelected(path),
+      });
+    };
+    for (const f of s.staged) push(f.path, f.status, true);
+    for (const f of s.unstaged) push(f.path, f.status, true);
+    for (const f of s.untracked) push(f.path, 'untracked', true);
+    // Conflicted files can't be committed until resolved — never selectable.
+    for (const f of s.conflicted) push(f.path, 'conflicted', false);
     rows.sort((a, b) => a.path.localeCompare(b.path));
     return rows;
   });
 
-  // Use the optimistic overlay so the "N staged" hint follows the checkbox
-  // immediately instead of lagging behind the IPC round-trip.
-  const stagedCount = $derived(allChanges.filter((r) => r.staged).length);
+  // Selectable rows = everything except conflicted entries.
+  const selectableRows = $derived(allChanges.filter((r) => r.status !== 'conflicted'));
+  const selectedCount = $derived(selectableRows.filter((r) => r.selected).length);
+  const allSelected = $derived(
+    selectableRows.length > 0 && selectableRows.every((r) => r.selected),
+  );
+  const someSelected = $derived(selectedCount > 0 && !allSelected);
 
-  // Reconcile pendingStaged with reality: drop entries whose desired value
-  // matches the latest server-side status. Anything left over is still
-  // in flight.
+  // Prune `excluded` of paths that no longer appear in the changes list
+  // (committed elsewhere, discarded, FS-watcher dropped them) so the set
+  // can't grow unbounded across a long session.
   $effect(() => {
-    const s = status.data;
-    if (!s) return;
-    const stagedSet = new Set(s.staged.map((f) => f.path));
-    for (const [path, desired] of pendingStaged) {
-      if (stagedSet.has(path) === desired) {
-        pendingStaged.delete(path);
-      }
+    if (!status.data) return;
+    const live = new Set(allChanges.map((r) => r.path));
+    for (const path of excluded) {
+      if (!live.has(path)) excluded.delete(path);
     }
   });
-  const allStaged = $derived(
-    allChanges.length > 0 && allChanges.every((r) => r.staged),
-  );
-  const someStaged = $derived(allChanges.some((r) => r.staged) && !allStaged);
 
   // The header "select-all" checkbox needs the indeterminate property
   // (only settable on the DOM node, not via an HTML attribute).
   let selectAllEl = $state<HTMLInputElement | null>(null);
   $effect(() => {
-    if (selectAllEl) selectAllEl.indeterminate = someStaged;
+    if (selectAllEl) selectAllEl.indeterminate = someSelected;
   });
 
   // If the selected path leaves the changes list (committed, discarded
@@ -320,18 +335,20 @@
     }
   });
 
-  async function toggleStage(row: ChangeRow) {
-    if (row.staged) await unstagePaths([row.path]);
-    else await stagePaths([row.path]);
+  function toggleSelect(row: ChangeRow) {
+    if (row.status === 'conflicted') return;
+    if (excluded.has(row.path)) excluded.delete(row.path);
+    else excluded.add(row.path);
   }
-  async function toggleAll() {
-    // Indeterminate (some staged) and fully checked both unstage everything,
-    // matching the convention that clicking the box only "checks all" when
-    // it starts empty.
-    const anyStaged = allChanges.some((r) => r.staged);
-    if (anyStaged)
-      await unstagePaths(allChanges.filter((r) => r.staged).map((r) => r.path));
-    else await stagePaths(allChanges.map((r) => r.path));
+  function toggleAll() {
+    // Indeterminate (some selected) and fully checked both clear the
+    // selection — matches the convention that clicking the box only
+    // "checks all" when it starts empty.
+    if (selectedCount > 0) {
+      for (const r of selectableRows) excluded.add(r.path);
+    } else {
+      excluded.clear();
+    }
   }
   async function discardAll() {
     await discardPaths(
@@ -418,10 +435,11 @@
                 type="checkbox"
                 class="check check-all"
                 bind:this={selectAllEl}
-                checked={allStaged}
+                checked={allSelected}
+                disabled={selectableRows.length === 0}
                 onchange={() => toggleAll()}
-                aria-label={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
-                title={allStaged || someStaged ? 'Unstage all' : 'Stage all'}
+                aria-label={selectedCount > 0 ? 'Deselect all' : 'Select all'}
+                title={selectedCount > 0 ? 'Deselect all' : 'Select all'}
               />
             {/if}
             <span class="group-label">{showingStash ? 'Files in stash' : 'Changed files'}</span>
@@ -452,16 +470,11 @@
                   <input
                     type="checkbox"
                     class="check"
-                    checked={row.staged}
+                    checked={row.selected}
                     onclick={(e) => e.stopPropagation()}
-                    onchange={(e) => {
-                      const want = (e.currentTarget as HTMLInputElement).checked;
-                      if (want === row.staged) return;
-                      if (want) stagePaths([row.path]);
-                      else unstagePaths([row.path]);
-                    }}
-                    disabled={row.status === 'conflicted'}
-                    aria-label="{row.staged ? 'Unstage' : 'Stage'} {row.path}"
+                    onchange={() => toggleSelect(row)}
+                    disabled={row.status === 'conflicted' || committing}
+                    aria-label="{row.selected ? 'Deselect' : 'Select'} {row.path}"
                   />
                 {/if}
                 <button class="row" onclick={() => (selected = row.path)}>
@@ -546,10 +559,10 @@
 
       <textarea
         class="message"
-        placeholder={stagedCount > 0
-          ? `Commit ${stagedCount} staged file${stagedCount === 1 ? '' : 's'}…`
+        placeholder={selectedCount > 0
+          ? `Commit ${selectedCount} file${selectedCount === 1 ? '' : 's'}…`
           : allChanges.length > 0
-            ? 'Stage files first to commit.'
+            ? 'Select files to commit.'
             : 'Nothing to commit.'}
         bind:value={message}
         autocomplete="off"
@@ -566,19 +579,19 @@
       ></textarea>
       <div class="commit-row">
         <span class="commit-hint">
-          {#if stagedCount > 0}
+          {#if selectedCount > 0}
             <span class="dot on"></span>
-            {stagedCount} staged
+            {selectedCount} selected
           {:else}
             <span class="dot"></span>
-            no staged changes
+            no files selected
           {/if}
         </span>
         <Button
           label={committing ? 'Committing…' : 'Commit'}
           variant="primary"
           size="sm"
-          disabled={committing || stagedCount === 0 || !message.trim()}
+          disabled={committing || selectedCount === 0 || !message.trim()}
           onclick={commit}
         />
       </div>
@@ -655,17 +668,20 @@
   .files-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: var(--sp-2) 0;
+    padding-bottom: var(--sp-2);
   }
 
   .conflict-wrap { margin: 4px 10px 8px; }
 
   .group-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 var(--sp-3) 0 10px;
-    margin-bottom: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-2) 10px;
+    background: var(--bg-elev-1);
   }
   .check-all {
     margin-right: 2px;

@@ -8,6 +8,7 @@
   import CloneModal from '$lib/components/dialogs/CloneModal.svelte';
   import { openRepoFlow } from '$lib/components/dialogs/openRepo';
   import { repos } from '$lib/stores/repos.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import type { RepoSummary } from '$lib/types';
 
   const version = import.meta.env.VITE_APP_VERSION;
@@ -24,6 +25,29 @@
     repos.activeRepoId = r.id;
     goto(`/repo/${r.id}/changes/`);
   }
+
+  // Auto-open the most-recently-active repo on launch. We resolve by
+  // path (not id) because the registry mints fresh ids each process
+  // start. We can only decide once both stores have hydrated. While
+  // we wait, render nothing so the welcome screen doesn't flash for
+  // the redirect path.
+  let didDecide = $state(false);
+  let shouldShowWelcome = $state(false);
+  $effect(() => {
+    if (didDecide) return;
+    if (!settings.loaded || !repos.hydrated) return;
+    didDecide = true;
+    const lastPath = settings.current.last_active_repo_path;
+    const target = lastPath
+      ? repos.knownRepos.find((r) => r.path === lastPath)
+      : null;
+    if (target) {
+      repos.activeRepoId = target.id;
+      goto(`/repo/${target.id}/changes/`, { replaceState: true });
+    } else {
+      shouldShowWelcome = true;
+    }
+  });
 
   // Hide common dev-folder names — same convention as the RepoSwitcher.
   const generic = new Set([
@@ -43,11 +67,13 @@
   <title>Feathers</title>
 </svelte:head>
 
+{#if shouldShowWelcome}
 <section class="welcome">
   <div class="watermark" aria-hidden="true">
     <FeatherMark size={520} />
   </div>
 
+  <div class="scroll">
   <div class="frame">
     <header class="hero">
       <div class="mark"><FeatherMark size={56} /></div>
@@ -87,6 +113,7 @@
       </section>
     {/if}
   </div>
+  </div>
 
   <footer class="legend">
     <span class="hint"><Kbd keys={['⌘O']} /> open</span>
@@ -96,6 +123,7 @@
     <span class="hint">v{version}</span>
   </footer>
 </section>
+{/if}
 
 {#if cloneOpen}
   <CloneModal onClose={() => (cloneOpen = false)} />
@@ -107,14 +135,27 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
     color: var(--fg);
     overflow: hidden;
     /* Whisper of texture so the cream isn't dead-flat. */
     background:
       radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent-bg-soft, var(--bg-elev-1)) 35%, transparent) 0%, transparent 60%),
       var(--bg);
+  }
+
+  /* Scrollable middle. .frame stays vertically centered when content is
+     short, scrolls when the recent list grows past the viewport — and
+     because .legend lives outside this scroller, the recent list never
+     hides under the shortcut hint. */
+  .scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-4);
+    z-index: 1;
   }
   .welcome::before {
     content: '';
@@ -224,16 +265,22 @@
   .recent :global(svg:last-of-type) { color: var(--fg-subtle); flex-shrink: 0; }
 
   .legend {
-    position: absolute;
-    bottom: var(--sp-4);
-    left: 50%;
-    transform: translateX(-50%);
+    flex-shrink: 0;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
     color: var(--fg-subtle);
     font-size: var(--fs-2xs);
     z-index: 1;
+    /* Solid backdrop so the scroller's last few rows never bleed
+       through visually as they scroll past. */
+    background: linear-gradient(
+      to top,
+      var(--bg) 60%,
+      color-mix(in srgb, var(--bg) 70%, transparent)
+    );
   }
   .hint { display: inline-flex; align-items: center; gap: 4px; }
   .dot { opacity: 0.4; }

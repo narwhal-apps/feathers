@@ -110,5 +110,10 @@ pub async fn repo_status(
     registry: State<'_, RepoRegistry>,
 ) -> Result<StatusSnapshot, AppError> {
     let handle = registry.get(&id)?;
-    repo_registry::with_repo_read(handle, git_core::status::status).await
+    // Write lock: status now auto-resolves conflicted files whose markers
+    // have been cleaned (see git_core::conflicts::auto_resolve_clean), so
+    // it can mutate the index. The serialisation cost is small — status
+    // itself runs in milliseconds — and avoids racing the index with
+    // other write ops.
+    repo_registry::with_repo_write(handle, |r| git_core::status::status(r)).await
 }

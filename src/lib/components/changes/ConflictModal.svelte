@@ -25,7 +25,36 @@
     repoPath: string | null;
   } = $props();
 
-  let busy = $state<null | 'continue' | 'abort' | string>(null);
+  let busy = $state<null | 'continue' | 'abort'>(null);
+
+  /**
+   * Cumulative set of every path that's been conflicted at any point during
+   * this modal session. Auto-resolution drops paths from `conflicted` as
+   * the user cleans them up; we keep them here so the list stays stable
+   * and we can render the resolved checkmark in their old slot.
+   *
+   * Reset only when the modal unmounts (the parent wraps us in {#if
+   * opInProgress}, so a fresh op gets a fresh tracker).
+   */
+  let seen = $state<string[]>([]);
+  $effect(() => {
+    for (const path of conflicted) {
+      if (!seen.includes(path)) seen.push(path);
+    }
+  });
+
+  type Row = { path: string; resolved: boolean };
+  const displayed = $derived.by<Row[]>(() => {
+    const current = new Set(conflicted);
+    return seen
+      .map((path) => ({ path, resolved: !current.has(path) }))
+      // Unresolved first, then alphabetical inside each bucket.
+      .sort((a, b) => {
+        if (a.resolved !== b.resolved) return a.resolved ? 1 : -1;
+        return a.path.localeCompare(b.path);
+      });
+  });
+  const unresolvedCount = $derived(conflicted.length);
 
   const STRING_KIND_LABEL: Record<
     'merge' | 'rebase' | 'cherry_pick' | 'revert' | 'bisect' | 'apply_mailbox',
@@ -106,23 +135,6 @@
     }
   }
 
-  async function resolveOne(path: string) {
-    if (busy) return;
-    busy = `resolve:${path}`;
-    try {
-      await invoke('stage_files', { id, paths: [path] });
-      // Marking a conflicted file resolved updates status + diffs.
-      queryClient.invalidateMany([
-        queryKeys.repoStatus(id),
-        ['repo', id, 'diff'],
-      ]);
-    } catch (err) {
-      reportError(`Failed to mark ${path} resolved`, err);
-    } finally {
-      busy = null;
-    }
-  }
-
   function reportError(prefix: string, err: unknown) {
     const e = err as AppError;
     if (e?.kind === 'merge_conflict') {
@@ -196,55 +208,63 @@
       <Banner tone="info" title="A previous stash apply was interrupted">
         {stashSubtitle}
       </Banner>
-    {:else if allResolved}
-      <Banner tone="success" title="All conflicts resolved">
-        {#if isStash}{stashSubtitle}{:else}Continue the {label} to wrap things up.{/if}
-      </Banner>
     {:else}
-      <h3 class="files-title">
-        {conflicted.length} conflicted file{conflicted.length === 1 ? '' : 's'}
-      </h3>
-      {#if isStash}
-        <p class="hint hint-top">{stashSubtitle}</p>
+      {#if allResolved}
+        <Banner tone="success" title="All conflicts resolved">
+          {#if isStash}{stashSubtitle}{:else}Continue the {label} to wrap things up.{/if}
+        </Banner>
       {/if}
-      <ul class="files">
-        {#each conflicted as path (path)}
-          {@const name = basename(path)}
-          {@const dir = dirname(path)}
-          <li>
-            <FileIcon fileName={name} size={16} />
-            <div class="file-text">
-              <div class="file-name">
-                <span class="basename">{name}</span>
-                {#if dir}<span class="dir">{dir}</span>{/if}
+
+      {#if displayed.length > 0}
+        <h3 class="files-title">
+          {unresolvedCount} conflicted file{unresolvedCount === 1 ? '' : 's'}
+        </h3>
+        {#if isStash && !allResolved}
+          <p class="hint hint-top">{stashSubtitle}</p>
+        {/if}
+        <ul class="files">
+          {#each displayed as item (item.path)}
+            {@const name = basename(item.path)}
+            {@const dir = dirname(item.path)}
+            <li class:resolved={item.resolved}>
+              <FileIcon fileName={name} size={16} />
+              <div class="file-text">
+                <div class="file-name">
+                  <span class="basename">{name}</span>
+                  {#if dir}<span class="dir">{dir}</span>{/if}
+                </div>
+                <div class="file-sub" class:resolved={item.resolved}>
+                  {item.resolved ? 'No conflicts remaining' : 'Needs resolution'}
+                </div>
               </div>
-              <div class="file-sub">Needs resolution</div>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              iconLeft="ExternalLink"
-              label="Open"
-              onclick={() => openOne(path)}
-              disabled={!repoPath || busy !== null}
-              title={repoPath ? `Open ${name} in your default editor` : 'Repo path unavailable'}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              iconLeft="Check"
-              label={busy === `resolve:${path}` ? 'Resolving…' : 'Resolved'}
-              loading={busy === `resolve:${path}`}
-              onclick={() => resolveOne(path)}
-              disabled={busy !== null}
-              title="Mark this file resolved"
-            />
-          </li>
-        {/each}
-      </ul>
-      <p class="hint">
-        Open each file, fix the conflict markers (<code>{'<<<<<<<'}</code>, <code>{'======='}</code>, <code>{'>>>>>>>'}</code>), save, then mark it resolved.
-      </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                iconLeft="ExternalLink"
+                label="Open"
+                onclick={() => openOne(item.path)}
+                disabled={!repoPath || busy !== null}
+                title={repoPath ? `Open ${name} in your default editor` : 'Repo path unavailable'}
+              />
+              {#if item.resolved}
+                <span class="check" aria-label="Resolved">
+                  <Icon name="Check" size={14} />
+                </span>
+              {:else}
+                <span class="check-spacer" aria-hidden="true"></span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+        {#if !allResolved}
+          <p class="hint">
+            Open each file and fix the conflict markers
+            (<code>{'<<<<<<<'}</code>, <code>{'======='}</code>,
+            <code>{'>>>>>>>'}</code>). Saving the file marks it resolved
+            automatically.
+          </p>
+        {/if}
+      {/if}
     {/if}
   {/snippet}
 </Modal>
@@ -295,6 +315,34 @@
     color: var(--removed);
     font-size: var(--fs-xs);
     font-weight: var(--weight-semibold);
+  }
+  .file-sub.resolved {
+    color: var(--added);
+  }
+
+  /* Resolved row: file icon and name fade so the eye lands on the
+     unresolved files first. The green checkmark badge on the right
+     mirrors GitHub Desktop. */
+  .files li.resolved {
+    opacity: 0.78;
+  }
+  .check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--r-pill);
+    background: var(--added);
+    color: var(--bg);
+    flex-shrink: 0;
+  }
+  /* Same width as .check so the row layout is identical for both
+     resolved and unresolved rows — the Open button doesn't shift. */
+  .check-spacer {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
   }
   .hint { margin: 0; color: var(--fg-subtle); font-size: var(--fs-xs); line-height: 1.5; }
   .hint code {

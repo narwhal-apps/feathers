@@ -1,6 +1,6 @@
 [package]
 name = "feathers-app"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Git desktop app"
 authors = ["Mikael Kristiansson"]
 edition = "2021"
@@ -33,7 +33,7 @@ serde_json = "1"
 thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-git2 = { version = "0.19", default-features = false, features = [
+git2 = { version = "0.20", default-features = false, features = [
     "vendored-libgit2",
     "vendored-openssl",
     "ssh",

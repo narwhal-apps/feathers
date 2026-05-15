@@ -31,11 +31,11 @@ pub fn init_dev_token_path(path: PathBuf) {
     let _ = DEV_TOKEN_PATH.set(path);
 }
 
-/// GitHub OAuth client_id. Set at build time via the `GITHUB_CLIENT_ID`
+/// GitHub OAuth client_id. Set at build time via the `AUTH_CLIENT_ID`
 /// env var. Without it sign-in returns a clear error so devs can register
 /// their own OAuth app at https://github.com/settings/developers and
-/// rebuild with `GITHUB_CLIENT_ID=Iv1.xxx cargo build`.
-const CLIENT_ID: Option<&str> = option_env!("GITHUB_CLIENT_ID");
+/// rebuild with `AUTH_CLIENT_ID=Iv1.xxx cargo build`.
+const CLIENT_ID: Option<&str> = option_env!("AUTH_CLIENT_ID");
 const SCOPES: &str = "repo,read:user";
 
 const DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
@@ -43,9 +43,9 @@ const TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
 
 fn client_id() -> Result<&'static str, AppError> {
     CLIENT_ID.ok_or_else(|| AppError::Auth {
-        message: "GITHUB_CLIENT_ID was not set at build time. Register a \
+        message: "AUTH_CLIENT_ID was not set at build time. Register a \
                   GitHub OAuth app (with device flow enabled) and rebuild \
-                  with GITHUB_CLIENT_ID=<id> cargo build."
+                  with AUTH_CLIENT_ID=<id> cargo build."
             .into(),
     })
 }
@@ -59,7 +59,9 @@ pub async fn start_device_flow() -> Result<DeviceCodeResponse, AppError> {
         .form(&[("client_id", id), ("scope", SCOPES)])
         .send()
         .await
-        .map_err(|e| AppError::Network { message: e.to_string() })?;
+        .map_err(|e| AppError::Network {
+            message: e.to_string(),
+        })?;
     if !resp.status().is_success() {
         return Err(AppError::Network {
             message: format!("device code request failed: {}", resp.status()),
@@ -67,7 +69,9 @@ pub async fn start_device_flow() -> Result<DeviceCodeResponse, AppError> {
     }
     resp.json::<DeviceCodeResponse>()
         .await
-        .map_err(|e| AppError::Network { message: e.to_string() })
+        .map_err(|e| AppError::Network {
+            message: e.to_string(),
+        })
 }
 
 /// Step 2 — poll until the user authorizes the device, then store the token
@@ -106,12 +110,13 @@ pub async fn complete_device_flow(device_code: &str, interval_secs: u64) -> Resu
             ])
             .send()
             .await
-            .map_err(|e| AppError::Network { message: e.to_string() })?;
+            .map_err(|e| AppError::Network {
+                message: e.to_string(),
+            })?;
 
-        let body: TokenResponse = resp
-            .json()
-            .await
-            .map_err(|e| AppError::Network { message: e.to_string() })?;
+        let body: TokenResponse = resp.json().await.map_err(|e| AppError::Network {
+            message: e.to_string(),
+        })?;
 
         if let Some(token) = body.access_token {
             store_token(&token)?;
@@ -145,8 +150,9 @@ pub async fn complete_device_flow(device_code: &str, interval_secs: u64) -> Resu
 
 #[cfg(not(debug_assertions))]
 fn entry() -> Result<Entry, AppError> {
-    Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
-        .map_err(|e| AppError::Auth { message: e.to_string() })
+    Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT).map_err(|e| AppError::Auth {
+        message: e.to_string(),
+    })
 }
 
 /// Process-local cache keyed by "have we tried loading from the Keychain
@@ -193,9 +199,9 @@ pub fn clear_token() -> Result<(), AppError> {
 
 #[cfg(not(debug_assertions))]
 fn write_backend(token: &str) -> Result<(), AppError> {
-    entry()?
-        .set_password(token)
-        .map_err(|e| AppError::Auth { message: e.to_string() })
+    entry()?.set_password(token).map_err(|e| AppError::Auth {
+        message: e.to_string(),
+    })
 }
 
 #[cfg(not(debug_assertions))]
@@ -203,7 +209,9 @@ fn read_backend() -> Result<Option<String>, AppError> {
     match entry()?.get_password() {
         Ok(t) => Ok(Some(t)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(AppError::Auth { message: e.to_string() }),
+        Err(e) => Err(AppError::Auth {
+            message: e.to_string(),
+        }),
     }
 }
 
@@ -212,7 +220,9 @@ fn delete_backend() -> Result<(), AppError> {
     match entry()?.delete_credential() {
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(AppError::Auth { message: e.to_string() }),
+        Err(e) => Err(AppError::Auth {
+            message: e.to_string(),
+        }),
     }
 }
 
