@@ -100,14 +100,19 @@
       <Button variant="primary" size="lg" iconLeft="LogIn" label="Sign in" onclick={() => (signInOpen = true)} />
     </div>
   {:else if !isGithubRepo}
-    <div class="state hint">
-      <Icon name="GitFork" size={20} />
-      <p>
-        {remoteUrl.data
-          ? 'Origin lives somewhere other than github.com.'
-          : 'No origin remote — nothing to compare.'}
-      </p>
-    </div>
+    {#if remoteUrl.data}
+      <EmptyState
+        illustration="space-rover"
+        title="Off the GitHub grid"
+        description="Origin lives somewhere other than github.com, so we can't list pull requests here."
+      />
+    {:else}
+      <EmptyState
+        illustration="asteroid"
+        title="Drifting solo"
+        description="This repo has no origin remote yet — add one to start opening pull requests."
+      />
+    {/if}
   {:else if prs.error}
     {@const errMsg = formatError(prs.error)}
     {@const restrictedOrg = oauthRestrictionOrg(errMsg)}

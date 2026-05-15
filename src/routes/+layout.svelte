@@ -108,6 +108,21 @@
     document.title = r ? `Feathers — ${r.name}` : 'Feathers';
   });
 
+  // Remember the most-recently-active repo across launches. Persisted
+  // by canonical path (not id) because the registry mints fresh UUIDs
+  // every process start, so ids don't survive a restart. Only persists
+  // non-null transitions so briefly visiting the welcome screen doesn't
+  // wipe the value — users almost always want to land back in the repo
+  // they were using. The value is also cleared explicitly when the
+  // matching repo is closed/forgotten, see repos.close().
+  $effect(() => {
+    if (!browser) return;
+    if (!settings.loaded) return;
+    const r = repos.activeRepo;
+    if (r == null) return;
+    void settings.setLastActiveRepoPath(r.path);
+  });
+
   // Global keyboard shortcuts. Shortcuts that take focus into a text field
   // (none yet) would need extra "ignore when typing" guards.
   $effect(() => {

@@ -30,6 +30,22 @@ pub async fn settings_set_theme(
     Ok(())
 }
 
+/// Persist the canonical path of the most-recently-active repo so the
+/// next launch can auto-open it. `None` clears the value (e.g. user
+/// closed every repo). Path-based, not id-based — registry ids are
+/// minted fresh on each process start, so an id wouldn't survive a
+/// restart. No event emit — only this window cares.
+#[tauri::command]
+pub async fn settings_set_last_active_repo_path(
+    path: Option<String>,
+    store: State<'_, Arc<dyn ConfigStore>>,
+) -> Result<(), AppError> {
+    let mut cfg = store.inner().load()?;
+    cfg.settings.last_active_repo_path = path;
+    store.inner().save(&cfg)?;
+    Ok(())
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GitIdentity {
     pub name: Option<String>,
