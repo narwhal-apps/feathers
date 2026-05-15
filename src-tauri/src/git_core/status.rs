@@ -1,8 +1,16 @@
 use crate::error::AppError;
+use crate::git_core::conflicts;
 use crate::git_core::types::{FileChange, FileStatus, StatusSnapshot};
 use git2::{Repository, Status, StatusOptions};
 
 pub fn status(repo: &Repository) -> Result<StatusSnapshot, AppError> {
+    // Mirror GitHub Desktop: if the user has cleaned a conflicted file in
+    // their editor, auto-stage it before computing the snapshot so the UI
+    // surfaces the resolution without a manual click. Best-effort — any
+    // failure here just leaves the file in the conflicted set, where the
+    // existing manual "Resolved" button still works.
+    let _ = conflicts::auto_resolve_clean(repo);
+
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
