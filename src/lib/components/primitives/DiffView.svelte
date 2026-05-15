@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DiffPayload, DiffFile, DiffHunk, DiffLine, FileStatus } from '$lib/types';
+  import type { DiffPayload, DiffFile, DiffHunk, DiffLine, FileStatus, ThemeName } from '$lib/types';
   import { browser } from '$app/environment';
   import { detectLang, highlightLines } from '$lib/syntax/highlighter';
   import { intraLineRanges, wrapHtmlRanges } from '$lib/utils/word-diff';
@@ -93,9 +93,17 @@
   // SvelteMap so per-file publish is O(1) instead of spreading a growing record.
   const hl = new SvelteMap<string, string[][]>();
 
-  // Skip the highlighter entirely when payload+theme reference is unchanged.
+  // Track which payload + theme the cached highlights were built for.
+  // Highlighting kicks off lazily per file when it enters viewport — see
+  // `maybeHighlightFile` below. The all-files-up-front loop was the
+  // freeze: Shiki's `codeToTokensBase` is synchronous on the main thread,
+  // so a 30-file commit blocked the UI for the sum of all 30's tokenize
+  // costs even when only file #1 was on screen.
   let hlPayloadRef: DiffPayload | null = null;
-  let hlTheme: string | null = null;
+  let hlTheme: ThemeName | null = null;
+  /** Files currently being highlighted — dedupes overlapping triggers
+   *  (effect re-running, visibility callback firing, etc.). */
+  const hlInFlight = new Set<string>();
 
   $effect(() => {
     const t = theme.effective;
@@ -109,23 +117,41 @@
     if (hlPayloadRef === p && hlTheme === t) return;
     hlPayloadRef = p;
     hlTheme = t;
+    // Drop stale cache. Re-highlight whatever's already on screen so a
+    // theme flip (or new payload that reuses paths) repaints visible
+    // files immediately, not on next scroll.
     hl.clear();
-    let cancelled = false;
+    for (const file of p.files) {
+      if (visibleFiles.has(file.path)) maybeHighlightFile(file);
+    }
+  });
 
-    (async () => {
-      for (const file of p.files) {
-        if (file.binary) continue;
-        const lang = detectLang(file.path);
-        if (!lang) continue;
+  /** Kick off highlight for one file. Idempotent: skips files already
+   *  cached or in flight, binary files, and unsupported languages. */
+  function maybeHighlightFile(file: DiffFile): void {
+    if (!hlPayloadRef || !hlTheme) return;
+    if (file.binary) return;
+    if (hl.has(file.path) || hlInFlight.has(file.path)) return;
+    const lang = detectLang(file.path);
+    if (!lang) return;
+    const t = hlTheme;
+    const payloadAtStart = hlPayloadRef;
+    hlInFlight.add(file.path);
+    void (async () => {
+      try {
         const hunkHtml: string[][] = [];
         for (const hunk of file.hunks) {
+          // Bail if the user has navigated away or flipped theme mid-flight.
+          if (hlPayloadRef !== payloadAtStart || hlTheme !== t) return;
           const lines = hunk.lines.map((l) => l.text);
           const html = await highlightLines(lines, lang, t);
           // Word-level intra-line highlighting. Walks consecutive del→add
           // runs and pairs them index-wise; for each pair we mark the
           // changed substrings in both the del and the add line. Skipped
           // when the two lines barely overlap — full-line repaint reads
-          // as noise, not signal.
+          // as noise, not signal. (`intraLineRanges` cheaply returns
+          // ratio: 0 for over-long or wildly different lines so we don't
+          // pay for Myers in those cases.)
           const pairs = consecutiveDelAddPairs(hunk.lines);
           for (const [delIdx, addIdx] of pairs) {
             const delText = hunk.lines[delIdx].text;
@@ -136,15 +162,17 @@
             html[addIdx] = wrapHtmlRanges(html[addIdx], r.addRanges, 'intra-add');
           }
           hunkHtml.push(html);
+          // Yield between hunks so the main thread can render frames /
+          // handle input even while a big file is being highlighted.
+          await new Promise<void>((r) => setTimeout(r));
         }
-        if (cancelled) return;
-        // Publish progressively so files highlight as they finish.
+        if (hlPayloadRef !== payloadAtStart || hlTheme !== t) return;
         hl.set(file.path, hunkHtml);
+      } finally {
+        hlInFlight.delete(file.path);
       }
     })();
-
-    return () => { cancelled = true; };
-  });
+  }
 
   // Memoize pairLines per hunk so split-view rows aren't recomputed on every
   // render. Map keyed by hunk reference; rebuilds only when mode/payload changes.
@@ -170,13 +198,16 @@
   // Virtualize at the file level: render hunks only when the file scrolls
   // within ~500px of the viewport. One-shot IntersectionObserver per file —
   // once visible, the file stays mounted (preserves browser ⌘F).
+  // Highlight is kicked off here too so we don't pay Shiki's main-thread
+  // tokenize cost for off-screen files.
   const visibleFiles = new SvelteSet<string>();
 
-  function visible(node: HTMLElement, opts: { path: string }) {
+  function visible(node: HTMLElement, file: DiffFile) {
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (e.isIntersecting) {
-          visibleFiles.add(opts.path);
+          visibleFiles.add(file.path);
+          maybeHighlightFile(file);
           io.unobserve(node);
         }
       }
@@ -273,7 +304,7 @@
     {@const dir = dirname(file.path)}
     {@const href = fileHref ? fileHref(file) : null}
     {@const isCollapsed = collapsed.has(file.path)}
-    <article class="file" class:collapsed={isCollapsed} use:visible={{ path: file.path }}>
+    <article class="file" class:collapsed={isCollapsed} use:visible={file}>
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <header
         class="file-header"
