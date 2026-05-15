@@ -32,10 +32,6 @@ cd src-tauri && cargo clippy -- -D warnings  # rust lints
 cd src-tauri && cargo fmt                    # rust format
 ```
 
-## Roadmap
-
-See `docs/superpowers/specs/2026-05-06-feathers-mvp-design.md` for the full MVP design and `docs/superpowers/plans/` for milestone plans.
-
 ## Repository state files we write
 
 Feathers stores its own per-repo state under `.git/feathers/` so that nothing leaks outside the repo's `.git` dir:
