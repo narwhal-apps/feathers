@@ -55,7 +55,7 @@ fn app_installed(app: &str) -> bool {
     if Path::new("/Applications").join(&bundle).exists() {
         return true;
     }
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = home::home_dir() {
         if home.join("Applications").join(&bundle).exists() {
             return true;
         }
