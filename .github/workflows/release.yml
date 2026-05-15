@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,9 +47,9 @@ jobs:
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
           # One cache per target so cross-arch builds don't trash each other.
-          shared-key: 'release-${{ matrix.target }}'
+          shared-key: "release-${{ matrix.target }}"
 
       - name: Install JS deps
         run: pnpm install --frozen-lockfile
@@ -58,6 +58,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTH_CLIENT_ID: ${{ secrets.AUTH_CLIENT_ID }}
           # Required for createUpdaterArtifacts. Generate locally with
           # `pnpm tauri signer generate -w ~/.tauri/feathers.key` and
           # add both as repo secrets. See docs/RELEASE.md.
@@ -81,7 +82,7 @@ jobs:
           # (which won't match an existing release — manual runs are for
           # local-build verification, not publishing).
           tagName: ${{ github.ref_name }}
-          releaseName: 'Feathers ${{ github.ref_name }}'
+          releaseName: "Feathers ${{ github.ref_name }}"
           releaseBody: |
             See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
 

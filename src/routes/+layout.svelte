@@ -62,6 +62,8 @@
   // as `repo_changed` events from the per-repo FS watcher. The watcher tags
   // each batch with a `kind` hint:
   //   - 'workdir' — working-tree edits, `.git/index`, etc. → status+op-state
+  //                 + workdir/index diffs (the currently-selected file's
+  //                 diff has to refetch when the file changes on disk).
   //   - 'refs'    — branch/HEAD/MERGE_HEAD/FETCH_HEAD/stash sidecar changes
   //                 → also branches + log + log-unpushed.
   // The watcher already drops pure-noise batches (e.g. `.git/objects/`).
@@ -72,6 +74,10 @@
       const keys: (readonly (string | number | null)[])[] = [
         queryKeys.repoStatus(id),
         queryKeys.repoOpState(id),
+        // Prefix matches every workdir/index diff in the cache. Commit
+        // diffs (immutable) sit under a different prefix and don't refetch.
+        ['repo', id, 'diff', 'workdir'],
+        ['repo', id, 'diff', 'index'],
       ];
       if (kind === 'refs') {
         keys.push(queryKeys.repoBranches(id));
@@ -100,6 +106,21 @@
     if (!browser) return;
     const r = repos.activeRepo;
     document.title = r ? `Feathers — ${r.name}` : 'Feathers';
+  });
+
+  // Remember the most-recently-active repo across launches. Persisted
+  // by canonical path (not id) because the registry mints fresh UUIDs
+  // every process start, so ids don't survive a restart. Only persists
+  // non-null transitions so briefly visiting the welcome screen doesn't
+  // wipe the value — users almost always want to land back in the repo
+  // they were using. The value is also cleared explicitly when the
+  // matching repo is closed/forgotten, see repos.close().
+  $effect(() => {
+    if (!browser) return;
+    if (!settings.loaded) return;
+    const r = repos.activeRepo;
+    if (r == null) return;
+    void settings.setLastActiveRepoPath(r.path);
   });
 
   // Global keyboard shortcuts. Shortcuts that take focus into a text field
