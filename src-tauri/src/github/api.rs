@@ -31,9 +31,34 @@ async fn map_error(resp: Response) -> AppError {
 
     let headers = resp.headers().clone();
     let raw_body = resp.text().await.unwrap_or_default();
-    let body_message = serde_json::from_str::<serde_json::Value>(&raw_body)
-        .ok()
+    let parsed = serde_json::from_str::<serde_json::Value>(&raw_body).ok();
+    let body_message = parsed
+        .as_ref()
         .and_then(|v| v.get("message").and_then(|m| m.as_str()).map(str::to_string));
+    // GitHub's 422 "Validation Failed" responses carry an `errors` array
+    // with the actually-useful detail (e.g. "A pull request already exists
+    // for foo:branch."). Pull each error's `message` out and concatenate so
+    // the UI can show the real cause instead of the meaningless top-level
+    // message. Falls back to `code` when an entry only carries a code.
+    let body_detail = parsed
+        .as_ref()
+        .and_then(|v| v.get("errors").and_then(|e| e.as_array()))
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|e| {
+                    e.get("message")
+                        .and_then(|m| m.as_str())
+                        .map(str::to_string)
+                        .or_else(|| {
+                            e.get("code")
+                                .and_then(|c| c.as_str())
+                                .map(str::to_string)
+                        })
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
+        .filter(|s| !s.is_empty());
 
     let is_secondary_rate_limit = body_message
         .as_deref()
@@ -67,13 +92,13 @@ async fn map_error(resp: Response) -> AppError {
         return AppError::GithubRateLimited { retry_after };
     }
 
-    let msg = body_message.unwrap_or_else(|| {
-        if raw_body.is_empty() {
-            format!("github {status}")
-        } else {
-            format!("github {status}: {raw_body}")
-        }
-    });
+    let msg = match (body_message, body_detail) {
+        (Some(m), Some(d)) => format!("{m}: {d}"),
+        (Some(m), None) => m,
+        (None, Some(d)) => format!("github {status}: {d}"),
+        (None, None) if raw_body.is_empty() => format!("github {status}"),
+        (None, None) => format!("github {status}: {raw_body}"),
+    };
     AppError::Network { message: msg }
 }
 
