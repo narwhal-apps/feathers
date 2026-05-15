@@ -152,13 +152,26 @@
   // Whether to show the stash diff or the working-tree diff in the right pane.
   const showingStash = $derived(selectedStashIndex != null);
 
+  // One workdir diff for the whole repo, computed once per `repo_changed`
+  // event and shared across every file in the changes list. Switching
+  // between files becomes an O(1) JS lookup instead of triggering a fresh
+  // `diff_workdir` IPC + libgit2 worktree walk per click — that walk
+  // includes recursing untracked directories, which dominates clicks on
+  // big or untracked-heavy repos. This is how GitHub Desktop stays smooth.
   const diff = createQuery<DiffPayload>(
-    () => queryKeys.repoDiffWorkdir(id, selected ?? ''),
-    () => {
-      if (selected == null) return Promise.resolve({ files: [] });
-      return invoke<DiffPayload>('diff_workdir', { id, paths: [selected] });
-    },
+    () => queryKeys.repoDiffWorkdir(id, null),
+    () => invoke<DiffPayload>('diff_workdir', { id, paths: null }),
   );
+
+  /** Per-file slice of the cached whole-repo diff. Recomputed cheaply on
+   *  selection change; the underlying payload only refetches when the
+   *  watcher fires `repo_changed`. */
+  const selectedFileDiff = $derived.by<DiffPayload | null>(() => {
+    if (selected == null) return null;
+    if (!diff.data) return null;
+    const file = diff.data.files.find((f) => f.path === selected);
+    return file ? { files: [file] } : { files: [] };
+  });
 
   async function refresh() {
     queryClient.invalidate(['repo', id, 'status']);
@@ -617,8 +630,8 @@
       {/if}
     {:else if selected == null}
       <EmptyDiffHints {id} />
-    {:else if diff.data}
-      <DiffView payload={diff.data} {fileHref} onDiscardHunk={discardHunk} />
+    {:else if selectedFileDiff}
+      <DiffView payload={selectedFileDiff} {fileHref} onDiscardHunk={discardHunk} />
     {:else if diff.error}
       <div class="err">{String(diff.error)}</div>
     {:else if diff.loading}
