@@ -1,7 +1,7 @@
 {
   "name": "feathers",
   "version": "0.2.0",
-  "description": "",
+  "description": "A Tauri 2 + SvelteKit desktop Git client for macOS.",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
