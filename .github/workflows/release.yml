@@ -44,6 +44,17 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # See ci.yml — pin the default toolchain so cargo on PATH stops
+      # falling through to rustup-init between steps. Verifies up front
+      # so any broken state fails here with a clear error rather than
+      # showing up as a cryptic mid-build failure.
+      - name: Pin default toolchain + verify
+        run: |
+          rustup default stable
+          rustup show active-toolchain
+          cargo --version
+          rustc --version
+
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
