@@ -73,10 +73,16 @@ pub fn fetch(repo: &Repository, remote: Option<&str>) -> Result<(), AppError> {
     let mut r = repo
         .find_remote(name)
         .map_err(|_| AppError::Git { message: format!("remote not found: {name}") })?;
-    let refspecs_raw = r.fetch_refspecs()?;
-    let refspecs: Vec<&str> = refspecs_raw.iter().flatten().collect();
+
+    // Always fetch every branch from this remote, regardless of how the
+    // clone's `remote.<name>.fetch` config is set. Without this, single-
+    // branch clones (or any repo with a narrowed refspec) only update the
+    // current branch's upstream — so the "X commits behind" badge on the
+    // default branch goes stale the moment the user switches to a feature
+    // branch and hits Fetch.
+    let refspec = format!("+refs/heads/*:refs/remotes/{name}/*");
     let mut opts = fetch_options();
-    r.fetch(&refspecs, Some(&mut opts), None)?;
+    r.fetch(&[refspec.as_str()], Some(&mut opts), None)?;
     Ok(())
 }
 
@@ -169,10 +175,22 @@ fn fast_forward(repo: &Repository, target_oid: git2::Oid) -> Result<(), AppError
         .name()
         .ok_or_else(|| AppError::Git { message: "HEAD has no name".into() })?
         .to_string();
+
+    // Canonical libgit2 fast-forward sequence: checkout the new tree
+    // FIRST (so safe-mode compares against the *current* HEAD as baseline
+    // and updates both workdir + index in one go), THEN move the HEAD
+    // ref. Doing it the other way round leaves the index pointing at the
+    // old tree and surfaces every incoming change as a phantom staged
+    // diff in the FE.
+    let new_commit = repo.find_commit(target_oid)?;
+    repo.checkout_tree(
+        new_commit.as_object(),
+        Some(CheckoutBuilder::new().safe()),
+    )?;
+
     let mut head_ref_mut = repo.find_reference(&head_ref_name)?;
     head_ref_mut.set_target(target_oid, "fast-forward")?;
     repo.set_head(&head_ref_name)?;
-    repo.checkout_head(Some(CheckoutBuilder::new().safe()))?;
     Ok(())
 }
 
