@@ -4,6 +4,10 @@ A Tauri 2 + SvelteKit desktop Git client. macOS-only for now.
 
 > Status: post-MVP. Open local repos, browse status/history/diff, stage/commit/discard, branch, cherry-pick/revert/reset, stash, push/pull/fetch, GitHub sign-in + PR list/create, settings window.
 
+![Changes view](docs/screenshots/changes.png)
+
+![History view](docs/screenshots/history.png)
+
 ## Prerequisites
 
 - pnpm 9+
