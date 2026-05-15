@@ -2,6 +2,16 @@
   "name": "feathers",
   "version": "0.2.0",
   "description": "A Tauri 2 + SvelteKit desktop Git client for macOS.",
+  "author": {
+    "name": "Mikael Kristianson"
+  },
+  "repository": {
+    "url": "https://github.com/narwhal-apps/feathers",
+    "type": "git"
+  },
+  "bugs": {
+    "url": "https://github.com/narwhal-apps/feathers/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite dev",
