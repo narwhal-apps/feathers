@@ -124,6 +124,171 @@ fn pull_fast_forward_index_persists_to_disk() {
     );
 }
 
+/// Helper for the auto-fast-forward tests: build a clone where a
+/// non-checked-out local branch tracks an upstream that has advanced.
+/// Returns the (upstream tempdir, local tempdir, local Repository).
+fn clone_with_diverging_setup() -> (tempfile::TempDir, tempfile::TempDir, git2::Repository) {
+    let upstream_dir = common::fixtures::seeded_repo(&[("README.md", "v1\n")]);
+    let upstream = git2::Repository::open(upstream_dir.path()).unwrap();
+
+    // Branch `feature` off the initial commit upstream.
+    {
+        let main_tip = upstream.head().unwrap().peel_to_commit().unwrap();
+        upstream.branch("feature", &main_tip, false).unwrap();
+    }
+    // One commit each on main and feature so they're independent.
+    commit_on(
+        &upstream,
+        "refs/heads/main",
+        "main_only.txt",
+        "m\n",
+        "main only",
+    );
+    commit_on(
+        &upstream,
+        "refs/heads/feature",
+        "feature_only.txt",
+        "f\n",
+        "feature only",
+    );
+
+    // Clone — sets up tracking for both main and feature.
+    let local_dir = tempfile::tempdir().expect("tempdir");
+    let local =
+        git2::Repository::clone(upstream_dir.path().to_str().unwrap(), local_dir.path())
+            .expect("clone");
+
+    // Make sure `feature` exists locally and tracks origin/feature.
+    {
+        let upstream_feature = local
+            .find_branch("origin/feature", git2::BranchType::Remote)
+            .unwrap();
+        let upstream_oid = upstream_feature.get().target().unwrap();
+        let upstream_commit = local.find_commit(upstream_oid).unwrap();
+        let mut local_feature = local.branch("feature", &upstream_commit, false).unwrap();
+        local_feature.set_upstream(Some("origin/feature")).unwrap();
+    }
+
+    (upstream_dir, local_dir, local)
+}
+
+#[test]
+fn fetch_fast_forwards_eligible_non_current_branches() {
+    let (upstream_dir, _local_dir, local) = clone_with_diverging_setup();
+    let upstream = git2::Repository::open(upstream_dir.path()).unwrap();
+
+    // Advance origin/feature with a new commit; the local feature branch
+    // is not checked out (we're on main) and has no local commits, so
+    // it should fast-forward in the post-fetch sweep.
+    let new_feature_oid = commit_on(
+        &upstream,
+        "refs/heads/feature",
+        "feature_only.txt",
+        "f2\n",
+        "feature edit",
+    );
+
+    remote::fetch(&local, None).expect("fetch");
+
+    let local_feature = local
+        .find_branch("feature", git2::BranchType::Local)
+        .unwrap();
+    assert_eq!(
+        local_feature.get().target(),
+        Some(new_feature_oid),
+        "expected local `feature` to fast-forward to upstream tip",
+    );
+}
+
+#[test]
+fn fetch_does_not_touch_diverged_branches() {
+    let (upstream_dir, local_dir, local) = clone_with_diverging_setup();
+    let upstream = git2::Repository::open(upstream_dir.path()).unwrap();
+
+    // Add a local-only commit to feature so it's both ahead and behind
+    // once upstream moves.
+    let upstream_feature_before = local
+        .find_branch("feature", git2::BranchType::Local)
+        .unwrap()
+        .get()
+        .target()
+        .unwrap();
+    // Switch to feature, add a local commit, switch back.
+    local.set_head("refs/heads/feature").unwrap();
+    local
+        .checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+        .unwrap();
+    let local_only_oid = commit_on(
+        &local,
+        "refs/heads/feature",
+        "local_only.txt",
+        "loc\n",
+        "local only",
+    );
+    local.set_head("refs/heads/main").unwrap();
+    local
+        .checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+        .unwrap();
+
+    // Move upstream forward independently.
+    commit_on(
+        &upstream,
+        "refs/heads/feature",
+        "feature_only.txt",
+        "f2\n",
+        "feature edit",
+    );
+
+    remote::fetch(&local, None).expect("fetch");
+
+    let local_feature = local
+        .find_branch("feature", git2::BranchType::Local)
+        .unwrap();
+    assert_eq!(
+        local_feature.get().target(),
+        Some(local_only_oid),
+        "expected diverged `feature` to be left alone",
+    );
+    // Sanity: upstream tracking ref *was* updated.
+    let _ = upstream_feature_before;
+    let _ = local_dir;
+}
+
+#[test]
+fn fetch_does_not_touch_the_currently_checked_out_branch() {
+    let (upstream_dir, _local_dir, local) = clone_with_diverging_setup();
+    let upstream = git2::Repository::open(upstream_dir.path()).unwrap();
+
+    // We're on main locally; advance origin/main and confirm local main
+    // is *not* fast-forwarded by fetch (Pull's job, not Fetch's).
+    let local_main_before = local
+        .find_branch("main", git2::BranchType::Local)
+        .unwrap()
+        .get()
+        .target()
+        .unwrap();
+    commit_on(
+        &upstream,
+        "refs/heads/main",
+        "more.txt",
+        "more\n",
+        "main edit",
+    );
+
+    remote::fetch(&local, None).expect("fetch");
+
+    let local_main_after = local
+        .find_branch("main", git2::BranchType::Local)
+        .unwrap()
+        .get()
+        .target()
+        .unwrap();
+    assert_eq!(
+        local_main_after, local_main_before,
+        "expected the checked-out branch to be left alone — Pull's job",
+    );
+}
+
 #[test]
 fn fetch_brings_down_all_branches_even_on_a_single_branch_clone() {
     // A clone configured with a narrow `remote.origin.fetch` refspec

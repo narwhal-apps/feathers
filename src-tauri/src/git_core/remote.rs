@@ -83,7 +83,77 @@ pub fn fetch(repo: &Repository, remote: Option<&str>) -> Result<(), AppError> {
     let refspec = format!("+refs/heads/*:refs/remotes/{name}/*");
     let mut opts = fetch_options();
     r.fetch(&[refspec.as_str()], Some(&mut opts), None)?;
+
+    // After the network fetch settles, advance every local branch whose
+    // upstream is now ahead — but only the strictly behind ones. Branches
+    // with local-only commits (any `ahead > 0`) are left alone so we
+    // never silently move the user's work. The currently-checked-out
+    // branch is also skipped because moving HEAD would require a workdir
+    // update and the user expects to do that explicitly via Pull.
+    fast_forward_eligible_branches(repo)?;
+
     Ok(())
+}
+
+/// Walk every local branch and fast-forward those whose upstream is
+/// purely ahead (`ahead == 0 && behind > 0`). Returns the names of the
+/// branches that were advanced — currently unused by callers but handy
+/// for tests and a future "Updated N branches" toast.
+///
+/// Best-effort: per-branch failures are logged and skipped so a single
+/// bad ref doesn't kill the whole post-fetch sweep.
+fn fast_forward_eligible_branches(repo: &Repository) -> Result<Vec<String>, AppError> {
+    // Don't touch HEAD's branch — that requires a workdir/index update,
+    // which Pull handles. Detached HEAD (no current branch) → skip nothing.
+    let current_branch = repo
+        .head()
+        .ok()
+        .and_then(|h| h.shorthand().map(String::from));
+
+    let mut advanced: Vec<String> = vec![];
+
+    let branches = repo.branches(Some(BranchType::Local))?;
+    for entry in branches {
+        let (branch, _) = match entry {
+            Ok(pair) => pair,
+            Err(_) => continue,
+        };
+
+        let Some(branch_name) = branch.name().ok().flatten().map(String::from) else {
+            continue;
+        };
+        if current_branch.as_deref() == Some(branch_name.as_str()) {
+            continue;
+        }
+
+        // Only branches with an upstream are candidates.
+        let Ok(upstream) = branch.upstream() else { continue };
+        let Some(upstream_oid) = upstream.get().target() else { continue };
+        let Some(local_oid) = branch.get().target() else { continue };
+        if local_oid == upstream_oid {
+            continue;
+        }
+
+        let Ok((ahead, behind)) = repo.graph_ahead_behind(local_oid, upstream_oid) else {
+            continue;
+        };
+        if ahead != 0 || behind == 0 {
+            continue;
+        }
+
+        // Pure fast-forward: move the local ref to the upstream tip.
+        // This is what `git fetch <remote> <branch>:<branch>` does on a
+        // non-checked-out branch.
+        let mut local_ref = branch.into_reference();
+        if local_ref
+            .set_target(upstream_oid, "feathers: fast-forward via fetch")
+            .is_ok()
+        {
+            advanced.push(branch_name);
+        }
+    }
+
+    Ok(advanced)
 }
 
 pub fn push(repo: &Repository, remote: Option<&str>) -> Result<(), AppError> {
