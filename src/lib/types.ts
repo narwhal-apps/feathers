@@ -207,6 +207,11 @@ export type ThemeName = 'dark' | 'light';
 
 export interface AppSettings {
   theme_override: ThemeName | null;
+  /** Canonical path of the most recently active repo. The welcome page
+   *  resolves it to a known-repo id on launch and redirects there.
+   *  Path-based (not id-based) because registry ids are minted fresh on
+   *  every process start, so an id wouldn't survive a restart. */
+  last_active_repo_path: string | null;
 }
 
 export interface GitIdentity {

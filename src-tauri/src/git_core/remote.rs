@@ -73,11 +73,87 @@ pub fn fetch(repo: &Repository, remote: Option<&str>) -> Result<(), AppError> {
     let mut r = repo
         .find_remote(name)
         .map_err(|_| AppError::Git { message: format!("remote not found: {name}") })?;
-    let refspecs_raw = r.fetch_refspecs()?;
-    let refspecs: Vec<&str> = refspecs_raw.iter().flatten().collect();
+
+    // Always fetch every branch from this remote, regardless of how the
+    // clone's `remote.<name>.fetch` config is set. Without this, single-
+    // branch clones (or any repo with a narrowed refspec) only update the
+    // current branch's upstream — so the "X commits behind" badge on the
+    // default branch goes stale the moment the user switches to a feature
+    // branch and hits Fetch.
+    let refspec = format!("+refs/heads/*:refs/remotes/{name}/*");
     let mut opts = fetch_options();
-    r.fetch(&refspecs, Some(&mut opts), None)?;
+    r.fetch(&[refspec.as_str()], Some(&mut opts), None)?;
+
+    // After the network fetch settles, advance every local branch whose
+    // upstream is now ahead — but only the strictly behind ones. Branches
+    // with local-only commits (any `ahead > 0`) are left alone so we
+    // never silently move the user's work. The currently-checked-out
+    // branch is also skipped because moving HEAD would require a workdir
+    // update and the user expects to do that explicitly via Pull.
+    fast_forward_eligible_branches(repo)?;
+
     Ok(())
+}
+
+/// Walk every local branch and fast-forward those whose upstream is
+/// purely ahead (`ahead == 0 && behind > 0`). Returns the names of the
+/// branches that were advanced — currently unused by callers but handy
+/// for tests and a future "Updated N branches" toast.
+///
+/// Best-effort: per-branch failures are logged and skipped so a single
+/// bad ref doesn't kill the whole post-fetch sweep.
+fn fast_forward_eligible_branches(repo: &Repository) -> Result<Vec<String>, AppError> {
+    // Don't touch HEAD's branch — that requires a workdir/index update,
+    // which Pull handles. Detached HEAD (no current branch) → skip nothing.
+    let current_branch = repo
+        .head()
+        .ok()
+        .and_then(|h| h.shorthand().map(String::from));
+
+    let mut advanced: Vec<String> = vec![];
+
+    let branches = repo.branches(Some(BranchType::Local))?;
+    for entry in branches {
+        let (branch, _) = match entry {
+            Ok(pair) => pair,
+            Err(_) => continue,
+        };
+
+        let Some(branch_name) = branch.name().ok().flatten().map(String::from) else {
+            continue;
+        };
+        if current_branch.as_deref() == Some(branch_name.as_str()) {
+            continue;
+        }
+
+        // Only branches with an upstream are candidates.
+        let Ok(upstream) = branch.upstream() else { continue };
+        let Some(upstream_oid) = upstream.get().target() else { continue };
+        let Some(local_oid) = branch.get().target() else { continue };
+        if local_oid == upstream_oid {
+            continue;
+        }
+
+        let Ok((ahead, behind)) = repo.graph_ahead_behind(local_oid, upstream_oid) else {
+            continue;
+        };
+        if ahead != 0 || behind == 0 {
+            continue;
+        }
+
+        // Pure fast-forward: move the local ref to the upstream tip.
+        // This is what `git fetch <remote> <branch>:<branch>` does on a
+        // non-checked-out branch.
+        let mut local_ref = branch.into_reference();
+        if local_ref
+            .set_target(upstream_oid, "feathers: fast-forward via fetch")
+            .is_ok()
+        {
+            advanced.push(branch_name);
+        }
+    }
+
+    Ok(advanced)
 }
 
 pub fn push(repo: &Repository, remote: Option<&str>) -> Result<(), AppError> {
@@ -169,10 +245,22 @@ fn fast_forward(repo: &Repository, target_oid: git2::Oid) -> Result<(), AppError
         .name()
         .ok_or_else(|| AppError::Git { message: "HEAD has no name".into() })?
         .to_string();
+
+    // Canonical libgit2 fast-forward sequence: checkout the new tree
+    // FIRST (so safe-mode compares against the *current* HEAD as baseline
+    // and updates both workdir + index in one go), THEN move the HEAD
+    // ref. Doing it the other way round leaves the index pointing at the
+    // old tree and surfaces every incoming change as a phantom staged
+    // diff in the FE.
+    let new_commit = repo.find_commit(target_oid)?;
+    repo.checkout_tree(
+        new_commit.as_object(),
+        Some(CheckoutBuilder::new().safe()),
+    )?;
+
     let mut head_ref_mut = repo.find_reference(&head_ref_name)?;
     head_ref_mut.set_target(target_oid, "fast-forward")?;
     repo.set_head(&head_ref_name)?;
-    repo.checkout_head(Some(CheckoutBuilder::new().safe()))?;
     Ok(())
 }
 

@@ -104,7 +104,7 @@ pub fn state(repo: &Repository) -> Result<OpState, AppError> {
     })
 }
 
-fn collect_conflicted_paths(repo: &Repository) -> Result<Vec<String>, AppError> {
+pub(crate) fn collect_conflicted_paths(repo: &Repository) -> Result<Vec<String>, AppError> {
     let idx = repo.index()?;
     if !idx.has_conflicts() {
         return Ok(vec![]);
