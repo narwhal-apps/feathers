@@ -12,6 +12,16 @@ export interface Entry<T> {
 export class QueryClient {
   private cache = new Map<string, Entry<unknown>>();
   private inflight = new Map<string, Promise<unknown>>();
+  /** Keys whose fetcher should run again as soon as the current in-flight
+   *  promise settles. Set when `invalidate()` (or any caller of `fetch`)
+   *  asks for a refetch while a previous one is still running — instead
+   *  of spawning a parallel call we coalesce into one trailing refresh.
+   *  Critical for things like the workdir-diff query during rapid
+   *  `repo_changed` bursts: without this, a single user save that
+   *  produces a 600 ms-debounced watcher event followed by a local
+   *  invalidate (e.g. discard hunk) would launch two concurrent
+   *  full-worktree walks. */
+  private pendingRefetch = new Set<string>();
 
   private hash(key: Key): string {
     return JSON.stringify(key);
@@ -80,6 +90,13 @@ export class QueryClient {
   private fetch(k: string): void {
     const entry = this.cache.get(k);
     if (!entry || !entry.fetcher) return;
+    // Already running for this key — coalesce. The trailing refetch
+    // kicked from the .finally() block below picks up whatever changed
+    // between this call and the in-flight one's completion.
+    if (this.inflight.has(k)) {
+      this.pendingRefetch.add(k);
+      return;
+    }
     entry.loading = true;
     entry.subs.forEach((cb) => cb());
     const p = entry.fetcher()
@@ -100,6 +117,13 @@ export class QueryClient {
       })
       .finally(() => {
         this.inflight.delete(k);
+        // Only chase the trailing refetch if there's still a live
+        // subscriber — invalidations on orphaned entries shouldn't
+        // wake them up here either.
+        if (this.pendingRefetch.delete(k)) {
+          const e = this.cache.get(k);
+          if (e && e.subs.size > 0 && e.fetcher) this.fetch(k);
+        }
       });
     this.inflight.set(k, p);
   }
