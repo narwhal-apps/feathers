@@ -24,6 +24,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PKG = resolve(ROOT, 'package.json');
 const TAURI_CONF = resolve(ROOT, 'src-tauri/tauri.conf.json');
 const CARGO = resolve(ROOT, 'src-tauri/Cargo.toml');
+const CARGO_LOCK = resolve(ROOT, 'src-tauri/Cargo.lock');
 const CHANGELOG = resolve(ROOT, 'CHANGELOG.md');
 
 const DRY = process.argv.includes('--dry-run');
@@ -125,6 +126,21 @@ function writeVersions(next) {
   const updated = cargoSrc.replace(/^version\s*=\s*"[^"]+"/m, `version = "${next}"`);
   if (updated === cargoSrc) fail('Failed to rewrite version in Cargo.toml');
   if (!DRY) writeFileSync(CARGO, updated);
+
+  // Cargo.lock — Cargo would refresh the `feathers-app` entry on the next
+  // `cargo` invocation, but if we leave it out of the release commit it
+  // shows up as a dirty file the moment a developer runs `cargo check`
+  // / `pnpm tauri dev` after the bump. Patch it inline so the release
+  // commit captures the bump in one go.
+  const lockSrc = readFileSync(CARGO_LOCK, 'utf8');
+  const lockUpdated = lockSrc.replace(
+    /(name = "feathers-app"\nversion = )"[^"]+"/,
+    `$1"${next}"`,
+  );
+  if (lockUpdated === lockSrc) {
+    fail("Failed to rewrite feathers-app version in Cargo.lock — package block not found.");
+  }
+  if (!DRY) writeFileSync(CARGO_LOCK, lockUpdated);
 }
 
 // ─── Commit collection ──────────────────────────────────────────────────
@@ -279,7 +295,7 @@ async function main() {
     writeVersions(next);
 
     log.step('Staging + committing');
-    shRun(`git add CHANGELOG.md package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml`);
+    shRun(`git add CHANGELOG.md package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock`);
     shRun(`git commit -m "release: v${next}"`);
 
     log.step('Tagging');
