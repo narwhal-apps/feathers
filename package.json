@@ -1,6 +1,6 @@
 {
   "name": "feathers",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A Tauri 2 + SvelteKit desktop Git client for macOS.",
   "author": {
     "name": "Mikael Kristianson"
