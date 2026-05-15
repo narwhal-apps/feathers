@@ -225,10 +225,23 @@
   // after the highlighter caps. With per-hunk IO, mount cost becomes
   // O(viewport) instead of O(file).
   //
-  // Key by `file.path:hunk.header` so the same DOM node (kept by the
-  // keyed each block) is identified consistently across renders, and
-  // duplicate hunk headers in different files don't collide.
+  // Key by `file.path:hunkIdx` (positional, not header-based). On a
+  // constantly-changing file every save shifts hunk line numbers — and
+  // therefore hunk headers. Index-based keys keep the same DOM node
+  // (and visibility/observer state) stable across those edits so the
+  // hunk doesn't unmount + remount + re-fire IO on every save.
   const visibleHunks = new SvelteSet<string>();
+
+  /** Per-hunk render cap. The hunk-level virtualization above stops the
+   *  freeze for many-hunk files, but a file with one huge hunk (a log
+   *  append, generated code, a binary blob diffed as text) still mounts
+   *  every line at once when that single hunk's IO fires. Render only
+   *  the first N lines by default; the user can expand a hunk if they
+   *  want to read the rest. */
+  const MAX_LINES_PER_HUNK_RENDER = 500;
+  /** Hunks the user has explicitly expanded past the cap. Keyed by
+   *  `file.path:hunkIdx` — same key shape as `visibleHunks`. */
+  const expandedHunks = new SvelteSet<string>();
 
   function visibleHunk(node: HTMLElement, key: string) {
     const io = new IntersectionObserver((entries) => {
@@ -395,8 +408,11 @@
       {:else if mode === 'unified'}
         {@const fileHl = hl.get(file.path)}
         <div class="body">
-          {#each file.hunks as hunk, hunkIdx (hunk.header)}
-            {@const hkey = file.path + ':' + hunk.header}
+          {#each file.hunks as hunk, hunkIdx (hunkIdx)}
+            {@const hkey = file.path + ':' + hunkIdx}
+            {@const expanded = expandedHunks.has(hkey)}
+            {@const cap = expanded ? hunk.lines.length : Math.min(hunk.lines.length, MAX_LINES_PER_HUNK_RENDER)}
+            {@const hiddenLines = hunk.lines.length - cap}
             <div class="hunk" use:visibleHunk={hkey}>
               <div class="hunk-header">
                 <span class="hunk-header-text">{hunk.header}</span>
@@ -414,7 +430,7 @@
               </div>
               {#if isHunkVisible(hkey)}
                 <div class="lines">
-                  {#each hunk.lines as line, lineIdx ((line.old_no ?? 'a') + ':' + (line.new_no ?? 'a') + ':' + line.kind + ':' + lineIdx)}
+                  {#each hunk.lines.slice(0, cap) as line, lineIdx (lineIdx)}
                     <div class="line line-{line.kind}">
                       <span class="ln ln-old">{line.old_no ?? ''}</span>
                       <span class="ln ln-new">{line.new_no ?? ''}</span>
@@ -427,6 +443,11 @@
                     </div>
                   {/each}
                 </div>
+                {#if hiddenLines > 0}
+                  <button class="hunk-expand" type="button" onclick={() => expandedHunks.add(hkey)}>
+                    Show {hiddenLines.toLocaleString()} more line{hiddenLines === 1 ? '' : 's'}
+                  </button>
+                {/if}
               {:else}
                 <div class="hunk-placeholder" style:height="{estimateHunkHeight(hunk)}px"></div>
               {/if}
@@ -437,8 +458,9 @@
         <!-- Split (side-by-side) view -->
         {@const fileHl = hl.get(file.path)}
         <div class="body split-body">
-          {#each file.hunks as hunk, hunkIdx (hunk.header)}
-            {@const hkey = file.path + ':' + hunk.header}
+          {#each file.hunks as hunk, hunkIdx (hunkIdx)}
+            {@const hkey = file.path + ':' + hunkIdx}
+            {@const expanded = expandedHunks.has(hkey)}
             <div class="hunk split-hunk" use:visibleHunk={hkey}>
               <div class="hunk-header">
                 <span class="hunk-header-text">{hunk.header}</span>
@@ -455,9 +477,11 @@
                 {/if}
               </div>
               {#if isHunkVisible(hkey)}
-                {@const rows = splitRows.get(hunk) ?? []}
+                {@const allRows = splitRows.get(hunk) ?? []}
+                {@const rowCap = expanded ? allRows.length : Math.min(allRows.length, MAX_LINES_PER_HUNK_RENDER)}
+                {@const hiddenRows = allRows.length - rowCap}
                 <div class="split-rows">
-                  {#each rows as row, rowIdx ((row.old?.idx ?? 'a') + ':' + (row.new?.idx ?? 'a') + ':' + rowIdx)}
+                  {#each allRows.slice(0, rowCap) as row, rowIdx (rowIdx)}
                     <div class="split-row">
                       <div class="split-side {row.old ? `line-${row.old.line.kind}` : 'line-empty'}">
                         <span class="ln">{row.old?.line.old_no ?? ''}</span>
@@ -480,6 +504,11 @@
                     </div>
                   {/each}
                 </div>
+                {#if hiddenRows > 0}
+                  <button class="hunk-expand" type="button" onclick={() => expandedHunks.add(hkey)}>
+                    Show {hiddenRows.toLocaleString()} more row{hiddenRows === 1 ? '' : 's'}
+                  </button>
+                {/if}
               {:else}
                 <div class="hunk-placeholder" style:height="{estimateHunkHeight(hunk)}px"></div>
               {/if}
@@ -685,6 +714,25 @@
   .hunk-placeholder {
     width: 100%;
   }
+
+  /* Inline "Show N more lines" button at the bottom of a capped hunk.
+     Same width as a line so it reads as part of the diff stream. */
+  .hunk-expand {
+    display: block;
+    width: 100%;
+    padding: var(--sp-1) var(--sp-3);
+    background: var(--bg-elev-2);
+    border: none;
+    border-top: 1px dashed var(--border);
+    color: var(--accent-fg);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--weight-semibold);
+    text-align: center;
+    cursor: pointer;
+    transition: background var(--t-fast);
+  }
+  .hunk-expand:hover { background: var(--bg-elev-3); }
 
   /* No horizontal scroll — long lines wrap. Sidesteps the rabbit hole
      of getting line backgrounds to fill consistently across hunks of
