@@ -218,6 +218,38 @@
 
   const isVisible = (path: string) => visibleFiles.has(path);
 
+  // Second virtualization layer: even within a visible file, only hunks
+  // within ~500px of the viewport mount their lines body. A single huge
+  // file used to mount tens of thousands of <div> nodes the moment its
+  // article scrolled in — that DOM-mount pass was the residual freeze
+  // after the highlighter caps. With per-hunk IO, mount cost becomes
+  // O(viewport) instead of O(file).
+  //
+  // Key by `file.path:hunk.header` so the same DOM node (kept by the
+  // keyed each block) is identified consistently across renders, and
+  // duplicate hunk headers in different files don't collide.
+  const visibleHunks = new SvelteSet<string>();
+
+  function visibleHunk(node: HTMLElement, key: string) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          visibleHunks.add(key);
+          io.unobserve(node);
+        }
+      }
+    }, { rootMargin: '500px' });
+    io.observe(node);
+    return { destroy: () => io.disconnect() };
+  }
+
+  const isHunkVisible = (key: string) => visibleHunks.has(key);
+
+  function estimateHunkHeight(hunk: DiffHunk): number {
+    // 18px line-height + 4px vertical padding ≈ 22px per line.
+    return Math.max(22, hunk.lines.length * 22);
+  }
+
   /** Per-session collapsed state — clicking a file header toggles its body. */
   const collapsed = new SvelteSet<string>();
   function toggleCollapsed(path: string) {
@@ -364,7 +396,8 @@
         {@const fileHl = hl.get(file.path)}
         <div class="body">
           {#each file.hunks as hunk, hunkIdx (hunk.header)}
-            <div class="hunk">
+            {@const hkey = file.path + ':' + hunk.header}
+            <div class="hunk" use:visibleHunk={hkey}>
               <div class="hunk-header">
                 <span class="hunk-header-text">{hunk.header}</span>
                 {#if onDiscardHunk}
@@ -379,20 +412,24 @@
                   </button>
                 {/if}
               </div>
-              <div class="lines">
-                {#each hunk.lines as line, lineIdx ((line.old_no ?? 'a') + ':' + (line.new_no ?? 'a') + ':' + line.kind + ':' + lineIdx)}
-                  <div class="line line-{line.kind}">
-                    <span class="ln ln-old">{line.old_no ?? ''}</span>
-                    <span class="ln ln-new">{line.new_no ?? ''}</span>
-                    <span class="prefix">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span>
-                    {#if fileHl?.[hunkIdx]?.[lineIdx] != null}
-                      <span class="text">{@html fileHl[hunkIdx][lineIdx]}</span>
-                    {:else}
-                      <span class="text">{line.text}</span>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
+              {#if isHunkVisible(hkey)}
+                <div class="lines">
+                  {#each hunk.lines as line, lineIdx ((line.old_no ?? 'a') + ':' + (line.new_no ?? 'a') + ':' + line.kind + ':' + lineIdx)}
+                    <div class="line line-{line.kind}">
+                      <span class="ln ln-old">{line.old_no ?? ''}</span>
+                      <span class="ln ln-new">{line.new_no ?? ''}</span>
+                      <span class="prefix">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span>
+                      {#if fileHl?.[hunkIdx]?.[lineIdx] != null}
+                        <span class="text">{@html fileHl[hunkIdx][lineIdx]}</span>
+                      {:else}
+                        <span class="text">{line.text}</span>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div class="hunk-placeholder" style:height="{estimateHunkHeight(hunk)}px"></div>
+              {/if}
             </div>
           {/each}
         </div>
@@ -401,8 +438,8 @@
         {@const fileHl = hl.get(file.path)}
         <div class="body split-body">
           {#each file.hunks as hunk, hunkIdx (hunk.header)}
-            {@const rows = splitRows.get(hunk) ?? []}
-            <div class="hunk split-hunk">
+            {@const hkey = file.path + ':' + hunk.header}
+            <div class="hunk split-hunk" use:visibleHunk={hkey}>
               <div class="hunk-header">
                 <span class="hunk-header-text">{hunk.header}</span>
                 {#if onDiscardHunk}
@@ -417,30 +454,35 @@
                   </button>
                 {/if}
               </div>
-              <div class="split-rows">
-                {#each rows as row, rowIdx ((row.old?.idx ?? 'a') + ':' + (row.new?.idx ?? 'a') + ':' + rowIdx)}
-                  <div class="split-row">
-                    <div class="split-side {row.old ? `line-${row.old.line.kind}` : 'line-empty'}">
-                      <span class="ln">{row.old?.line.old_no ?? ''}</span>
-                      <span class="prefix">{row.old?.line.kind === 'del' ? '−' : ' '}</span>
-                      {#if row.old && fileHl?.[hunkIdx]?.[row.old.idx] != null}
-                        <span class="text">{@html fileHl[hunkIdx][row.old.idx]}</span>
-                      {:else}
-                        <span class="text">{row.old?.line.text ?? ''}</span>
-                      {/if}
+              {#if isHunkVisible(hkey)}
+                {@const rows = splitRows.get(hunk) ?? []}
+                <div class="split-rows">
+                  {#each rows as row, rowIdx ((row.old?.idx ?? 'a') + ':' + (row.new?.idx ?? 'a') + ':' + rowIdx)}
+                    <div class="split-row">
+                      <div class="split-side {row.old ? `line-${row.old.line.kind}` : 'line-empty'}">
+                        <span class="ln">{row.old?.line.old_no ?? ''}</span>
+                        <span class="prefix">{row.old?.line.kind === 'del' ? '−' : ' '}</span>
+                        {#if row.old && fileHl?.[hunkIdx]?.[row.old.idx] != null}
+                          <span class="text">{@html fileHl[hunkIdx][row.old.idx]}</span>
+                        {:else}
+                          <span class="text">{row.old?.line.text ?? ''}</span>
+                        {/if}
+                      </div>
+                      <div class="split-side {row.new ? `line-${row.new.line.kind}` : 'line-empty'}">
+                        <span class="ln">{row.new?.line.new_no ?? ''}</span>
+                        <span class="prefix">{row.new?.line.kind === 'add' ? '+' : ' '}</span>
+                        {#if row.new && fileHl?.[hunkIdx]?.[row.new.idx] != null}
+                          <span class="text">{@html fileHl[hunkIdx][row.new.idx]}</span>
+                        {:else}
+                          <span class="text">{row.new?.line.text ?? ''}</span>
+                        {/if}
+                      </div>
                     </div>
-                    <div class="split-side {row.new ? `line-${row.new.line.kind}` : 'line-empty'}">
-                      <span class="ln">{row.new?.line.new_no ?? ''}</span>
-                      <span class="prefix">{row.new?.line.kind === 'add' ? '+' : ' '}</span>
-                      {#if row.new && fileHl?.[hunkIdx]?.[row.new.idx] != null}
-                        <span class="text">{@html fileHl[hunkIdx][row.new.idx]}</span>
-                      {:else}
-                        <span class="text">{row.new?.line.text ?? ''}</span>
-                      {/if}
-                    </div>
-                  </div>
-                {/each}
-              </div>
+                  {/each}
+                </div>
+              {:else}
+                <div class="hunk-placeholder" style:height="{estimateHunkHeight(hunk)}px"></div>
+              {/if}
             </div>
           {/each}
         </div>
@@ -634,6 +676,13 @@
   /* Reserves vertical space for files outside the viewport so scroll
      position stays stable until IntersectionObserver swaps in real hunks. */
   .file-placeholder {
+    width: 100%;
+  }
+
+  /* Same job as .file-placeholder but per hunk — sized to the hunk's
+     line count so scroll bar position doesn't jump when a hunk swaps
+     between placeholder and real lines. */
+  .hunk-placeholder {
     width: 100%;
   }
 
