@@ -1,6 +1,6 @@
 [package]
 name = "feathers-app"
-version = "0.1.2"
+version = "0.2.0"
 description = "A Git desktop app"
 authors = ["Mikael Kristiansson"]
 edition = "2021"
