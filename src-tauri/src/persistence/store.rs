@@ -13,6 +13,14 @@ pub enum ThemeName {
 pub struct AppSettings {
     /// `None` means "follow OS preference". `Some(name)` pins the theme.
     pub theme_override: Option<ThemeName>,
+    /// Canonical path of the most recently active repo. The FE redirects
+    /// to it on launch when the path is still in `known_repos`. We store
+    /// the path (not the registry id) because ids are minted fresh on
+    /// every process start — they aren't stable across restarts.
+    /// `serde(default)` so configs persisted before this field existed
+    /// still load cleanly.
+    #[serde(default)]
+    pub last_active_repo_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

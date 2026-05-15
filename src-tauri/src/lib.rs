@@ -115,6 +115,7 @@ pub fn run() {
             commands::remote::repo_pull,
             commands::settings::settings_get,
             commands::settings::settings_set_theme,
+            commands::settings::settings_set_last_active_repo_path,
             commands::settings::settings_get_git_identity,
             commands::settings::settings_set_git_identity,
             commands::window::open_settings_window,

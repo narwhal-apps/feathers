@@ -43,3 +43,42 @@ fn round_trips_theme_override() {
     let reloaded = store.load().unwrap();
     assert_eq!(reloaded.settings.theme_override, Some(ThemeName::Light));
 }
+
+#[test]
+fn round_trips_last_active_repo_path() {
+    let dir = tempdir().unwrap();
+    let store = FileStore::new(dir.path().join("config.json"));
+    let mut cfg = store.load().unwrap();
+    cfg.settings.last_active_repo_path = Some("/Users/me/code/proj".to_string());
+    store.save(&cfg).unwrap();
+    let reloaded = store.load().unwrap();
+    assert_eq!(
+        reloaded.settings.last_active_repo_path,
+        Some("/Users/me/code/proj".to_string()),
+    );
+
+    // Clearing roundtrips too.
+    let mut cfg = reloaded;
+    cfg.settings.last_active_repo_path = None;
+    store.save(&cfg).unwrap();
+    assert_eq!(store.load().unwrap().settings.last_active_repo_path, None);
+}
+
+#[test]
+fn loads_pre_existing_config_without_last_active_repo_path_field() {
+    // Configs persisted before last_active_repo_path existed must still
+    // load — covered by `#[serde(default)]` on the field. Includes the
+    // case where the older `last_active_repo_id` field is present (its
+    // value is silently ignored — registry ids weren't stable anyway).
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    std::fs::write(
+        &path,
+        r#"{"schema":2,"known_repos":[],"settings":{"theme_override":"dark","last_active_repo_id":"stale-uuid"}}"#,
+    )
+    .unwrap();
+    let store = FileStore::new(path);
+    let cfg = store.load().expect("load");
+    assert_eq!(cfg.settings.theme_override, Some(ThemeName::Dark));
+    assert_eq!(cfg.settings.last_active_repo_path, None);
+}
