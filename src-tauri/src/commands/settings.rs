@@ -53,7 +53,7 @@ pub struct GitIdentity {
 }
 
 /// Read user.name / user.email from a global gitconfig rooted at `home`.
-/// Used so tests can sandbox the lookup; production callers pass `dirs::home_dir()`.
+/// Used so tests can sandbox the lookup; production callers pass `home::home_dir()`.
 pub fn read_git_identity_from(home: &Path) -> Result<GitIdentity, AppError> {
     let path = home.join(".gitconfig");
     if !path.exists() {
@@ -107,7 +107,7 @@ pub fn write_git_identity_to(home: &Path, name: &str, email: &str) -> Result<(),
 
 #[tauri::command]
 pub async fn settings_get_git_identity() -> Result<GitIdentity, AppError> {
-    let home = dirs::home_dir().ok_or_else(|| AppError::Io {
+    let home = home::home_dir().ok_or_else(|| AppError::Io {
         message: "couldn't resolve home directory".into(),
     })?;
     read_git_identity_from(&home)
@@ -115,7 +115,7 @@ pub async fn settings_get_git_identity() -> Result<GitIdentity, AppError> {
 
 #[tauri::command]
 pub async fn settings_set_git_identity(name: String, email: String) -> Result<(), AppError> {
-    let home = dirs::home_dir().ok_or_else(|| AppError::Io {
+    let home = home::home_dir().ok_or_else(|| AppError::Io {
         message: "couldn't resolve home directory".into(),
     })?;
     write_git_identity_to(&home, &name, &email)
