@@ -7,9 +7,11 @@
   import Input from '$lib/components/primitives/Input.svelte';
   import TextArea from '$lib/components/primitives/TextArea.svelte';
   import Banner from '$lib/components/primitives/Banner.svelte';
+  import Button from '$lib/components/primitives/Button.svelte';
   import { createQuery } from '$lib/query/createQuery.svelte';
   import { queryClient } from '$lib/query/client';
   import { queryKeys } from '$lib/query/keys';
+  import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import type { BranchInfo, CommitPage, PullRequest, AppError } from '$lib/types';
 
   let { id, onClose }: { id: string; onClose: (created?: PullRequest) => void } = $props();
@@ -40,6 +42,12 @@
   let draft = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
+  /** Populated alongside `error` so the banner can offer a fallback "Open
+   *  on GitHub" button — the user can finish the PR in the browser when
+   *  the in-app create fails (typically: PR already exists, validation
+   *  rejected, token expired, network glitch). Null until we've resolved
+   *  the repo's web URL. */
+  let manualPrUrl = $state<string | null>(null);
   let titleEl = $state<HTMLInputElement | null>(null);
 
   let prefilled = false;
@@ -71,6 +79,7 @@
     if (!t || !head || !base || base === head.name) return;
     busy = true;
     error = null;
+    manualPrUrl = null;
     try {
       const pr = await invoke<PullRequest>('github_create_pr', {
         id,
@@ -88,9 +97,27 @@
         typeof e === 'object' && e !== null && 'message' in e
           ? (e as { message: string }).message
           : JSON.stringify(err);
+      // Best-effort fallback URL so the banner can offer "Open on GitHub".
+      // GitHub's `compare/<base>...<head>?expand=1` page opens the same
+      // PR-creation form we tried, pre-filled — and if a PR already
+      // exists for this branch (the most common reason for getting here)
+      // GitHub redirects straight to it.
+      try {
+        const remoteUrl = await invoke<string | null>('repo_remote_url', { id });
+        const webBase = gitUrlToWebUrl(remoteUrl ?? null);
+        if (webBase && head && base) {
+          manualPrUrl = `${webBase}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head.name)}?expand=1`;
+        }
+      } catch { /* ignore — banner just falls back to text-only */ }
     } finally {
       busy = false;
     }
+  }
+
+  function openManual(): void {
+    if (!manualPrUrl) return;
+    void openUrl(manualPrUrl);
+    onClose();
   }
 
   function close() { if (!busy) onClose(); }
@@ -155,7 +182,14 @@
       </label>
 
       {#if error}
-        <Banner tone="error">{error}</Banner>
+        <Banner tone="error">
+          {error}
+          {#snippet actions()}
+            {#if manualPrUrl}
+              <Button label="Open on GitHub" iconLeft="ExternalLink" onclick={openManual} />
+            {/if}
+          {/snippet}
+        </Banner>
       {/if}
     </form>
   {/snippet}
