@@ -15,7 +15,9 @@
   import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { formatError } from '$lib/utils/error';
   import { relTime } from '$lib/utils/time';
-  import type { BranchInfo, AppError } from '$lib/types';
+  import type { BranchInfo, StashEntry, AppError } from '$lib/types';
+
+  const AUTO_STASH_PREFIX = '[auto-stash]';
 
   const active = $derived(repos.activeRepo);
 
@@ -59,6 +61,11 @@
   let renameTarget = $state<BranchInfo | null>(null);
   let renameName = $state('');
   let renameNameEl = $state<HTMLInputElement | null>(null);
+
+  // Switch-with-changes modal state.
+  let switchTarget = $state<BranchInfo | null>(null);
+  type SwitchStrategy = 'bring' | 'leave';
+  let switchStrategy = $state<SwitchStrategy>('bring');
 
   function isDefaultBranch(b: BranchInfo): boolean {
     return !!defaultBranch && b.name === defaultBranch.name;
@@ -122,13 +129,25 @@
     notify(`${prefix}: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
   }
 
+  async function restoreAutoStash(repoId: string, branchName: string) {
+    try {
+      const stashes = await invoke<StashEntry[]>('stash_list', { id: repoId });
+      const autoStash = stashes.find(
+        (s) => s.branch === branchName && s.message.includes(AUTO_STASH_PREFIX),
+      );
+      if (autoStash) {
+        await invoke('stash_pop', { id: repoId, index: autoStash.index });
+      }
+    } catch { /* best-effort */ }
+  }
+
   async function pick(b: BranchInfo) {
     if (!active) return;
     if (b.is_head) { close(); return; }
     busy = true;
     try {
       await invoke('branch_checkout', { id: active.id, name: b.name });
-      // Branch + status + log + op-state + workdir diff all change after checkout.
+      await restoreAutoStash(active.id, b.name);
       queryClient.invalidateMany([
         queryKeys.repoStatus(active.id),
         queryKeys.repoBranches(active.id),
@@ -140,15 +159,53 @@
     } catch (err) {
       const e = err as AppError;
       if (e.kind === 'dirty') {
-        const text =
-          `Cannot switch branches — working tree has uncommitted changes:\n\n` +
-          e.paths.slice(0, 10).join('\n') +
-          (e.paths.length > 10 ? `\n…and ${e.paths.length - 10} more` : '') +
-          `\n\nCommit, stash, or discard them first.`;
-        notify(text, { kind: 'error', durationMs: 0 });
+        close();
+        switchTarget = b;
+        switchStrategy = 'bring';
       } else {
         notify(`Failed to switch: ${formatError(err)}`, { kind: 'error', durationMs: 0 });
       }
+    } finally {
+      busy = false;
+    }
+  }
+
+  function closeSwitchModal() {
+    switchTarget = null;
+    switchStrategy = 'bring';
+  }
+
+  async function submitSwitch() {
+    if (!active || !switchTarget) return;
+    const target = switchTarget;
+    busy = true;
+    try {
+      if (switchStrategy === 'leave') {
+        await invoke('stash_create', {
+          id: active.id,
+          message: `${AUTO_STASH_PREFIX} switching to ${target.name}`,
+          includeUntracked: true,
+          keepIndex: false,
+        });
+        await invoke('branch_checkout', { id: active.id, name: target.name });
+      } else {
+        await invoke('branch_checkout', {
+          id: active.id,
+          name: target.name,
+          allowDirty: true,
+        });
+      }
+      await restoreAutoStash(active.id, target.name);
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(active.id),
+        queryKeys.repoBranches(active.id),
+        ['repo', active.id, 'log'],
+        queryKeys.repoOpState(active.id),
+        ['repo', active.id, 'diff'],
+      ]);
+      closeSwitchModal();
+    } catch (err) {
+      reportError('Failed to switch branch', err);
     } finally {
       busy = false;
     }
@@ -275,7 +332,8 @@
   }
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      if (renameTarget) closeRename();
+      if (switchTarget) closeSwitchModal();
+      else if (renameTarget) closeRename();
       else if (modalOpen) closeModal();
       else if (open) close();
       // ctxMenu Escape is handled by ContextMenu primitive
@@ -559,6 +617,46 @@
   </Modal>
 {/if}
 
+{#if switchTarget && head}
+  {@const target = switchTarget}
+  <Modal
+    title="Switch Branch"
+    onClose={closeSwitchModal}
+    width="md"
+    actions={{
+      secondary: { label: 'Cancel', onclick: closeSwitchModal, disabled: busy },
+      primary: {
+        label: busy ? 'Switching…' : 'Switch Branch',
+        onclick: submitSwitch,
+        loading: busy,
+        disabled: busy,
+      },
+    }}
+  >
+    {#snippet body()}
+      <div class="switch-body">
+        <p class="switch-prompt">You have changes on this branch. What would you like to do with them?</p>
+        <div class="switch-options">
+          <label class="switch-option" class:selected={switchStrategy === 'leave'}>
+            <input type="radio" name="switch-strategy" value="leave" bind:group={switchStrategy} />
+            <div class="switch-option-text">
+              <span class="switch-option-title">Leave my changes on {head.name}</span>
+              <span class="switch-option-desc">Your in-progress work will be stashed on this branch for you to return to later</span>
+            </div>
+          </label>
+          <label class="switch-option" class:selected={switchStrategy === 'bring'}>
+            <input type="radio" name="switch-strategy" value="bring" bind:group={switchStrategy} />
+            <div class="switch-option-text">
+              <span class="switch-option-title">Bring my changes to {target.name}</span>
+              <span class="switch-option-desc">Your in-progress work will follow you to the new branch</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
   .wrap { position: relative; }
 
@@ -814,4 +912,50 @@
   }
   .seg-static :global(svg) { color: var(--accent-fg); flex-shrink: 0; }
   .seg-static .seg-tag { color: var(--accent-fg); opacity: 0.85; }
+
+  /* Switch-with-changes modal */
+  .switch-body { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .switch-prompt {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+  }
+  .switch-options { display: flex; flex-direction: column; gap: 0; }
+  .switch-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color var(--t-fast), background var(--t-fast);
+  }
+  .switch-option:first-child { border-radius: var(--r-md) var(--r-md) 0 0; }
+  .switch-option:last-child { border-radius: 0 0 var(--r-md) var(--r-md); border-top: none; }
+  .switch-option:hover { background: var(--bg-elev-2); }
+  .switch-option.selected {
+    border-color: var(--accent-500);
+    background: var(--accent-bg-soft);
+  }
+  .switch-option.selected + .switch-option { border-top-color: var(--accent-500); }
+  .switch-option input[type="radio"] {
+    margin: 2px 0 0 0;
+    accent-color: var(--accent-500);
+    flex-shrink: 0;
+  }
+  .switch-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .switch-option-title {
+    color: var(--fg);
+    font-size: var(--fs-sm);
+    font-weight: var(--weight-semibold);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .switch-option-desc {
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
+  }
 </style>

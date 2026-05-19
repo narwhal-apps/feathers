@@ -16,10 +16,15 @@ pub async fn branch_list(
 pub async fn branch_checkout(
     id: String,
     name: String,
+    allow_dirty: Option<bool>,
     registry: State<'_, RepoRegistry>,
 ) -> Result<(), AppError> {
     let handle = registry.get(&id)?;
-    repo_registry::with_repo_write(handle, move |r| git_core::branch::checkout(r, &name)).await
+    let ad = allow_dirty.unwrap_or(false);
+    repo_registry::with_repo_write(handle, move |r| {
+        git_core::branch::checkout(r, &name, ad)
+    })
+    .await
 }
 
 #[tauri::command]

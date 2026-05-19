@@ -77,20 +77,21 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
 /// Errors with `AppError::Dirty { paths }` if the working tree has staged,
 /// unstaged or conflicted changes; `AppError::Git { ... }` for not-found /
 /// other libgit2 failures.
-pub fn checkout(repo: &Repository, branch_name: &str) -> Result<(), AppError> {
-    // Refuse if working tree has tracked modifications.
-    let snap = status::status(repo)?;
-    if !snap.staged.is_empty() || !snap.unstaged.is_empty() || !snap.conflicted.is_empty() {
-        let mut paths: Vec<String> = snap
-            .staged
-            .iter()
-            .chain(snap.unstaged.iter())
-            .chain(snap.conflicted.iter())
-            .map(|f| f.path.clone())
-            .collect();
-        paths.sort();
-        paths.dedup();
-        return Err(AppError::Dirty { paths });
+pub fn checkout(repo: &Repository, branch_name: &str, allow_dirty: bool) -> Result<(), AppError> {
+    if !allow_dirty {
+        let snap = status::status(repo)?;
+        if !snap.staged.is_empty() || !snap.unstaged.is_empty() || !snap.conflicted.is_empty() {
+            let mut paths: Vec<String> = snap
+                .staged
+                .iter()
+                .chain(snap.unstaged.iter())
+                .chain(snap.conflicted.iter())
+                .map(|f| f.path.clone())
+                .collect();
+            paths.sort();
+            paths.dedup();
+            return Err(AppError::Dirty { paths });
+        }
     }
 
     // 1. Local branch with this exact name? Switch to it.
@@ -166,7 +167,7 @@ pub fn create(
     };
     repo.branch(name, &start_commit, false)?;
     if checkout {
-        return self::checkout(repo, name);
+        return self::checkout(repo, name, false);
     }
     Ok(())
 }
@@ -182,7 +183,7 @@ pub fn create_at(repo: &Repository, name: &str, oid: git2::Oid) -> Result<(), Ap
     }
     let target = repo.find_commit(oid)?;
     repo.branch(name, &target, false)?;
-    self::checkout(repo, name)
+    self::checkout(repo, name, false)
 }
 
 /// Rename a local branch. Refuses to overwrite an existing branch.
