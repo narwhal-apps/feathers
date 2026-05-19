@@ -25,6 +25,9 @@ pub enum AppError {
     #[error("not a github repository")]
     NotAGithubRepo,
 
+    #[error("forbidden: {message}")]
+    Forbidden { message: String },
+
     #[error("network error: {message}")]
     Network { message: String },
 

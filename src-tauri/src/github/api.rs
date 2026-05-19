@@ -99,6 +99,11 @@ async fn map_error(resp: Response) -> AppError {
         (None, None) if raw_body.is_empty() => format!("github {status}"),
         (None, None) => format!("github {status}: {raw_body}"),
     };
+
+    if status.as_u16() == 403 {
+        return AppError::Forbidden { message: msg };
+    }
+
     AppError::Network { message: msg }
 }
 

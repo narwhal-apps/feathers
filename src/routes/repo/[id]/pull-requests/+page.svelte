@@ -74,6 +74,8 @@
     return m?.[1] ?? null;
   }
 
+  const webBase = $derived(gitUrlToWebUrl(remoteUrl.data ?? null));
+
   function open(url: string) { openUrl(url); }
 </script>
 

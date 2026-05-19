@@ -14,7 +14,11 @@
   import { gitUrlToWebUrl } from '$lib/utils/git-url';
   import type { BranchInfo, CommitPage, PullRequest, AppError } from '$lib/types';
 
-  let { id, onClose }: { id: string; onClose: (created?: PullRequest) => void } = $props();
+  let { id, onClose, onRestricted }: {
+    id: string;
+    onClose: (created?: PullRequest) => void;
+    onRestricted?: () => void;
+  } = $props();
 
   const branches = createQuery<BranchInfo[] | null>(
     () => queryKeys.repoBranches(id),
@@ -24,6 +28,12 @@
     () => queryKeys.repoLog(id),
     () => invoke<CommitPage>('commit_log', { id, opts: { max: 5 } }),
   );
+
+  const remoteUrl = createQuery<string | null>(
+    () => queryKeys.repoRemoteUrl(id),
+    () => invoke<string | null>('repo_remote_url', { id }),
+  );
+  const webBase = $derived(gitUrlToWebUrl(remoteUrl.data ?? null));
 
   const head = $derived(branches.data?.find((b) => b.is_head) ?? null);
   const localBranches = $derived(
@@ -93,22 +103,24 @@
       try { await openUrl(pr.html_url); } catch { /* ignore */ }
     } catch (err) {
       const e = err as AppError;
+      const isForbidden =
+        typeof e === 'object' && e !== null && 'kind' in e && (e as { kind: string }).kind === 'forbidden';
+
+      if (isForbidden && webBase && head) {
+        const url = `${webBase}/pull/new/${encodeURIComponent(head.name)}`;
+        void openUrl(url);
+        onRestricted?.();
+        onClose();
+        return;
+      }
+
       error =
         typeof e === 'object' && e !== null && 'message' in e
           ? (e as { message: string }).message
           : JSON.stringify(err);
-      // Best-effort fallback URL so the banner can offer "Open on GitHub".
-      // GitHub's `compare/<base>...<head>?expand=1` page opens the same
-      // PR-creation form we tried, pre-filled — and if a PR already
-      // exists for this branch (the most common reason for getting here)
-      // GitHub redirects straight to it.
-      try {
-        const remoteUrl = await invoke<string | null>('repo_remote_url', { id });
-        const webBase = gitUrlToWebUrl(remoteUrl ?? null);
-        if (webBase && head && base) {
-          manualPrUrl = `${webBase}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head.name)}?expand=1`;
-        }
-      } catch { /* ignore — banner just falls back to text-only */ }
+      if (webBase && head && base) {
+        manualPrUrl = `${webBase}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head.name)}?expand=1`;
+      }
     } finally {
       busy = false;
     }
@@ -206,17 +218,19 @@
     background: var(--bg-elev-1);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
+    overflow: hidden;
   }
   .branch {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
     color: var(--accent-fg);
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
     font-weight: var(--weight-semibold);
   }
-  .branch :global(svg) { color: var(--accent-fg); }
+  .branch :global(svg) { color: var(--accent-fg); flex-shrink: 0; }
   .branch.base select {
     background: transparent;
     border: 1px solid var(--accent-bg-strong);
@@ -228,12 +242,19 @@
     font-weight: var(--weight-semibold);
     cursor: pointer;
     outline: none;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .branch.head .branch-name {
     padding: 2px 6px;
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
     background: var(--bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
   }
   .branches :global(.arrow) { color: var(--fg-muted); }
 

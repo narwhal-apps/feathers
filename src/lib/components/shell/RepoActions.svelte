@@ -75,14 +75,27 @@
 
   let busy = $state<null | 'fetch' | 'pull' | 'push' | 'publish'>(null);
   let createPrOpen = $state(false);
+  const restrictedRepos = new Set<string>();
+
+  function openPrInBrowser() {
+    if (!webBase || !head) return;
+    const url = `${webBase}/pull/new/${encodeURIComponent(head.name)}`;
+    openUrl(url);
+  }
+
+  const prsForbidden = $derived(
+    prs.error != null &&
+    typeof prs.error === 'object' &&
+    'kind' in (prs.error as Record<string, unknown>) &&
+    (prs.error as { kind: string }).kind === 'forbidden',
+  );
 
   function startCreatePr() {
     if (!active || !canCreatePr || !head) return;
-    if (github.user) {
-      createPrOpen = true;
+    if (!github.user || prsForbidden || restrictedRepos.has(active.id)) {
+      openPrInBrowser();
     } else {
-      const url = `${webBase}/pull/new/${encodeURIComponent(head.name)}`;
-      openUrl(url);
+      createPrOpen = true;
     }
   }
 
@@ -265,7 +278,11 @@
 </div>
 
 {#if createPrOpen && active}
-  <CreatePRModal id={active.id} onClose={() => (createPrOpen = false)} />
+  <CreatePRModal
+    id={active.id}
+    onClose={() => (createPrOpen = false)}
+    onRestricted={() => { if (active) restrictedRepos.add(active.id); }}
+  />
 {/if}
 
 <style>
