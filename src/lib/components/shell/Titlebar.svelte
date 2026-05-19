@@ -6,6 +6,7 @@
   import RepoSwitcher from '$lib/components/shell/RepoSwitcher.svelte';
   import BranchSwitcher from '$lib/components/shell/BranchSwitcher.svelte';
   import FeatherMark from '$lib/components/shell/FeatherMark.svelte';
+  import ShortcutsPopover from '$lib/components/shell/ShortcutsPopover.svelte';
   import { repos } from '$lib/stores/repos.svelte';
   import { github } from '$lib/stores/github.svelte';
   import { queryClient } from '$lib/query/client';
@@ -107,6 +108,7 @@
   <div class="spacer" data-tauri-drag-region></div>
 
   <div class="actions">
+    <ShortcutsPopover />
     {#if github.user}
       <div class="user-menu" bind:this={userMenuEl}>
         <button
