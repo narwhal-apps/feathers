@@ -348,6 +348,33 @@
     }
   });
 
+  // Arrow-key navigation between files in the changes list.
+  $effect(() => {
+    function isTyping(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.repeat || e.metaKey || e.altKey || e.ctrlKey) return;
+      if (isTyping(e.target)) return;
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      if (selected == null || allChanges.length === 0) return;
+      e.preventDefault();
+      const idx = allChanges.findIndex((r) => r.path === selected);
+      if (idx < 0) return;
+      const next = e.key === 'ArrowDown'
+        ? Math.min(idx + 1, allChanges.length - 1)
+        : Math.max(idx - 1, 0);
+      if (next === idx) return;
+      selected = allChanges[next].path;
+      const el = document.querySelector(`[data-file-path="${CSS.escape(selected)}"]`);
+      el?.scrollIntoView({ block: 'nearest' });
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
+
   function toggleSelect(row: ChangeRow) {
     if (row.status === 'conflicted') return;
     if (excluded.has(row.path)) excluded.delete(row.path);
@@ -478,7 +505,7 @@
             {#each allChanges as row (row.path)}
               {@const meta = statusMeta(row.status)}
               {@const parts = splitPath(row.path)}
-              <li class:selected={selected === row.path} class:stash-mode={showingStash}>
+              <li class:selected={selected === row.path} class:stash-mode={showingStash} data-file-path={row.path}>
                 {#if !showingStash}
                   <input
                     type="checkbox"

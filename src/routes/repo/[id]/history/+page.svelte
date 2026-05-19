@@ -185,10 +185,29 @@
     resetTarget = commit;
   }
 
-  // ContextMenu primitive handles its own outside-click + Escape; we only
-  // need Escape to close the amend modal here.
+  function isTyping(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+  }
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape' && amendTarget) closeAmend();
+    if (e.key === 'Escape' && amendTarget) { closeAmend(); return; }
+
+    if (e.repeat || e.metaKey || e.altKey || e.ctrlKey) return;
+    if (isTyping(e.target)) return;
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    const commits = log.data?.commits;
+    if (!commits || commits.length === 0 || selectedOid == null) return;
+    e.preventDefault();
+    const idx = commits.findIndex((c) => c.oid === selectedOid);
+    if (idx < 0) return;
+    const next = e.key === 'ArrowDown'
+      ? Math.min(idx + 1, commits.length - 1)
+      : Math.max(idx - 1, 0);
+    if (next === idx) return;
+    selectedOid = commits[next].oid;
+    const el = document.querySelector(`[data-commit-oid="${CSS.escape(selectedOid)}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
   }
   $effect(() => {
     document.addEventListener('keydown', onKey);
@@ -213,7 +232,7 @@
     {#if log.data}
       <ul>
         {#each log.data.commits as c, idx (c.oid)}
-          <li class:selected={selectedOid === c.oid}>
+          <li class:selected={selectedOid === c.oid} data-commit-oid={c.oid}>
             <button
               class="row"
               onclick={() => (selectedOid = c.oid)}
