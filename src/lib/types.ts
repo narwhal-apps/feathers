@@ -50,6 +50,7 @@ export interface BranchInfo {
   short_sha: string;
   ahead: number | null;
   behind: number | null;
+  last_commit_time: number;
 }
 
 export interface CommitInfo {

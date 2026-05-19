@@ -14,6 +14,7 @@
   import ContextMenuItem from '$lib/components/primitives/ContextMenuItem.svelte';
   import { confirm, notify } from '$lib/utils/dialog.svelte';
   import { formatError } from '$lib/utils/error';
+  import { relTime } from '$lib/utils/time';
   import type { BranchInfo, AppError } from '$lib/types';
 
   const active = $derived(repos.activeRepo);
@@ -75,11 +76,28 @@
     });
   });
 
+  const RECENT_COUNT = 5;
+  const groupedLocal = $derived.by(() => {
+    const def = defaultBranch ? [defaultBranch] : [];
+    const rest = localBranches
+      .filter((b) => !isDefaultBranch(b))
+      .sort((a, b) => b.last_commit_time - a.last_commit_time);
+    return {
+      default: def,
+      recent: rest.slice(0, RECENT_COUNT),
+      other: rest.slice(RECENT_COUNT),
+    };
+  });
+
   function matchesFilter(b: BranchInfo): boolean {
     const q = filter.trim().toLowerCase();
     return q === '' || b.name.toLowerCase().includes(q);
   }
+  const isFiltering = $derived(filter.trim() !== '');
   const filteredLocal = $derived(localBranches.filter(matchesFilter));
+  const filteredDefault = $derived(groupedLocal.default.filter(matchesFilter));
+  const filteredRecent = $derived(groupedLocal.recent.filter(matchesFilter));
+  const filteredOther = $derived(groupedLocal.other.filter(matchesFilter));
   const filteredRemote = $derived(remoteOnly.filter(matchesFilter));
   const filteredEmpty = $derived(
     filteredLocal.length === 0 && filteredRemote.length === 0,
@@ -333,42 +351,66 @@
           />
         </div>
         <div class="list">
+          {#snippet branchRow(b: BranchInfo)}
+            {@const tracked = b.ahead != null || b.behind != null}
+            <li>
+              <button
+                class="item"
+                class:current={b.is_head}
+                role="menuitem"
+                onclick={() => pick(b)}
+                oncontextmenu={(e) => openCtxMenu(b, e)}
+                disabled={busy}
+              >
+                <Icon name="GitBranch" size={12} />
+                <span class="item-name">{b.name}</span>
+                <span class="item-time">{relTime(b.last_commit_time)}</span>
+                <span
+                  class="loc-icon"
+                  class:remote={tracked}
+                  title={tracked ? 'Tracking a remote branch' : 'Local only — not on any remote yet'}
+                  aria-label={tracked ? 'remote' : 'local only'}
+                >
+                  <Icon name={tracked ? 'Cloud' : 'HardDrive'} size={11} />
+                </span>
+                {#if b.is_head}
+                  <Icon name="Check" size={14} />
+                {/if}
+              </button>
+            </li>
+          {/snippet}
           <ul>
-            {#if filteredLocal.length > 0}
-              <li class="section-head">
-                <span>Local</span>
-                <span class="count" title="{localBranches.length} local branches">{localBranches.length}</span>
-              </li>
-              {#each filteredLocal as b (b.name)}
-                {@const tracked = b.ahead != null || b.behind != null}
-                <li>
-                  <button
-                    class="item"
-                    class:current={b.is_head}
-                    role="menuitem"
-                    onclick={() => pick(b)}
-                    oncontextmenu={(e) => openCtxMenu(b, e)}
-                    disabled={busy}
-                  >
-                    <Icon name="GitBranch" size={12} />
-                    <span class="item-name">{b.name}</span>
-                    <span
-                      class="loc-icon"
-                      class:remote={tracked}
-                      title={tracked ? 'Tracking a remote branch' : 'Local only — not on any remote yet'}
-                      aria-label={tracked ? 'remote' : 'local only'}
-                    >
-                      <Icon name={tracked ? 'Cloud' : 'HardDrive'} size={11} />
-                    </span>
-                    {#if isDefaultBranch(b)}
-                      <span class="default-tag">default</span>
-                    {/if}
-                    {#if b.is_head}
-                      <Icon name="Check" size={14} />
-                    {/if}
-                  </button>
+            {#if isFiltering}
+              {#if filteredLocal.length > 0}
+                <li class="section-head">
+                  <span>Local</span>
+                  <span class="count" title="{localBranches.length} local branches">{localBranches.length}</span>
                 </li>
-              {/each}
+                {#each filteredLocal as b (b.name)}
+                  {@render branchRow(b)}
+                {/each}
+              {/if}
+            {:else}
+              {#if filteredDefault.length > 0}
+                <li class="section-head"><span>Default Branch</span></li>
+                {#each filteredDefault as b (b.name)}
+                  {@render branchRow(b)}
+                {/each}
+              {/if}
+
+              {#if filteredRecent.length > 0}
+                <li class="section-head"><span>Recent Branches</span></li>
+                {#each filteredRecent as b (b.name)}
+                  {@render branchRow(b)}
+                {/each}
+              {/if}
+
+              {#if filteredOther.length > 0}
+                <li class="section-head"><span>Other Branches</span></li>
+                {#each filteredOther as b (b.name)}
+                  {@render branchRow(b)}
+                {/each}
+              {/if}
             {/if}
 
             {#if filteredRemote.length > 0}
@@ -680,24 +722,14 @@
   }
   .item.current :global(svg) { color: var(--accent-fg); }
   .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  .default-tag {
+  .item-time {
     flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    height: 16px;
-    padding: 0 6px;
-    border-radius: var(--r-pill);
-    background: var(--accent-bg-medium);
-    color: var(--accent-fg);
-    border: 1px solid var(--accent-bg-strong);
-    font-family: var(--font-sans);
+    color: var(--fg-faint);
     font-size: var(--fs-2xs);
-    font-weight: var(--weight-bold);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-    line-height: 1;
+    font-family: var(--font-sans);
+    font-weight: var(--weight-normal);
   }
+  .item.current .item-time { color: var(--accent-fg); opacity: 0.7; }
 
   /* Tiny "is this branch tracked or local-only" indicator. */
   .loc-icon {

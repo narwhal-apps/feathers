@@ -22,6 +22,11 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
             .and_then(|buf| buf.as_str().map(str::to_string))
             .unwrap_or_default();
 
+        let last_commit_time = target
+            .and_then(|oid| repo.find_commit(oid).ok())
+            .map(|c| c.time().seconds())
+            .unwrap_or(0);
+
         let is_head = !matches!(btype, BranchType::Remote)
             && head_ref
                 .as_ref()
@@ -56,6 +61,7 @@ pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
             short_sha,
             ahead,
             behind,
+            last_commit_time,
         });
     }
 
