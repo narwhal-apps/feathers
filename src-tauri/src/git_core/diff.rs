@@ -18,7 +18,8 @@ pub fn diff_workdir(
         }
     }
     let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
-    let diff = repo.diff_tree_to_workdir_with_index(head_tree.as_ref(), Some(&mut opts))?;
+    let mut diff = repo.diff_tree_to_workdir_with_index(head_tree.as_ref(), Some(&mut opts))?;
+    diff.find_similar(None)?;
     diff_to_payload(&diff)
 }
 
@@ -30,7 +31,8 @@ pub fn diff_index(repo: &Repository, paths: Option<Vec<String>>) -> Result<DiffP
         }
     }
     let head_tree = repo.head().and_then(|h| h.peel_to_tree()).ok();
-    let diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))?;
+    let mut diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))?;
+    diff.find_similar(None)?;
     diff_to_payload(&diff)
 }
 
@@ -44,7 +46,8 @@ pub fn diff_commit(repo: &Repository, oid_str: &str) -> Result<DiffPayload, AppE
         Some(commit.parent(0)?.tree()?)
     };
     let mut opts = base_opts();
-    let diff = repo.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
+    let mut diff = repo.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
+    diff.find_similar(None)?;
     diff_to_payload(&diff)
 }
 

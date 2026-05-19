@@ -169,7 +169,9 @@
   const selectedFileDiff = $derived.by<DiffPayload | null>(() => {
     if (selected == null) return null;
     if (!diff.data) return null;
-    const file = diff.data.files.find((f) => f.path === selected);
+    const file = diff.data.files.find(
+      (f) => f.path === selected || f.old_path === selected,
+    );
     return file ? { files: [file] } : { files: [] };
   });
 

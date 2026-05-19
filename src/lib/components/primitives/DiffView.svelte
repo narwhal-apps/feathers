@@ -304,6 +304,29 @@
     return { adds, dels };
   }
 
+  type RenameParts = {
+    prefix: string;
+    oldChanged: string;
+    newChanged: string;
+    suffix: string;
+  };
+  function highlightRenameParts(oldPath: string, newPath: string): RenameParts {
+    let prefixLen = 0;
+    const minLen = Math.min(oldPath.length, newPath.length);
+    while (prefixLen < minLen && oldPath[prefixLen] === newPath[prefixLen]) prefixLen++;
+    let suffixLen = 0;
+    while (
+      suffixLen < minLen - prefixLen &&
+      oldPath[oldPath.length - 1 - suffixLen] === newPath[newPath.length - 1 - suffixLen]
+    ) suffixLen++;
+    return {
+      prefix: oldPath.slice(0, prefixLen),
+      oldChanged: oldPath.slice(prefixLen, oldPath.length - suffixLen),
+      newChanged: newPath.slice(prefixLen, newPath.length - suffixLen),
+      suffix: oldPath.slice(oldPath.length - suffixLen),
+    };
+  }
+
   type StatusTone = 'add' | 'del' | 'mod' | 'ren' | 'mod';
   function statusLabel(s: FileStatus): { text: string; tone: StatusTone } {
     switch (s) {
@@ -374,7 +397,7 @@
           {#if dir}<span class="dir">{dir}</span>{/if}
         </span>
         {#if file.old_path && file.old_path !== file.path}
-          <span class="old" title="Renamed from {file.old_path}">← {file.old_path}</span>
+          <span class="old" title="Renamed from {file.old_path}">← {basename(file.old_path)}</span>
         {/if}
         <span class="status status-{lbl.tone}">{lbl.text}</span>
         {#if !file.binary && (counts.adds > 0 || counts.dels > 0)}
@@ -403,6 +426,20 @@
         <!-- body hidden -->
       {:else if file.binary}
         <div class="binary">Binary file — diff not shown.</div>
+      {:else if file.status === 'renamed' && file.old_path && file.hunks.length === 0}
+        {@const rp = highlightRenameParts(file.old_path, file.path)}
+        <div class="rename-banner">
+          <Icon name="ArrowRight" size={14} />
+          <span class="rename-paths">
+            <span class="rename-path">
+              {rp.prefix}<span class="rename-highlight rename-del">{rp.oldChanged}</span>{rp.suffix}
+            </span>
+            <span class="rename-arrow">→</span>
+            <span class="rename-path">
+              {rp.prefix}<span class="rename-highlight rename-add">{rp.newChanged}</span>{rp.suffix}
+            </span>
+          </span>
+        </div>
       {:else if !isVisible(file.path)}
         <div class="file-placeholder" style:height="{estimateHeight(file)}px"></div>
       {:else if mode === 'unified'}
@@ -613,6 +650,45 @@
     font-family: var(--font-mono);
     font-size: var(--fs-2xs);
     color: var(--fg-subtle);
+  }
+
+  .rename-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px var(--sp-3);
+    background: var(--rename-bg);
+    color: var(--rename);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    border-bottom-left-radius: var(--r-md);
+    border-bottom-right-radius: var(--r-md);
+  }
+  .rename-paths {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .rename-path {
+    color: var(--fg-muted);
+  }
+  .rename-arrow {
+    color: var(--rename);
+    font-weight: var(--weight-semibold);
+  }
+  .rename-highlight {
+    padding: 1px 4px;
+    border-radius: var(--r-sm);
+    font-weight: var(--weight-semibold);
+  }
+  .rename-del {
+    background: color-mix(in srgb, var(--removed) 20%, transparent);
+    color: var(--removed);
+  }
+  .rename-add {
+    background: color-mix(in srgb, var(--added) 20%, transparent);
+    color: var(--added);
   }
 
   /* Status pill: subtle tinted chip per kind, using each tone's bg + fg. */
