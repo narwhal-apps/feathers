@@ -20,6 +20,8 @@ pub struct BranchInfo {
     /// Commits ahead/behind upstream (None if no upstream).
     pub ahead: Option<usize>,
     pub behind: Option<usize>,
+    /// Committer time of the branch tip, seconds since unix epoch.
+    pub last_commit_time: i64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
