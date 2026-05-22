@@ -913,7 +913,7 @@
   }
   .line-add .prefix { color: var(--added); }
   .line-del .prefix { color: var(--removed); }
-  .line .text { color: var(--fg); }
+  .line .text { color: var(--fg); user-select: text; -webkit-user-select: text; }
 
   /* View-mode toggle */
   .controls {
@@ -1002,5 +1002,5 @@
   }
   .split-side.line-add .prefix { color: var(--added); }
   .split-side.line-del .prefix { color: var(--removed); }
-  .split-side .text { color: var(--fg); }
+  .split-side .text { color: var(--fg); user-select: text; -webkit-user-select: text; }
 </style>
