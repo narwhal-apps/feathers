@@ -921,24 +921,26 @@
     font-size: var(--fs-sm);
     line-height: 1.5;
   }
-  .switch-options { display: flex; flex-direction: column; gap: 0; }
+  .switch-options {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
   .switch-option {
     display: flex;
     align-items: flex-start;
     gap: 12px;
     padding: 14px 16px;
-    border: 1px solid var(--border);
     cursor: pointer;
-    transition: border-color var(--t-fast), background var(--t-fast);
+    transition: background var(--t-fast);
   }
-  .switch-option:first-child { border-radius: var(--r-md) var(--r-md) 0 0; }
-  .switch-option:last-child { border-radius: 0 0 var(--r-md) var(--r-md); border-top: none; }
+  .switch-option + .switch-option { border-top: 1px solid var(--border); }
   .switch-option:hover { background: var(--bg-elev-2); }
   .switch-option.selected {
-    border-color: var(--accent-500);
     background: var(--accent-bg-soft);
   }
-  .switch-option.selected + .switch-option { border-top-color: var(--accent-500); }
   .switch-option input[type="radio"] {
     margin: 2px 0 0 0;
     accent-color: var(--accent-500);
