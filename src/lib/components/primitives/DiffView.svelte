@@ -115,23 +115,35 @@
       return;
     }
     if (hlPayloadRef === p && hlTheme === t) return;
+    const themeChanged = hlTheme !== t;
     hlPayloadRef = p;
     hlTheme = t;
-    // Drop stale cache. Re-highlight whatever's already on screen so a
-    // theme flip (or new payload that reuses paths) repaints visible
-    // files immediately, not on next scroll.
-    hl.clear();
+    // Keep existing highlights visible while re-highlighting so the UI
+    // doesn't flash unstyled text. Old entries are overwritten once the
+    // new async highlight completes. Only clear on theme change (colors
+    // would be wrong) or when a file is no longer in the payload.
+    if (themeChanged) {
+      hl.clear();
+    } else {
+      const currentPaths = new Set(p.files.map((f) => f.path));
+      for (const key of hl.keys()) {
+        if (!currentPaths.has(key)) hl.delete(key);
+      }
+    }
+    hlInFlight.clear();
     for (const file of p.files) {
-      if (visibleFiles.has(file.path)) maybeHighlightFile(file);
+      if (visibleFiles.has(file.path)) maybeHighlightFile(file, true);
     }
   });
 
   /** Kick off highlight for one file. Idempotent: skips files already
-   *  cached or in flight, binary files, and unsupported languages. */
-  function maybeHighlightFile(file: DiffFile): void {
+   *  cached or in flight, binary files, and unsupported languages.
+   *  Pass `force` to re-highlight even if cached (used on payload change). */
+  function maybeHighlightFile(file: DiffFile, force = false): void {
     if (!hlPayloadRef || !hlTheme) return;
     if (file.binary) return;
-    if (hl.has(file.path) || hlInFlight.has(file.path)) return;
+    if (!force && hl.has(file.path)) return;
+    if (hlInFlight.has(file.path)) return;
     const lang = detectLang(file.path);
     if (!lang) return;
     const t = hlTheme;
