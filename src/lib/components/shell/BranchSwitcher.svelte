@@ -322,6 +322,38 @@
     }
   }
 
+  type MergeOutcome = 'up_to_date' | 'fast_forward' | 'merged' | 'conflicted';
+
+  async function updateFromDefault() {
+    if (!active || !defaultBranch || !head || head.name === defaultBranch.name) return;
+    close();
+    busy = true;
+    try {
+      const outcome = await invoke<MergeOutcome>('branch_update_from_default', {
+        id: active.id,
+        branch: defaultBranch.name,
+      });
+      queryClient.invalidateMany([
+        queryKeys.repoStatus(active.id),
+        queryKeys.repoBranches(active.id),
+        ['repo', active.id, 'log'],
+        queryKeys.repoOpState(active.id),
+        ['repo', active.id, 'diff'],
+      ]);
+      if (outcome === 'up_to_date') {
+        notify(`Already up to date with ${defaultBranch.name}`, { kind: 'info' });
+      } else if (outcome === 'conflicted') {
+        notify(`Merge conflicts — resolve them to continue`, { kind: 'error', durationMs: 0 });
+      } else {
+        notify(`Updated from ${defaultBranch.name}`, { kind: 'success' });
+      }
+    } catch (err) {
+      reportError('Failed to update from default branch', err);
+    } finally {
+      busy = false;
+    }
+  }
+
   function onDocClick(e: MouseEvent) {
     if (!open) return;
     const t = e.target as Node;
@@ -337,6 +369,10 @@
       else if (modalOpen) closeModal();
       else if (open) close();
       // ctxMenu Escape is handled by ContextMenu primitive
+    }
+    if (e.key === 'u' && e.metaKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      updateFromDefault();
     }
   }
 
@@ -499,6 +535,16 @@
         </div>
 
         <div class="footer">
+          {#if showDefaultOption}
+            <button
+              class="new"
+              onclick={updateFromDefault}
+              disabled={busy}
+            >
+              <Icon name="ArrowDownToLine" size={12} />
+              <span>Update from {defaultBranch?.name ?? 'default'}…</span>
+            </button>
+          {/if}
           <button
             class="new"
             onclick={openModal}

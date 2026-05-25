@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::git_core::{self, types::BranchInfo};
+use crate::git_core::{self, branch::MergeOutcome, types::BranchInfo};
 use crate::repo_registry::{self, RepoRegistry};
 use tauri::State;
 
@@ -64,6 +64,19 @@ pub async fn branch_rename(
     let handle = registry.get(&id)?;
     repo_registry::with_repo_write(handle, move |r| {
         git_core::branch::rename(r, &old_name, &new_name)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn branch_update_from_default(
+    id: String,
+    branch: String,
+    registry: State<'_, RepoRegistry>,
+) -> Result<MergeOutcome, AppError> {
+    let handle = registry.get(&id)?;
+    repo_registry::with_repo_write(handle, move |r| {
+        git_core::branch::merge_branch(r, &branch)
     })
     .await
 }
