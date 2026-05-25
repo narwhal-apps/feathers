@@ -13,9 +13,7 @@ pub fn status(repo: &Repository) -> Result<StatusSnapshot, AppError> {
 
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
-        .recurse_untracked_dirs(true)
-        .renames_head_to_index(true)
-        .renames_index_to_workdir(true);
+        .recurse_untracked_dirs(true);
 
     let statuses = repo.statuses(Some(&mut opts))?;
     let mut snap = StatusSnapshot {
@@ -77,8 +75,6 @@ fn staged_kind(s: Status) -> Option<FileStatus> {
         Some(FileStatus::Modified)
     } else if s.contains(Status::INDEX_DELETED) {
         Some(FileStatus::Deleted)
-    } else if s.contains(Status::INDEX_RENAMED) {
-        Some(FileStatus::Renamed)
     } else if s.contains(Status::INDEX_TYPECHANGE) {
         Some(FileStatus::Typechange)
     } else {
@@ -91,8 +87,6 @@ fn unstaged_kind(s: Status) -> Option<FileStatus> {
         Some(FileStatus::Modified)
     } else if s.contains(Status::WT_DELETED) {
         Some(FileStatus::Deleted)
-    } else if s.contains(Status::WT_RENAMED) {
-        Some(FileStatus::Renamed)
     } else if s.contains(Status::WT_TYPECHANGE) {
         Some(FileStatus::Typechange)
     } else {
