@@ -167,7 +167,9 @@ pub fn create(
     };
     repo.branch(name, &start_commit, false)?;
     if checkout {
-        return self::checkout(repo, name, false);
+        let head_oid = repo.head().ok().and_then(|h| h.target());
+        let same_commit = head_oid == Some(start_commit.id());
+        return self::checkout(repo, name, same_commit);
     }
     Ok(())
 }
