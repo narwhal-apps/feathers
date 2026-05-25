@@ -87,6 +87,7 @@ pub fn run() {
             commands::branch::branch_create,
             commands::branch::branch_delete,
             commands::branch::branch_rename,
+            commands::branch::branch_update_from_default,
             commands::commit::commit_log,
             commands::commit::commit_log_unpushed,
             commands::commit::commit_create,

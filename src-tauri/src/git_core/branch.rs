@@ -1,7 +1,17 @@
 use crate::error::AppError;
-use crate::git_core::status;
+use crate::git_core::{op, status};
 use crate::git_core::types::BranchInfo;
 use git2::{BranchType, Repository};
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MergeOutcome {
+    UpToDate,
+    FastForward,
+    Merged,
+    Conflicted,
+}
 
 pub fn list_branches(repo: &Repository) -> Result<Vec<BranchInfo>, AppError> {
     let head_ref = repo.head().ok();
@@ -234,5 +244,102 @@ pub fn delete(repo: &Repository, name: &str, force: bool) -> Result<(), AppError
     }
 
     branch.delete()?;
+    Ok(())
+}
+
+/// Merge a local branch into the current HEAD. Used by "Update from default
+/// branch" — mirrors GitHub Desktop's behaviour: straight merge, no rebase.
+///
+/// Returns silently when HEAD already contains the source branch's tip
+/// (up-to-date). Fast-forwards when possible. On conflict, writes MERGE_MSG
+/// and leaves the repo in Merge state so the existing Resolve panel handles it.
+pub fn merge_branch(repo: &Repository, source_name: &str) -> Result<MergeOutcome, AppError> {
+    op::require_clean(repo)?;
+
+    let snap = status::status(repo)?;
+    if !snap.staged.is_empty() || !snap.unstaged.is_empty() || !snap.conflicted.is_empty() {
+        let mut paths: Vec<String> = snap
+            .staged
+            .iter()
+            .chain(snap.unstaged.iter())
+            .chain(snap.conflicted.iter())
+            .map(|f| f.path.clone())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        return Err(AppError::Dirty { paths });
+    }
+
+    let source = repo
+        .find_branch(source_name, BranchType::Local)
+        .map_err(|_| AppError::Git {
+            message: format!("local branch not found: {source_name}"),
+        })?;
+    let source_oid = source.get().target().ok_or_else(|| AppError::Git {
+        message: format!("branch has no target: {source_name}"),
+    })?;
+    let annotated = repo.find_annotated_commit(source_oid)?;
+
+    let (analysis, _) = repo.merge_analysis(&[&annotated])?;
+    if analysis.is_up_to_date() {
+        return Ok(MergeOutcome::UpToDate);
+    }
+
+    if analysis.is_fast_forward() {
+        fast_forward_head(repo, source_oid)?;
+        return Ok(MergeOutcome::FastForward);
+    }
+
+    repo.merge(&[&annotated], None, None)?;
+
+    let head_name = repo
+        .head()
+        .ok()
+        .and_then(|h| h.shorthand().map(str::to_string))
+        .unwrap_or_else(|| "HEAD".into());
+    let merge_msg = format!("Merge branch '{source_name}' into {head_name}\n");
+
+    if repo.index()?.has_conflicts() {
+        std::fs::write(repo.path().join("MERGE_MSG"), &merge_msg)?;
+        return Ok(MergeOutcome::Conflicted);
+    }
+
+    let head_commit = repo.head()?.peel_to_commit()?;
+    let source_commit = repo.find_commit(source_oid)?;
+    let sig = repo.signature()?;
+    let mut idx = repo.index()?;
+    let tree_oid = idx.write_tree()?;
+    let tree = repo.find_tree(tree_oid)?;
+
+    repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        &merge_msg,
+        &tree,
+        &[&head_commit, &source_commit],
+    )?;
+    repo.cleanup_state()?;
+    Ok(MergeOutcome::Merged)
+}
+
+fn fast_forward_head(repo: &Repository, target_oid: git2::Oid) -> Result<(), AppError> {
+    let head_ref_name = repo
+        .head()?
+        .name()
+        .ok_or_else(|| AppError::Git {
+            message: "HEAD has no name".into(),
+        })?
+        .to_string();
+
+    let new_commit = repo.find_commit(target_oid)?;
+    repo.checkout_tree(
+        new_commit.as_object(),
+        Some(git2::build::CheckoutBuilder::new().safe()),
+    )?;
+
+    let mut head_ref_mut = repo.find_reference(&head_ref_name)?;
+    head_ref_mut.set_target(target_oid, "fast-forward")?;
+    repo.set_head(&head_ref_name)?;
     Ok(())
 }

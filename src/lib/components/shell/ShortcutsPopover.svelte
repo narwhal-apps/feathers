@@ -69,6 +69,7 @@
       <div class="group">
         <h5>Actions</h5>
         <ul>
+          <li><Kbd keys={['⌘', 'U']} /> <span>Update from default</span></li>
           <li><Kbd keys={['⌘', 'P']} /> <span>Push</span></li>
           <li><Kbd keys={['⌘', 'R']} /> <span>Create PR</span></li>
           <li><Kbd keys={['⌘', '⇧', 'A']} /> <span>Open in editor</span></li>
