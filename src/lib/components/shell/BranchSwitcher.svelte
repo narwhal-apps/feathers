@@ -440,6 +440,8 @@
             class="filter"
             type="text"
             placeholder="Filter branches…"
+            autocomplete="off"
+            spellcheck="false"
             bind:value={filter}
             bind:this={filterEl}
           />
