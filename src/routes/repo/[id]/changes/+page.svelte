@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { openPath } from '@tauri-apps/plugin-opener';
   import { page } from '$app/stores';
@@ -318,6 +319,41 @@
     selectableRows.length > 0 && selectableRows.every((r) => r.selected),
   );
   const someSelected = $derived(selectedCount > 0 && !allSelected);
+
+  const suggestedMessage = $derived.by(() => {
+    const selected = selectableRows.filter((r) => r.selected);
+    if (selected.length !== 1) return '';
+    const file = selected[0];
+    const name = file.path.split('/').pop() ?? file.path;
+    switch (file.status) {
+      case 'added':
+      case 'untracked':
+        return `chore: add ${name}`;
+      case 'deleted':
+        return `chore: delete ${name}`;
+      case 'renamed': {
+        const s = status.data;
+        const fc =
+          s?.staged.find((f) => f.path === file.path) ??
+          s?.unstaged.find((f) => f.path === file.path);
+        const oldName = fc?.old_path?.split('/').pop();
+        return oldName
+          ? `chore: rename ${oldName} to ${name}`
+          : `chore: update ${name}`;
+      }
+      default:
+        return `chore: update ${name}`;
+    }
+  });
+
+  let lastSuggestion = '';
+  $effect(() => {
+    const suggestion = suggestedMessage;
+    if (untrack(() => message) === untrack(() => lastSuggestion)) {
+      message = suggestion;
+    }
+    lastSuggestion = suggestion;
+  });
 
   // Prune `excluded` of paths that no longer appear in the changes list
   // (committed elsewhere, discarded, FS-watcher dropped them) so the set
