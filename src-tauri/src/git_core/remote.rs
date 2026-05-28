@@ -234,9 +234,7 @@ pub fn pull(repo: &Repository, remote: Option<&str>, rebase: bool) -> Result<(),
         return rebase_onto_upstream(repo, &upstream_ann);
     }
 
-    Err(AppError::Git {
-        message: "cannot fast-forward; pull with rebase or merge manually".into(),
-    })
+    merge_with_upstream(repo, &upstream_ann, upstream_oid)
 }
 
 fn fast_forward(repo: &Repository, target_oid: git2::Oid) -> Result<(), AppError> {
@@ -261,6 +259,40 @@ fn fast_forward(repo: &Repository, target_oid: git2::Oid) -> Result<(), AppError
     let mut head_ref_mut = repo.find_reference(&head_ref_name)?;
     head_ref_mut.set_target(target_oid, "fast-forward")?;
     repo.set_head(&head_ref_name)?;
+    Ok(())
+}
+
+fn merge_with_upstream(
+    repo: &Repository,
+    upstream: &AnnotatedCommit<'_>,
+    upstream_oid: git2::Oid,
+) -> Result<(), AppError> {
+    repo.merge(&[upstream], None, Some(CheckoutBuilder::new().safe()))?;
+
+    if repo.index()?.has_conflicts() {
+        return Ok(());
+    }
+
+    let head_commit = repo.head()?.peel_to_commit()?;
+    let merge_commit = repo.find_commit(upstream_oid)?;
+    let sig = repo.signature()?;
+
+    let mut idx = repo.index()?;
+    let tree_oid = idx.write_tree()?;
+    let tree = repo.find_tree(tree_oid)?;
+
+    let msg = std::fs::read_to_string(repo.path().join("MERGE_MSG"))
+        .unwrap_or_else(|_| format!("Merge commit '{}'", upstream_oid));
+
+    repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        &msg,
+        &tree,
+        &[&head_commit, &merge_commit],
+    )?;
+    repo.cleanup_state()?;
     Ok(())
 }
 
