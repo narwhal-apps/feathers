@@ -36,7 +36,7 @@
     () => invoke<StashEntry[]>('stash_list', { id: repoId }),
   );
 
-  let collapsed = $state(false);
+  let collapsed = $state(true);
   let busy = $state<null | string>(null); // a key like 'apply:0' to disable just one row
 
   // Right-click context menu state.
